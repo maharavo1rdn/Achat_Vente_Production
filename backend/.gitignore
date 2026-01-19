@@ -244,9 +244,9 @@ var/log/*
 var/sessions/*
 
 # Database dumps
-*.sql
+# *.sql
 *.dump
-database/*.sql
+# database/*.sql
 database/dumps/*
 
 # API keys and secrets

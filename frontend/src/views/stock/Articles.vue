@@ -10,7 +10,8 @@
     <div v-else-if="error" class="error-state">
       <div class="error-icon">
         <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
       </div>
       <p class="error-message">{{ error }}</p>
@@ -68,12 +69,7 @@
             <label class="label">Rechercher</label>
             <div class="search-box">
               <Search class="w-4 h-4 text-gray-400" />
-              <input
-                v-model="searchQuery"
-                type="text"
-                class="search-input"
-                placeholder="Référence, désignation..."
-              />
+              <input v-model="searchQuery" type="text" class="search-input" placeholder="Référence, désignation..." />
             </div>
           </div>
           <div class="filter-item">
@@ -98,17 +94,11 @@
       <!-- View Toggle -->
       <div class="view-toggle fade-in" style="animation-delay: 0.25s">
         <div class="toggle-group">
-          <button
-            @click="viewMode = 'grid'"
-            :class="viewMode === 'grid' ? 'toggle-btn-active' : 'toggle-btn'"
-          >
+          <button @click="viewMode = 'grid'" :class="viewMode === 'grid' ? 'toggle-btn-active' : 'toggle-btn'">
             <Grid3x3 class="w-4 h-4" />
             <span>Grille</span>
           </button>
-          <button
-            @click="viewMode = 'table'"
-            :class="viewMode === 'table' ? 'toggle-btn-active' : 'toggle-btn'"
-          >
+          <button @click="viewMode = 'table'" :class="viewMode === 'table' ? 'toggle-btn-active' : 'toggle-btn'">
             <List class="w-4 h-4" />
             <span>Liste</span>
           </button>
@@ -117,12 +107,7 @@
 
       <!-- Grid View -->
       <div v-if="viewMode === 'grid'" class="grid-view fade-in" style="animation-delay: 0.3s">
-        <div
-          v-for="article in filteredArticles"
-          :key="article.id"
-          class="article-card"
-          @click="goToDetail(article.id)"
-        >
+        <div v-for="article in filteredArticles" :key="article.id" class="article-card" @click="goToDetail(article.id)">
           <div class="article-header">
             <div class="article-info">
               <h3 class="article-title">{{ article.designation }}</h3>
@@ -187,12 +172,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="article in filteredArticles"
-                :key="article.id"
-                class="table-row"
-                @click="goToDetail(article.id)"
-              >
+              <tr v-for="article in filteredArticles" :key="article.id" class="table-row"
+                @click="goToDetail(article.id)">
                 <td class="font-medium">{{ article.reference }}</td>
                 <td class="font-medium">{{ article.designation }}</td>
                 <td>{{ article.categorie }}</td>
@@ -291,6 +272,21 @@ const loadArticles = async () => {
   }
 }
 
+const loadArticleCategories = async () => {
+  loading.value = true
+  error.value = null
+  try {
+    const response = await articleService.getAll()
+    articles.value = response.data || []
+  } catch (err) {
+    error.value = 'Erreur lors du chargement des articles'
+    console.error('Erreur chargement articles:', err)
+  } finally {
+    loading.value = false
+  }
+
+}
+
 const openCreateModal = () => {
   console.log('Open create modal')
 }
@@ -348,7 +344,9 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {
@@ -376,6 +374,7 @@ onMounted(() => {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

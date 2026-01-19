@@ -2,6 +2,7 @@
 
 namespace app\models;
 
+use Flight;
 use InvalidArgumentException;
 use PDO;
 
@@ -109,7 +110,9 @@ class ArticleModel
         error_log("ArticleModel::getById article found: " . $result['designation']);
         return $result;
     }
-
+    public function getCategories() {
+        return Flight::appModel()->getAll("article_categorie");
+    }
     public function create($data)
     {
         $this->validateArticleData($data);

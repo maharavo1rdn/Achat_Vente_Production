@@ -41,7 +41,7 @@ log-*.txt
 *.db
 *.sqlite
 *.sqlite3
-*.sql
+# *.sql
 
 # Build artifacts
 dist/

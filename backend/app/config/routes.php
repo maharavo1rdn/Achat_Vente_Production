@@ -39,6 +39,7 @@ $router->group('/api/dashboard', function () use ($router, $Dashboard_Controller
 });
 
 $router->group('/api/articles', function () use ($router, $Article_Controller) {
+    $router->get('/categories', [$Article_Controller, 'getCategories']);
     $router->get('', [$Article_Controller, 'getAll']);
     $router->get('/@id:[0-9]+', [$Article_Controller, 'getById']);
     $router->post('', [$Article_Controller, 'create']);
