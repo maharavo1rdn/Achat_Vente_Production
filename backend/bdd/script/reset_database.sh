@@ -118,11 +118,25 @@ echo ""
 echo "Vérification des vues:"
 psql -U postgres -h localhost -d achat_vente_db -c "
 SELECT
-    'Stock Valorisé:' as view_name, COUNT(*) as count FROM v_stock_valorise
+    'Structure Organisation:' as view_name, COUNT(*) as count FROM v_structure_organisation
+UNION ALL
+SELECT 'Stock Valorisé:', COUNT(*) FROM v_stock_valorise
+UNION ALL
+SELECT 'Stock Lots FIFO:', COUNT(*) FROM v_stock_lots_fifo
 UNION ALL
 SELECT 'Fiche Stock:', COUNT(*) FROM v_fiche_stock
 UNION ALL
-SELECT 'Créances Clients:', COUNT(*) FROM v_creances_clients;"
+SELECT 'Créances Clients:', COUNT(*) FROM v_creances_clients
+UNION ALL
+SELECT 'Dettes Fournisseurs:', COUNT(*) FROM v_dettes_fournisseurs
+UNION ALL
+SELECT 'Journal Caisse:', COUNT(*) FROM v_journal_caisse
+UNION ALL
+SELECT 'Dashboard KPI:', COUNT(*) FROM v_dashboard_kpi
+UNION ALL
+SELECT 'Stock Consolidé Groupe:', COUNT(*) FROM v_stock_consolide_groupe
+UNION ALL
+SELECT 'Alerte Stock Dépôt:', COUNT(*) FROM v_alerte_stock_depot;"
 
 echo ""
 echo "✅ RESET COMPLET TERMINÉ AVEC SUCCÈS !"
@@ -141,4 +155,4 @@ echo "   - Base: achat_vente_db"
 echo "   - Host: localhost"
 echo "   - User: postgres"
 echo "   - Tables principales: article, entreprise, personnel, stock, mouvement_stock"
-echo "   - Vues: v_stock_valorise, v_fiche_stock, v_creances_clients"
+echo "   - Vues: v_stock_valorise, v_fiche_stock, v_creances_clients, v_dettes_fournisseurs, v_stock_consolide_groupe"
