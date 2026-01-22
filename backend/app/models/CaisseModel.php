@@ -486,7 +486,7 @@ class CaisseModel
 
     // =================== MÉTHODES UTILITAIRES ===================
 
-    private function updateCaisseSolde(int $caisseId, float $nouveauSolde): void
+    private function updateCaisseSolde($caisseId, $nouveauSolde)
     {
         error_log("CaisseModel::updateCaisseSolde called with caisseId=$caisseId, nouveauSolde=$nouveauSolde");
 
@@ -497,7 +497,7 @@ class CaisseModel
         error_log("CaisseModel::updateCaisseSolde solde updated");
     }
 
-    private function updateResteAPayerVente(int $factureVenteId, float $montantPaye): void
+    private function updateResteAPayerVente($factureVenteId, $montantPaye)
     {
         error_log("CaisseModel::updateResteAPayerVente called with factureVenteId=$factureVenteId, montantPaye=$montantPaye");
 
@@ -508,7 +508,7 @@ class CaisseModel
         error_log("CaisseModel::updateResteAPayerVente reste à payer updated");
     }
 
-    private function updateResteAPayerAchat(int $factureAchatId, float $montantPaye): void
+    private function updateResteAPayerAchat($factureAchatId, $montantPaye)
     {
         error_log("CaisseModel::updateResteAPayerAchat called with factureAchatId=$factureAchatId, montantPaye=$montantPaye");
 
@@ -519,7 +519,7 @@ class CaisseModel
         error_log("CaisseModel::updateResteAPayerAchat reste à payer updated");
     }
 
-    private function validateCaisseData(array $data, bool $isCreation = true): void
+    private function validateCaisseData($data, $isCreation = true)
     {
         if ($isCreation || isset($data['code_caisse'])) {
             if (empty($data['code_caisse'])) {

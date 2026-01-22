@@ -13,6 +13,7 @@
                 <div>
                     <h1 class="page-title">{{ isNew ? 'Nouvel Employé' : `Fiche - ${form.nom || ''}` }}</h1>
                     <p class="page-subtitle">{{ isNew ? 'Créer un nouvel employé' : 'Modifier les informations' }}</p>
+                    <p v-if="isNew" class="text-sm text-gray-500">Le code employé sera généré automatiquement lors de la création.</p>
                 </div>
                 <div class="header-actions">
                     <router-link to="/personnel" class="btn-secondary">
@@ -37,9 +38,9 @@
                 <div class="card-section">
                     <h3 class="section-title">Informations générales</h3>
                     <div class="form-grid">
-                        <div class="form-group">
-                            <label class="label">Code Employé *</label>
-                            <input v-model="form.code_employe" class="input" placeholder="Ex: EMP001" />
+                        <div class="form-group" v-if="!isNew">
+                            <label class="label">Code Employé</label>
+                            <input v-model="form.code_employe" class="input" placeholder="Ex: EMP001" readonly />
                         </div>
 
                         <div class="form-group">
@@ -243,6 +244,22 @@ const save = async () => {
     passwordError.value = null
     saving.value = true
 
+    // Client-side trim and basic validation
+    form.value.nom = form.value.nom ? String(form.value.nom).trim() : ''
+    form.value.prenom = form.value.prenom ? String(form.value.prenom).trim() : ''
+    form.value.email = form.value.email ? String(form.value.email).trim() : ''
+
+    if (!form.value.nom) {
+        error.value = 'Le nom est obligatoire'
+        saving.value = false
+        return
+    }
+    if (!form.value.personnel_role_id) {
+        error.value = 'Le rôle est obligatoire'
+        saving.value = false
+        return
+    }
+
     try {
         if (isNew) {
             if (password.value && password.value.length < 6) {
@@ -269,7 +286,8 @@ const save = async () => {
         }
     } catch (err) {
         console.error('Erreur sauvegarde personnel', err)
-        error.value = err.response?.data?.error || 'Erreur lors de la sauvegarde'
+        // Prefer server error message when available
+        error.value = err.response?.data?.error || err.response?.data?.message || 'Erreur lors de la sauvegarde'
     } finally {
         saving.value = false
     }

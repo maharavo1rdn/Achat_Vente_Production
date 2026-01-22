@@ -137,7 +137,7 @@ class DepotModel
         return $stmt->rowCount() > 0;
     }
 
-    public function getBySite($siteId): array
+    public function getBySite($siteId)
     {
         if (!is_numeric($siteId) || (int)$siteId <= 0) throw new InvalidArgumentException("L'ID du site doit être un entier positif");
         $stmt = $this->db->prepare("SELECT d.id, d.nom, d.adresse, d.site_id, s.nom AS site_nom, s.entreprise_id, e.nom AS entreprise_nom, d.est_actif, d.date_creation FROM depot d LEFT JOIN site s ON s.id = d.site_id LEFT JOIN entreprise e ON e.id = s.entreprise_id WHERE d.site_id = ? ORDER BY d.nom");
@@ -145,7 +145,7 @@ class DepotModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getByEntreprise($entrepriseId): array
+    public function getByEntreprise($entrepriseId)
     {
         if (!is_numeric($entrepriseId) || (int)$entrepriseId <= 0) throw new InvalidArgumentException("L'ID de l'entreprise doit être un entier positif");
         $stmt = $this->db->prepare("SELECT d.id, d.nom, d.adresse, d.site_id, s.nom AS site_nom, s.entreprise_id, e.nom AS entreprise_nom, d.est_actif, d.date_creation FROM depot d LEFT JOIN site s ON s.id = d.site_id LEFT JOIN entreprise e ON e.id = s.entreprise_id WHERE s.entreprise_id = ? ORDER BY d.nom");
@@ -153,7 +153,7 @@ class DepotModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function siteExists($siteId): bool
+    private function siteExists($siteId)
     {
         if ($siteId === null) return true;
         if (!is_numeric($siteId) || (int)$siteId <= 0) return false;
@@ -162,7 +162,7 @@ class DepotModel
         return (bool)$stmt->fetchColumn();
     }
 
-    public function setActive($id, bool $active): bool
+    public function setActive($id, $active)
     {
         if ($id <= 0) throw new InvalidArgumentException("L'ID doit être un entier positif");
         $stmt = $this->db->prepare("UPDATE depot SET est_actif = ? WHERE id = ?");
@@ -170,7 +170,7 @@ class DepotModel
         return $stmt->rowCount() > 0;
     }
 
-    private function validateDepotData(array $data, bool $isCreation = true): void
+    private function validateDepotData($data, $isCreation = true)
     {
         if ($isCreation || isset($data['nom'])) {
             if (empty($data['nom'])) throw new InvalidArgumentException("Le nom du dépôt est obligatoire");

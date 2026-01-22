@@ -250,25 +250,25 @@ class EntrepriseModel
         return $results;
     }
 
-    public function getClients(): array
+    public function getClients()
     {
         error_log("EntrepriseModel::getClients called");
         return $this->getByType('CLIENT');
     }
 
-    public function getFournisseurs(): array
+    public function getFournisseurs()
     {
         error_log("EntrepriseModel::getFournisseurs called");
         return $this->getByType('FOURNISSEUR');
     }
 
-    public function getFiliales(): array
+    public function getFiliales()
     {
         error_log("EntrepriseModel::getFiliales called");
         return $this->getByType('INTERNE');
     }
 
-    private function groupeExists($groupeId): bool
+    private function groupeExists($groupeId)
     {
         if ($groupeId === null) return true;
         if (!is_numeric($groupeId) || (int)$groupeId <= 0) return false;
@@ -278,7 +278,7 @@ class EntrepriseModel
         return (bool)$stmt->fetchColumn();
     }
 
-    public function getByGroupe($groupeId): array
+    public function getByGroupe($groupeId)
     {
         if (!is_numeric($groupeId) || (int)$groupeId <= 0) {
             throw new InvalidArgumentException("L'ID du groupe doit être un entier positif");
@@ -297,7 +297,7 @@ class EntrepriseModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function setActive($id, bool $active): bool
+    public function setActive($id, $active)
     {
         if ($id <= 0) {
             throw new InvalidArgumentException("L'ID doit être un entier positif");
@@ -314,7 +314,7 @@ class EntrepriseModel
         return false;
     }
 
-    private function validateEntrepriseData(array $data, bool $isCreation = true): void
+    private function validateEntrepriseData($data, $isCreation = true)
     {
         if ($isCreation || isset($data['nom'])) {
             if (empty($data['nom'])) {

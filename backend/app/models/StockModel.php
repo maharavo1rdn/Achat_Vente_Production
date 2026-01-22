@@ -295,7 +295,7 @@ class StockModel
         return $results;
     }
 
-    private function updateStockQuantite(int $articleId, int $entrepriseId, float $nouvelleQuantite): void
+    private function updateStockQuantite($articleId, $entrepriseId, $nouvelleQuantite)
     {
         error_log("StockModel::updateStockQuantite called with articleId=$articleId, entrepriseId=$entrepriseId, nouvelleQuantite=$nouvelleQuantite");
 
@@ -317,7 +317,7 @@ class StockModel
         error_log("StockModel::updateStockQuantite stock updated");
     }
 
-    private function validateMouvementData(array $data): void
+    private function validateMouvementData($data)
     {
         if (empty($data['type_mouvement'])) {
             throw new InvalidArgumentException("Le type de mouvement est obligatoire");

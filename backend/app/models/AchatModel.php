@@ -715,7 +715,7 @@ class AchatModel
 
     // =================== MÉTHODES UTILITAIRES ===================
 
-    private function getProformaDetails(int $proformaId): array
+    private function getProformaDetails($proformaId)
     {
         $query = "
             SELECT pfd.*, a.reference, a.designation
@@ -729,7 +729,7 @@ class AchatModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function getBonCommandeDetails(int $bcId): array
+    private function getBonCommandeDetails($bcId)
     {
         $query = "
             SELECT bcd.*, a.reference, a.designation
@@ -743,7 +743,7 @@ class AchatModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function getFactureDetails(int $factureId): array
+    private function getFactureDetails($factureId)
     {
         $query = "
             SELECT fad.*, a.reference, a.designation
@@ -757,7 +757,7 @@ class AchatModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function createProformaDetails(int $proformaId, array $details): void
+    private function createProformaDetails($proformaId, $details)
     {
         foreach ($details as $detail) {
             $query = "INSERT INTO proforma_fournisseur_details (proforma_fournisseur_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
@@ -766,7 +766,7 @@ class AchatModel
         }
     }
 
-    private function createBonCommandeDetails(int $bcId, array $details): void
+    private function createBonCommandeDetails($bcId, $details)
     {
         foreach ($details as $detail) {
             $query = "INSERT INTO bon_commande_achat_details (bon_commande_achat_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
@@ -775,7 +775,7 @@ class AchatModel
         }
     }
 
-    private function createFactureDetails(int $factureId, array $details): void
+    private function createFactureDetails($factureId, $details)
     {
         foreach ($details as $detail) {
             $query = "INSERT INTO facture_achat_details (facture_achat_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
@@ -784,7 +784,7 @@ class AchatModel
         }
     }
 
-    private function updateProformaDetails(int $proformaId, array $details): void
+    private function updateProformaDetails($proformaId, $details)
     {
         // Supprimer les anciens détails
         $query = "DELETE FROM proforma_fournisseur_details WHERE proforma_fournisseur_id = ?";
@@ -795,7 +795,7 @@ class AchatModel
         $this->createProformaDetails($proformaId, $details);
     }
 
-    private function updateBonCommandeDetails(int $bcId, array $details): void
+    private function updateBonCommandeDetails($bcId, $details)
     {
         $query = "DELETE FROM bon_commande_achat_details WHERE bon_commande_achat_id = ?";
         $stmt = $this->db->prepare($query);
@@ -803,7 +803,7 @@ class AchatModel
         $this->createBonCommandeDetails($bcId, $details);
     }
 
-    private function updateFactureDetails(int $factureId, array $details): void
+    private function updateFactureDetails($factureId, $details)
     {
         $query = "DELETE FROM facture_achat_details WHERE facture_achat_id = ?";
         $stmt = $this->db->prepare($query);
@@ -811,7 +811,7 @@ class AchatModel
         $this->createFactureDetails($factureId, $details);
     }
 
-    private function copyProformaDetailsToBonCommande(int $proformaId, int $bcId): void
+    private function copyProformaDetailsToBonCommande($proformaId, $bcId)
     {
         $details = $this->getProformaDetails($proformaId);
         foreach ($details as $detail) {
@@ -821,7 +821,7 @@ class AchatModel
         }
     }
 
-    private function copyBonCommandeDetailsToFacture(int $bcId, int $factureId): void
+    private function copyBonCommandeDetailsToFacture($bcId, $factureId)
     {
         $details = $this->getBonCommandeDetails($bcId);
         foreach ($details as $detail) {
@@ -831,7 +831,7 @@ class AchatModel
         }
     }
 
-    private function generateNumeroBonCommande(): string
+    private function generateNumeroBonCommande()
     {
         $date = date('Ym');
         $query = "SELECT COUNT(*) as count FROM bon_commande_achat WHERE numero_bc LIKE ?";
@@ -842,7 +842,7 @@ class AchatModel
         return $date . $numero;
     }
 
-    private function generateNumeroFactureAchat(): string
+    private function generateNumeroFactureAchat()
     {
         $date = date('Ym');
         $query = "SELECT COUNT(*) as count FROM facture_achat WHERE numero_facture_fournisseur LIKE ?";
@@ -853,7 +853,7 @@ class AchatModel
         return 'FA' . $date . $numero;
     }
 
-    private function getStatutIdByCode(string $code): int
+    private function getStatutIdByCode($code)
     {
         $query = "SELECT id FROM statut WHERE code = ?";
         $stmt = $this->db->prepare($query);
@@ -862,7 +862,7 @@ class AchatModel
         return $result ? $result['id'] : 1;
     }
 
-    private function validateProformaData(array $data, bool $isCreation = true): void
+    private function validateProformaData($data, $isCreation = true)
     {
         if ($isCreation || isset($data['numero_proforma'])) {
             if (empty($data['numero_proforma'])) {
@@ -887,7 +887,7 @@ class AchatModel
         }
     }
 
-    private function validateBonCommandeData(array $data, bool $isCreation = true): void
+    private function validateBonCommandeData($data, $isCreation = true)
     {
         if ($isCreation || isset($data['numero_bc'])) {
             if (empty($data['numero_bc'])) {
@@ -912,7 +912,7 @@ class AchatModel
         }
     }
 
-    private function validateFactureData(array $data, bool $isCreation = true): void
+    private function validateFactureData($data, $isCreation = true)
     {
         if ($isCreation || isset($data['numero_facture_fournisseur'])) {
             if (empty($data['numero_facture_fournisseur'])) {
