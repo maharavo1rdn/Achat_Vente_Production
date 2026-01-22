@@ -326,7 +326,7 @@ class ArticleModel
         return $results;
     }
 
-    private function validateArticleData(array $data, bool $isCreation = true): void
+    private function validateArticleData($data, $isCreation = true)
     {
         if ($isCreation || isset($data['reference'])) {
             if (empty($data['reference'])) {

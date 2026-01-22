@@ -708,7 +708,7 @@ class VenteModel
 
     // =================== MÉTHODES UTILITAIRES ===================
 
-    private function getDevisDetails(int $devisId): array
+    private function getDevisDetails($devisId)
     {
         $query = "
             SELECT dvd.*, a.reference, a.designation
@@ -722,7 +722,7 @@ class VenteModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function getBonCommandeDetails(int $bcId): array
+    private function getBonCommandeDetails($bcId)
     {
         $query = "
             SELECT bcvd.*, a.reference, a.designation
@@ -736,7 +736,7 @@ class VenteModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function getFactureDetails(int $factureId): array
+    private function getFactureDetails($factureId)
     {
         $query = "
             SELECT fvd.*, a.reference, a.designation
@@ -750,7 +750,7 @@ class VenteModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function createDevisDetails(int $devisId, array $details): void
+    private function createDevisDetails($devisId, $details)
     {
         foreach ($details as $detail) {
             $query = "INSERT INTO devis_vente_details (devis_vente_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
@@ -759,7 +759,7 @@ class VenteModel
         }
     }
 
-    private function createBonCommandeDetails(int $bcId, array $details): void
+    private function createBonCommandeDetails($bcId, $details)
     {
         foreach ($details as $detail) {
             $query = "INSERT INTO bon_commande_vente_details (bon_commande_vente_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
@@ -768,7 +768,7 @@ class VenteModel
         }
     }
 
-    private function createFactureDetails(int $factureId, array $details): void
+    private function createFactureDetails($factureId, $details)
     {
         foreach ($details as $detail) {
             $query = "INSERT INTO facture_vente_details (facture_vente_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
@@ -777,7 +777,7 @@ class VenteModel
         }
     }
 
-    private function updateDevisDetails(int $devisId, array $details): void
+    private function updateDevisDetails($devisId, $details)
     {
         $query = "DELETE FROM devis_vente_details WHERE devis_vente_id = ?";
         $stmt = $this->db->prepare($query);
@@ -785,7 +785,7 @@ class VenteModel
         $this->createDevisDetails($devisId, $details);
     }
 
-    private function updateBonCommandeDetails(int $bcId, array $details): void
+    private function updateBonCommandeDetails($bcId, $details)
     {
         $query = "DELETE FROM bon_commande_vente_details WHERE bon_commande_vente_id = ?";
         $stmt = $this->db->prepare($query);
@@ -793,7 +793,7 @@ class VenteModel
         $this->createBonCommandeDetails($bcId, $details);
     }
 
-    private function updateFactureDetails(int $factureId, array $details): void
+    private function updateFactureDetails($factureId, $details)
     {
         $query = "DELETE FROM facture_vente_details WHERE facture_vente_id = ?";
         $stmt = $this->db->prepare($query);
@@ -801,7 +801,7 @@ class VenteModel
         $this->createFactureDetails($factureId, $details);
     }
 
-    private function copyDevisDetailsToBonCommande(int $devisId, int $bcId): void
+    private function copyDevisDetailsToBonCommande($devisId, $bcId)
     {
         $details = $this->getDevisDetails($devisId);
         foreach ($details as $detail) {
@@ -811,7 +811,7 @@ class VenteModel
         }
     }
 
-    private function copyBonCommandeDetailsToFacture(int $bcId, int $factureId): void
+    private function copyBonCommandeDetailsToFacture($bcId, $factureId)
     {
         $details = $this->getBonCommandeDetails($bcId);
         foreach ($details as $detail) {
@@ -821,7 +821,7 @@ class VenteModel
         }
     }
 
-    private function generateNumeroBonCommande(): string
+    private function generateNumeroBonCommande()
     {
         $date = date('Ym');
         $query = "SELECT COUNT(*) as count FROM bon_commande_vente WHERE numero_bc LIKE ?";
@@ -832,7 +832,7 @@ class VenteModel
         return $date . $numero;
     }
 
-    private function generateNumeroFacture(): string
+    private function generateNumeroFacture()
     {
         $date = date('Ym');
         $query = "SELECT COUNT(*) as count FROM facture_vente WHERE numero_facture LIKE ?";
@@ -843,7 +843,7 @@ class VenteModel
         return 'FV' . $date . $numero;
     }
 
-    private function getStatutIdByCode(string $code): int
+    private function getStatutIdByCode($code)
     {
         $query = "SELECT id FROM statut WHERE code = ?";
         $stmt = $this->db->prepare($query);
@@ -852,7 +852,7 @@ class VenteModel
         return $result ? $result['id'] : 1;
     }
 
-    private function validateDevisData(array $data, bool $isCreation = true): void
+    private function validateDevisData($data, $isCreation = true)
     {
         if ($isCreation || isset($data['numero_devis'])) {
             if (empty($data['numero_devis'])) {
@@ -877,7 +877,7 @@ class VenteModel
         }
     }
 
-    private function validateBonCommandeData(array $data, bool $isCreation = true): void
+    private function validateBonCommandeData($data, $isCreation = true)
     {
         if ($isCreation || isset($data['numero_bc'])) {
             if (empty($data['numero_bc'])) {
@@ -902,7 +902,7 @@ class VenteModel
         }
     }
 
-    private function validateFactureData(array $data, bool $isCreation = true): void
+    private function validateFactureData($data, $isCreation = true)
     {
         if ($isCreation || isset($data['numero_facture'])) {
             if (empty($data['numero_facture'])) {

@@ -13,7 +13,7 @@ class DashboardModel
         $this->db = $base_db;
     }
 
-    public function getStatistics(): array
+    public function getStatistics()
     {
         error_log("DashboardModel::getStatistics called");
 
@@ -104,7 +104,7 @@ class DashboardModel
         return $results;
     }
 
-    private function getTotalArticles(): int
+    private function getTotalArticles()
     {
         $query = "SELECT COUNT(*) as total FROM article WHERE est_actif = true";
         $stmt = $this->db->prepare($query);
@@ -113,7 +113,7 @@ class DashboardModel
         return (int)$result['total'];
     }
 
-    private function getTotalClients(): int
+    private function getTotalClients()
     {
         $query = "SELECT COUNT(*) as total FROM entreprise WHERE type_entreprise = 'CLIENT' AND est_actif = true";
         $stmt = $this->db->prepare($query);
@@ -122,7 +122,7 @@ class DashboardModel
         return (int)$result['total'];
     }
 
-    private function getTotalFournisseurs(): int
+    private function getTotalFournisseurs()
     {
         $query = "SELECT COUNT(*) as total FROM entreprise WHERE type_entreprise = 'FOURNISSEUR' AND est_actif = true";
         $stmt = $this->db->prepare($query);
@@ -131,7 +131,7 @@ class DashboardModel
         return (int)$result['total'];
     }
 
-    private function getTotalPersonnel(): int
+    private function getTotalPersonnel()
     {
         $query = "SELECT COUNT(*) as total FROM personnel WHERE est_actif = true";
         $stmt = $this->db->prepare($query);
@@ -140,7 +140,7 @@ class DashboardModel
         return (int)$result['total'];
     }
 
-    private function getVentesTotalByMonth(string $month): float
+    private function getVentesTotalByMonth($month)
     {
         $query = "
             SELECT COALESCE(SUM(montant_ttc), 0) as total
@@ -153,7 +153,7 @@ class DashboardModel
         return (float)$result['total'];
     }
 
-    private function getAchatsTotalByMonth(string $month): float
+    private function getAchatsTotalByMonth($month)
     {
         $query = "
             SELECT COALESCE(SUM(montant_ttc), 0) as total
@@ -166,7 +166,7 @@ class DashboardModel
         return (float)$result['total'];
     }
 
-    private function getEvolutionVentes(int $months): array
+    private function getEvolutionVentes($months)
     {
         $query = "
             SELECT
@@ -208,7 +208,7 @@ class DashboardModel
         return $evolution;
     }
 
-    private function getEvolutionAchats(int $months): array
+    private function getEvolutionAchats($months)
     {
         $query = "
             SELECT
@@ -250,7 +250,7 @@ class DashboardModel
         return $evolution;
     }
 
-    private function getTopArticlesVendus(int $limit): array
+    private function getTopArticlesVendus($limit)
     {
         $query = "
             SELECT
@@ -281,7 +281,7 @@ class DashboardModel
         return $results;
     }
 
-    private function getArticlesEnRupture(): array
+    private function getArticlesEnRupture()
     {
         // Aggregate stock per article across depots and collect entreprise names
         $query = "
@@ -316,7 +316,7 @@ class DashboardModel
         return $results;
     }
 
-    private function getCAMensuel(int $months): array
+    private function getCAMensuel($months)
     {
         $query = "
             SELECT

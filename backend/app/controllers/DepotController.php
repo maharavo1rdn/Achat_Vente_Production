@@ -10,7 +10,7 @@ class DepotController
     public function getAll()
     {
         try {
-            $raw = (array) Flight::request()->query;
+            $raw = Flight::request()->query;
             $filters = [];
             foreach ($raw as $k => $v) {
                 if ($v === null || $v === '') continue;
@@ -38,7 +38,7 @@ class DepotController
     public function create()
     {
         try {
-            $data = (array) Flight::request()->data;
+            $data = Flight::request()->data;
 
             if (isset($data['est_actif'])) {
                 $data['est_actif'] = filter_var($data['est_actif'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
@@ -58,7 +58,7 @@ class DepotController
     public function update($id)
     {
         try {
-            $data = (array) Flight::request()->data;
+            $data = Flight::request()->data;
 
             if (isset($data['est_actif'])) {
                 $data['est_actif'] = filter_var($data['est_actif'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
@@ -109,7 +109,7 @@ class DepotController
     public function setActive($id)
     {
         try {
-            $payload = (array) Flight::request()->data;
+            $payload = Flight::request()->data;
             if (!isset($payload['active'])) {
                 Flight::json(['error' => 'Paramètre "active" requis'], 400);
                 return;

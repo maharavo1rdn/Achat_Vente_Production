@@ -11,7 +11,7 @@ class PersonnelController
     public function getAll()
     {
         try {
-            $raw = (array) Flight::request()->query;
+            $raw = Flight::request()->query;
             $filters = [];
             foreach ($raw as $k => $v) {
                 if ($v === null || $v === '') continue;
@@ -19,7 +19,6 @@ class PersonnelController
             }
 
             $result = Flight::personnelModel()->getAll($filters);
-            // Normalize response: { data, total, page, per_page }
             if (is_array($result) && isset($result['data'])) {
                 Flight::json([
                     'data' => $result['data'],
@@ -52,21 +51,37 @@ class PersonnelController
     public function create()
     {
         try {
-            $data = (array) Flight::request()->data;
+            error_log(Flight::request()->data["nom"]."ici");
+            $raw = Flight::request()->data;
+            
+
+            $data = [];
+            foreach ($raw as $k => $v) {
+                if (is_string($v)) {
+                    $v = trim($v);
+                }
+                if ($v === '') $v = null;
+                $data[$k] = $v;
+            }
 
             if (isset($data['est_actif'])) {
                 $data['est_actif'] = filter_var($data['est_actif'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
                 if ($data['est_actif'] === null) $data['est_actif'] = true;
             }
 
+            // Integers
             if (isset($data['entreprise_id']))
-                $data['entreprise_id'] = $data['entreprise_id'] === '' ? null : (int)$data['entreprise_id'];
+                $data['entreprise_id'] = $data['entreprise_id'] === null ? null : (int)$data['entreprise_id'];
 
             if (isset($data['site_defaut_id']))
-                $data['site_defaut_id'] = $data['site_defaut_id'] === '' ? null : (int)$data['site_defaut_id'];
+                $data['site_defaut_id'] = $data['site_defaut_id'] === null ? null : (int)$data['site_defaut_id'];
+
+            error_log('PersonnelController::create payload: ' . json_encode($data));
 
             $result = Flight::personnelModel()->create($data);
             Flight::json(['id' => (int)$result], 201);
+        } catch (\InvalidArgumentException $e) {
+            Flight::json(['error' => $e->getMessage()], 400);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -75,22 +90,38 @@ class PersonnelController
     public function update($id)
     {
         try {
-            $data = (array) Flight::request()->data;
+            $raw = Flight::request()->data;
 
+            // Trim string values and normalize empty strings to null where appropriate
+            $data = [];
+            foreach ($raw as $k => $v) {
+                if (is_string($v)) {
+                    $v = trim($v);
+                }
+                if ($v === '') $v = null;
+                $data[$k] = $v;
+            }
+
+            // Booleans
             if (isset($data['est_actif'])) {
                 $data['est_actif'] = filter_var($data['est_actif'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
                 if ($data['est_actif'] === null) $data['est_actif'] = true;
             }
 
+            // Integers
             if (isset($data['entreprise_id']))
-                $data['entreprise_id'] = $data['entreprise_id'] === '' ? null : (int)$data['entreprise_id'];
+                $data['entreprise_id'] = $data['entreprise_id'] === null ? null : (int)$data['entreprise_id'];
 
             if (isset($data['site_defaut_id']))
-                $data['site_defaut_id'] = $data['site_defaut_id'] === '' ? null : (int)$data['site_defaut_id'];
+                $data['site_defaut_id'] = $data['site_defaut_id'] === null ? null : (int)$data['site_defaut_id'];
+
+            error_log('PersonnelController::update id=' . $id . ' payload: ' . json_encode($data));
 
             $result = Flight::personnelModel()->update($id, $data);
             if ($result) Flight::json(['success' => true]);
             else Flight::json(['error' => 'Aucune modification effectuée ou personnel introuvable'], 404);
+        } catch (\InvalidArgumentException $e) {
+            Flight::json(['error' => $e->getMessage()], 400);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -109,10 +140,12 @@ class PersonnelController
     public function resetPassword($id)
     {
         try {
-            $payload = (array) Flight::request()->data;
+            $payload = Flight::request()->data;
             $newPassword = $payload['password'] ?? null;
             $result = Flight::personnelModel()->resetPassword($id, $newPassword);
             Flight::json(['success' => (bool)$result]);
+        } catch (\InvalidArgumentException $e) {
+            Flight::json(['error' => $e->getMessage()], 400);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -158,6 +191,8 @@ class PersonnelController
             } else {
                 Flight::json(['error' => 'Identifiants incorrects'], 401);
             }
+        } catch (\InvalidArgumentException $e) {
+            Flight::json(['error' => $e->getMessage()], 400);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -169,6 +204,8 @@ class PersonnelController
             $data = Flight::request()->data;
             $result = Flight::personnelModel()->changePassword($id, $data->old_password, $data->new_password);
             Flight::json($result);
+        } catch (\InvalidArgumentException $e) {
+            Flight::json(['error' => $e->getMessage()], 400);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }

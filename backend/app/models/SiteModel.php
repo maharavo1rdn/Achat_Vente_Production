@@ -237,19 +237,19 @@ class SiteModel
         return $results;
     }
 
-    public function getClients(): array
+    public function getClients()
     {
         error_log("EntrepriseModel::getClients called");
         return $this->getByType('CLIENT');
     }
 
-    public function getFournisseurs(): array
+    public function getFournisseurs()
     {
         error_log("EntrepriseModel::getFournisseurs called");
         return $this->getByType('FOURNISSEUR');
     }
 
-    public function getByEntreprise($entrepriseId): array
+    public function getByEntreprise($entrepriseId)
     {
         if (!is_numeric($entrepriseId) || (int)$entrepriseId <= 0) {
             throw new InvalidArgumentException("L'ID de l'entreprise doit être un entier positif");
@@ -269,7 +269,7 @@ class SiteModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function entrepriseExists($entrepriseId): bool
+    private function entrepriseExists($entrepriseId)
     {
         if ($entrepriseId === null) return true;
         if (!is_numeric($entrepriseId) || (int)$entrepriseId <= 0) return false;
@@ -279,7 +279,7 @@ class SiteModel
         return (bool)$stmt->fetchColumn();
     }
 
-    public function setActive($id, bool $active): bool
+    public function setActive($id, $active)
     {
         if ($id <= 0) {
             throw new InvalidArgumentException("L'ID doit être un entier positif");
@@ -296,7 +296,7 @@ class SiteModel
         return false;
     }
 
-    private function validateSiteData(array $data, bool $isCreation = true): void
+    private function validateSiteData($data, $isCreation = true)
     {
         if ($isCreation || isset($data['nom'])) {
             if (empty($data['nom'])) {

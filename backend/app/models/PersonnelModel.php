@@ -158,16 +158,23 @@ class PersonnelModel
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
 
-        // Check uniqueness of email and code
+        // Generate code_employe if not provided
+        if (empty($data['code_employe'])) {
+            $data['code_employe'] = $this->generateEmployeeCode();
+        } else {
+            // if provided, ensure uniqueness
+            if ($this->codeExists($data['code_employe'])) throw new InvalidArgumentException("Code employé déjà utilisé");
+        }
+
+        // Check uniqueness of email
         if (isset($data['email']) && $this->emailExists($data['email'])) throw new InvalidArgumentException("Email déjà utilisé");
-        if (isset($data['code_employe']) && $data['code_employe'] !== null && $this->codeExists($data['code_employe'])) throw new InvalidArgumentException("Code employé déjà utilisé");
 
         // Accept either raw mot_de_passe or mot_de_passe_hash. If mot_de_passe provided we store it AS IS (no hashing) per current request.
         $passwordToStore = $data['mot_de_passe'] ?? $data['mot_de_passe_hash'] ?? password_hash('default123', PASSWORD_DEFAULT);
 
         $stmt = $this->db->prepare($query);
         $stmt->execute([
-            $data['code_employe'] ?? null,
+            $data['code_employe'],
             $data['nom'],
             $data['prenom'] ?? null,
             $data['email'],
@@ -328,7 +335,7 @@ class PersonnelModel
         return $results;
     }
 
-    public function getRoles(): array
+    public function getRoles()
     {
         $stmt = $this->db->prepare("SELECT id, code, libelle, niveau_acces FROM personnel_role ORDER BY id");
         $stmt->execute();
@@ -464,7 +471,7 @@ class PersonnelModel
         return false;
     }
 
-    private function validatePersonnelData(array $data, bool $isCreation = true): void
+    private function validatePersonnelData($data, $isCreation = true)
     {
         if ($isCreation || isset($data['nom'])) {
             if (empty($data['nom'])) {
@@ -529,7 +536,7 @@ class PersonnelModel
         }
     }
 
-    private function roleExists($roleId): bool
+    private function roleExists($roleId)
     {
         if (!is_numeric($roleId) || (int)$roleId <= 0) return false;
         $stmt = $this->db->prepare("SELECT 1 FROM personnel_role WHERE id = ?");
@@ -537,7 +544,7 @@ class PersonnelModel
         return (bool)$stmt->fetchColumn();
     }
 
-    private function entrepriseExists($entrepriseId): bool
+    private function entrepriseExists($entrepriseId)
     {
         if ($entrepriseId === null) return true;
         if (!is_numeric($entrepriseId) || (int)$entrepriseId <= 0) return false;
@@ -546,7 +553,7 @@ class PersonnelModel
         return (bool)$stmt->fetchColumn();
     }
 
-    private function siteExists($siteId): bool
+    private function siteExists($siteId)
     {
         if ($siteId === null) return true;
         if (!is_numeric($siteId) || (int)$siteId <= 0) return false;
@@ -572,6 +579,19 @@ class PersonnelModel
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ? (int)$row['id'] : false;
     }
+
+    private function generateEmployeeCode()
+    {
+        // Try generating a unique EMP###### code up to N attempts
+        $attempts = 0;
+        while ($attempts < 10) {
+            $code = 'EMP' . str_pad((string)mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
+            if (!$this->codeExists($code)) return $code;
+            $attempts++;
+        }
+        // Fallback using timestamp
+        $code = 'EMP' . time();
+        if ($this->codeExists($code)) throw new \Exception('Impossible de générer un code employé unique');
+        return $code;
+    }
 }
-
-
