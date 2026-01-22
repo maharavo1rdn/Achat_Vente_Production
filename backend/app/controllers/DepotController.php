@@ -5,9 +5,8 @@ namespace app\controllers;
 use Exception;
 use Flight;
 
-class EntrepriseController
+class DepotController
 {
-
     public function getAll()
     {
         try {
@@ -18,8 +17,8 @@ class EntrepriseController
                 $filters[$k] = is_string($v) ? trim($v) : $v;
             }
 
-            $entreprises = Flight::entrepriseModel()->getAll($filters);
-            Flight::json($entreprises);
+            $depots = Flight::depotModel()->getAll($filters);
+            Flight::json($depots);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -28,12 +27,9 @@ class EntrepriseController
     public function getById($id)
     {
         try {
-            $entreprise = Flight::entrepriseModel()->getById($id);
-            if ($entreprise) {
-                Flight::json($entreprise);
-            } else {
-                Flight::json(['error' => 'Entreprise non trouvée'], 404);
-            }
+            $depot = Flight::depotModel()->getById($id);
+            if ($depot) Flight::json($depot);
+            else Flight::json(['error' => 'Dépôt non trouvé'], 404);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -49,11 +45,10 @@ class EntrepriseController
                 if ($data['est_actif'] === null) $data['est_actif'] = true;
             }
 
-            if (isset($data['groupe_id']))
-                $data['groupe_id'] =  $data['groupe_id'] === '' ? null : (int)$data['groupe_id'];
+            if (isset($data['site_id']))
+                $data['site_id'] = $data['site_id'] === '' ? null : (int)$data['site_id'];
 
-            $newId = Flight::entrepriseModel()->create($data);
-
+            $newId = Flight::depotModel()->create($data);
             Flight::json(['id' => (int)$newId], 201);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
@@ -70,15 +65,12 @@ class EntrepriseController
                 if ($data['est_actif'] === null) $data['est_actif'] = true;
             }
 
-            if (isset($data['groupe_id']))
-                $data['groupe_id'] = $data['groupe_id'] === '' ? null : (int)$data['groupe_id'];
+            if (isset($data['site_id']))
+                $data['site_id'] = $data['site_id'] === '' ? null : (int)$data['site_id'];
 
-            $result = Flight::entrepriseModel()->update($id, $data);
-            if ($result) {
-                Flight::json(['success' => true]);
-            } else {
-                Flight::json(['error' => 'Aucune modification effectuée ou entreprise introuvable'], 404);
-            }
+            $result = Flight::depotModel()->update($id, $data);
+            if ($result) Flight::json(['success' => true]);
+            else Flight::json(['error' => 'Aucune modification effectuée ou dépôt introuvable'], 404);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -87,47 +79,27 @@ class EntrepriseController
     public function delete($id)
     {
         try {
-            $result = Flight::entrepriseModel()->delete($id);
+            $result = Flight::depotModel()->delete($id);
+            Flight::json(['success' => (bool)$result]);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getByEntreprise($entrepriseId)
+    {
+        try {
+            $result = Flight::depotModel()->getByEntreprise($entrepriseId);
             Flight::json($result);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
     }
 
-    public function getByType($type)
+    public function getBySite($siteId)
     {
         try {
-            $entreprises = Flight::entrepriseModel()->getByType($type);
-            Flight::json($entreprises);
-        } catch (Exception $e) {
-            Flight::json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    public function getClients()
-    {
-        try {
-            $clients = Flight::entrepriseModel()->getClients();
-            Flight::json($clients);
-        } catch (Exception $e) {
-            Flight::json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    public function getFournisseurs()
-    {
-        try {
-            $fournisseurs = Flight::entrepriseModel()->getFournisseurs();
-            Flight::json($fournisseurs);
-        } catch (Exception $e) {
-            Flight::json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    public function getByGroupe($groupeId)
-    {
-        try {
-            $result = Flight::entrepriseModel()->getByGroupe($groupeId);
+            $result = Flight::depotModel()->getBySite($siteId);
             Flight::json($result);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
@@ -149,9 +121,9 @@ class EntrepriseController
                 return;
             }
 
-            $result = Flight::entrepriseModel()->setActive($id, $active);
+            $result = Flight::depotModel()->setActive($id, $active);
             if ($result) Flight::json(['success' => true]);
-            else Flight::json(['error' => 'Entreprise introuvable ou non modifiée'], 404);
+            else Flight::json(['error' => 'Dépôt introuvable ou non modifié'], 404);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }

@@ -40,5 +40,10 @@ export default {
   // Récupérer le personnel par filiale
   getByFiliale(filialeId) {
     return api.get(`/personnel/filiale/${filialeId}`)
+  },
+
+  // Récupérer les rôles
+  getRoles() {
+    return api.get('/personnel/roles')
   }
 }

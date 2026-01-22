@@ -17,7 +17,10 @@ import FactureVente from "../views/vente/FactureVente.vue"
 import Caisse from "../views/finance/Caisse.vue"
 
 import Entreprises from "../views/parametres/Entreprises.vue"
+import EntrepriseDetail from "../views/parametres/EntrepriseDetail.vue"
+import SiteDetail from "../views/parametres/SiteDetail.vue"
 import Personnel from "../views/parametres/Personnel.vue"
+import Login from "../views/Login.vue"
 
 const router = createRouter({
   history: createWebHistory(),
@@ -27,7 +30,11 @@ const router = createRouter({
     { path: "/articles/:id", name: "article-detail", component: ArticleDetail },
     { path: "/stock", name: "stock", component: Stock },
     { path: "/entreprises", name: "entreprises", component: Entreprises },
+    { path: "/entreprises/:id", name: "entreprise-detail", component: EntrepriseDetail },
+    { path: "/sites/:id", name: "site-detail", component: SiteDetail },
     { path: "/personnel", name: "personnel", component: Personnel },
+    { path: "/personnel/new", name: "personnel-new", component: () => import('../views/parametres/PersonnelDetail.vue') },
+    { path: "/personnel/:id", name: "personnel-detail", component: () => import('../views/parametres/PersonnelDetail.vue') },
     
     { path: "/achats/proforma", name: "proforma-fournisseur", component: ProformaFournisseur },
     { path: "/achats/bon-commande", name: "bon-commande-achat", component: BonCommandeAchat },
@@ -38,7 +45,21 @@ const router = createRouter({
     { path: "/ventes/factures", name: "facture-vente", component: FactureVente },
     
     { path: "/caisse", name: "caisse", component: Caisse },
+    { path: "/login", name: "login", component: Login, meta: { hideSidebar: true } },
   ],
 })
 
-export default router
+// Simple navigation guard: redirect to /login if not authenticated
+router.beforeEach((to, from, next) => {
+  const publicPages = ['login']
+  const authRequired = !publicPages.includes(to.name)
+  const user = localStorage.getItem('user')
+
+  if (authRequired && !user) {
+    next({ name: 'login' })
+  } else {
+    next()
+  }
+})
+
+export default router;

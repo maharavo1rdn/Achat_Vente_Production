@@ -80,18 +80,21 @@
             <label class="label">Rôle</label>
             <select v-model="selectedRole" class="select">
               <option value="">Tous les rôles</option>
-              <option value="ADMIN">Administrateur</option>
-              <option value="VENDEUR">Vendeur</option>
-              <option value="MAGASINIER">Magasinier</option>
-              <option value="COMPTABLE">Comptable</option>
+              <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.libelle }}</option>
+            </select>
+          </div>
+                <div class="filter-item">
+            <label class="label">Filiale</label>
+            <select v-model="selectedEntrepriseId" class="select" @change="onEntrepriseFilterChange">
+              <option value="">Toutes les filiales</option>
+              <option v-for="e in entreprises" :key="e.id" :value="e.id">{{ e.nom }}</option>
             </select>
           </div>
           <div class="filter-item">
-            <label class="label">Filiale</label>
-            <select v-model="selectedFiliale" class="select">
-              <option value="">Toutes les filiales</option>
-              <option value="1">Filiale A</option>
-              <option value="2">Filiale B</option>
+            <label class="label">Site</label>
+            <select v-model="selectedSiteId" class="select">
+              <option value="">Tous les sites</option>
+              <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.nom }}</option>
             </select>
           </div>
           <div class="filter-item">
@@ -141,7 +144,7 @@
                     {{ p.role_libelle }}
                   </span>
                 </td>
-                <td class="text-xs text-gray-500">{{ p.entreprise_nom }}</td>
+                <td class="text-xs text-gray-500">{{ p.entreprise_nom }}<span v-if="p.site_nom"> — <span class="text-xs text-gray-400">{{ p.site_nom }}</span></span></td>
                 <td class="text-center">
                   <span :class="p.est_actif ? 'badge badge-success' : 'badge badge-danger'">
                     {{ p.est_actif ? 'Actif' : 'Inactif' }}
@@ -164,21 +167,45 @@
             </tbody>
           </table>
         </div>
+
+        <!-- Pagination -->
+        <div class="mt-4 flex items-center justify-between">
+          <div class="text-sm text-gray-600">
+            Affichage <strong>{{ (page-1)*perPage + 1 }}</strong> - <strong>{{ Math.min(page*perPage, total) }}</strong> sur <strong>{{ total }}</strong>
+          </div>
+          <div class="flex items-center gap-2">
+            <select v-model.number="perPage" @change="changePerPage" class="select">
+              <option :value="10">10</option>
+              <option :value="25">25</option>
+              <option :value="50">50</option>
+            </select>
+            <button class="btn-secondary" :disabled="page <= 1" @click="prevPage">Précédent</button>
+            <button class="btn-secondary" :disabled="page >= totalPages" @click="nextPage">Suivant</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Edit, Trash2, Key, Search } from 'lucide-vue-next'
 import personnelService from '@/services/personnelService'
+import entrepriseService from '@/services/entrepriseService'
+import siteService from '@/services/siteService'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const searchQuery = ref('')
 const selectedRole = ref('')
-const selectedFiliale = ref('')
+const selectedEntrepriseId = ref('')
+const selectedSiteId = ref('')
 const selectedStatut = ref('')
 const personnel = ref([])
+const entreprises = ref([])
+const sites = ref([])
+const roles = ref([])
 const loading = ref(false)
 const error = ref(null)
 
@@ -191,12 +218,13 @@ const filteredPersonnel = computed(() => {
       p.email?.toLowerCase().includes(searchQuery.value.toLowerCase())
     
     const matchRole = !selectedRole.value || p.role_libelle === selectedRole.value
-    const matchFiliale = !selectedFiliale.value || p.entreprise_nom?.includes(selectedFiliale.value)
+    const matchFiliale = !selectedEntrepriseId.value || p.entreprise_id == selectedEntrepriseId.value
+    const matchSite = !selectedSiteId.value || (p.site_defaut_id && p.site_defaut_id == selectedSiteId.value)
     const matchStatut = !selectedStatut.value || 
       (selectedStatut.value === 'actif' && p.est_actif) ||
       (selectedStatut.value === 'inactif' && !p.est_actif)
     
-    return matchSearch && matchRole && matchFiliale && matchStatut
+    return matchSearch && matchRole && matchFiliale && matchSite && matchStatut
   })
 })
 
@@ -212,6 +240,14 @@ const vendeurs = computed(() => {
   return personnel.value.filter(p => p.role_libelle === 'VENDEUR').length
 })
 
+// Pagination state
+const page = ref(1)
+const perPage = ref(25)
+const total = ref(0)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / perPage.value)))
+
+let searchTimeout = null
+
 const getRoleBadgeClass = (role) => {
   switch(role) {
     case 'ADMIN': return 'badge badge-primary'
@@ -222,12 +258,25 @@ const getRoleBadgeClass = (role) => {
   }
 }
 
-const loadPersonnel = async () => {
+const loadPersonnel = async (p = page.value, pp = perPage.value) => {
   loading.value = true
   error.value = null
   try {
-    const response = await personnelService.getAll()
-    personnel.value = response.data || []
+    const params = {
+      page: p,
+      per_page: pp
+    }
+    if (searchQuery.value) params.search = searchQuery.value
+    if (selectedRole.value) params.role_id = selectedRole.value
+    if (selectedEntrepriseId.value) params.entreprise_id = selectedEntrepriseId.value
+    if (selectedSiteId.value) params.site_id = selectedSiteId.value
+    if (selectedStatut.value) params.est_actif = selectedStatut.value === 'actif' ? 'true' : 'false'
+
+    const response = await personnelService.getAll(params)
+    personnel.value = response.data.data || []
+    total.value = response.data.total || 0
+    page.value = response.data.page || p
+    perPage.value = response.data.per_page || pp
   } catch (err) {
     error.value = 'Erreur lors du chargement du personnel'
     console.error('Erreur chargement personnel:', err)
@@ -236,12 +285,39 @@ const loadPersonnel = async () => {
   }
 }
 
+const loadEntreprises = async () => {
+  try {
+    const resp = await entrepriseService.getAll()
+    entreprises.value = resp.data || []
+  } catch (err) {
+    console.error('Erreur chargement entreprises:', err)
+  }
+}
+
+const loadSitesForEntreprise = async (entrepriseId) => {
+  try {
+    if (!entrepriseId) { sites.value = []; return }
+    const resp = await siteService.getByEntreprise(entrepriseId)
+    sites.value = resp.data || []
+  } catch (err) {
+    console.error('Erreur chargement sites:', err)
+    sites.value = []
+  }
+}
+
+const onEntrepriseFilterChange = async () => {
+  await loadSitesForEntreprise(selectedEntrepriseId.value)
+  selectedSiteId.value = ''
+  page.value = 1
+  await loadPersonnel()
+}
+
 const openCreateModal = () => {
-  console.log('Open create modal')
+  router.push({ name: 'personnel-new' })
 }
 
 const editPersonnel = (p) => {
-  console.log('Edit personnel:', p)
+  router.push({ name: 'personnel-detail', params: { id: p.id } })
 }
 
 const resetPassword = async (p) => {
@@ -261,7 +337,8 @@ const deletePersonnel = async (id) => {
   
   try {
     await personnelService.delete(id)
-    personnel.value = personnel.value.filter(p => p.id !== id)
+    // reload page to reflect server-side data
+    await loadPersonnel()
     alert('Personnel supprimé avec succès')
   } catch (err) {
     alert('Erreur lors de la suppression')
@@ -271,7 +348,56 @@ const deletePersonnel = async (id) => {
 
 onMounted(() => {
   loadPersonnel()
+  loadEntreprises()
+  loadRoles()
 })
+
+const loadRoles = async () => {
+  try {
+    const resp = await personnelService.getRoles()
+    roles.value = resp.data || []
+  } catch (err) {
+    console.error('Erreur chargement roles', err)
+  }
+}
+
+const prevPage = () => {
+  if (page.value <= 1) return
+  page.value = page.value - 1
+  loadPersonnel(page.value, perPage.value)
+}
+
+const nextPage = () => {
+  if (page.value >= totalPages.value) return
+  page.value = page.value + 1
+  loadPersonnel(page.value, perPage.value)
+}
+
+const changePerPage = () => {
+  page.value = 1
+  loadPersonnel(page.value, perPage.value)
+}
+
+// Watchers for automatic filtering
+watch(searchQuery, (val) => {
+  clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    page.value = 1
+    loadPersonnel()
+  }, 350)
+})
+
+watch([selectedRole, selectedSiteId, selectedStatut], () => {
+  page.value = 1
+  loadPersonnel()
+})
+
+watch(selectedEntrepriseId, async () => {
+  page.value = 1
+  await loadSitesForEntreprise(selectedEntrepriseId.value)
+  await loadPersonnel()
+})
+
 </script>
 
 <style scoped>

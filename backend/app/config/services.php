@@ -7,6 +7,7 @@ use Tracy\Debugger;
 use app\models\ProductModel;
 use app\models\AppModel;
 use app\models\ArticleModel;
+use app\models\DepotModel;
 use app\models\StockModel;
 use app\models\AchatModel;
 use app\models\VenteModel;
@@ -14,6 +15,7 @@ use app\models\CaisseModel;
 use app\models\EntrepriseModel;
 use app\models\PersonnelModel;
 use app\models\DashboardModel;
+use app\models\SiteModel;
 
 /** 
  * @var array $config This comes from the returned array at the bottom of the config.php file
@@ -78,4 +80,12 @@ Flight::map('personnelModel', function() {
 
 Flight::map('dashboardModel', function() {
     return new DashboardModel(Flight::db());
+});
+
+Flight::map('siteModel', function() {
+    return new SiteModel(Flight::db());
+});
+
+Flight::map('depotModel', function() {
+    return new DepotModel(Flight::db());
 });

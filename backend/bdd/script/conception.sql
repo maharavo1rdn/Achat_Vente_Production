@@ -1,6 +1,6 @@
 -- ==============================================================================
--- FICHIER 1 : SCHEMA_STRUCTURE.SQL
--- Architecture ERP V3.3 (Groupe > Entreprise > Site > Dépôt)
+-- FICHIER 1 : SCHEMA_STRUCTURE_V3.5.SQL
+-- Architecture ERP V3.5 (Avec renommage convention proforma_demande_achat)
 -- ==============================================================================
 
 \c postgres;
@@ -24,10 +24,15 @@ DROP TABLE IF EXISTS bon_commande_vente_details CASCADE;
 DROP TABLE IF EXISTS bon_commande_vente CASCADE;
 DROP TABLE IF EXISTS bon_commande_achat_details CASCADE;
 DROP TABLE IF EXISTS bon_commande_achat CASCADE;
-DROP TABLE IF EXISTS devis_vente_details CASCADE;
-DROP TABLE IF EXISTS devis_vente CASCADE;
 DROP TABLE IF EXISTS proforma_fournisseur_details CASCADE;
 DROP TABLE IF EXISTS proforma_fournisseur CASCADE;
+
+-- NOUVEAU NETTOYAGE (Noms mis à jour)
+DROP TABLE IF EXISTS proforma_demande_achat_details CASCADE;
+DROP TABLE IF EXISTS proforma_demande_achat CASCADE;
+
+DROP TABLE IF EXISTS devis_vente_details CASCADE;
+DROP TABLE IF EXISTS devis_vente CASCADE;
 DROP TABLE IF EXISTS sortie_lot_detail CASCADE;
 DROP TABLE IF EXISTS lot_stock CASCADE;
 DROP TABLE IF EXISTS mouvement_stock CASCADE;
@@ -100,7 +105,7 @@ CREATE TABLE groupe (
 CREATE TABLE entreprise (
     id SERIAL PRIMARY KEY,
     nom VARCHAR(200) NOT NULL,
-    groupe_id INTEGER, -- Lien vers le groupe (peut être NULL si pas de groupe)
+    groupe_id INTEGER,
     type_entreprise VARCHAR(20) NOT NULL CHECK (type_entreprise IN ('CLIENT', 'FOURNISSEUR', 'INTERNE', 'PARTENAIRE')),
     matricule_fiscal VARCHAR(100),
     adresse VARCHAR(200),
@@ -113,11 +118,11 @@ CREATE TABLE entreprise (
 
 CREATE TABLE site (
     id SERIAL PRIMARY KEY,
-    nom VARCHAR(200) NOT NULL, -- Ex: "Siège Antananarivo", "Agence Tamatave"
+    nom VARCHAR(200) NOT NULL,
     adresse VARCHAR(200),
     telephone VARCHAR(50),
     email VARCHAR(100),
-    entreprise_id INTEGER NOT NULL, -- Un site appartient à une entreprise
+    entreprise_id INTEGER NOT NULL,
     est_actif BOOLEAN DEFAULT true,
     date_creation TIMESTAMP DEFAULT NOW(),
     FOREIGN KEY (entreprise_id) REFERENCES entreprise(id) ON DELETE CASCADE
@@ -125,9 +130,9 @@ CREATE TABLE site (
 
 CREATE TABLE depot (
     id SERIAL PRIMARY KEY,
-    nom VARCHAR(200) NOT NULL, -- Ex: "Entrepôt Principal", "Arrière boutique"
+    nom VARCHAR(200) NOT NULL,
     adresse VARCHAR(200),
-    site_id INTEGER NOT NULL, -- Un dépôt est situé sur un site
+    site_id INTEGER NOT NULL,
     est_actif BOOLEAN DEFAULT true,
     date_creation TIMESTAMP DEFAULT NOW(),
     FOREIGN KEY (site_id) REFERENCES site(id) ON DELETE CASCADE
@@ -143,9 +148,7 @@ CREATE TABLE personnel (
     telephone VARCHAR(50),
     est_actif BOOLEAN DEFAULT true,
     personnel_role_id INTEGER NOT NULL,
-    -- Un employé est rattaché à une entreprise (Juridique/RH)
     entreprise_id INTEGER, 
-    -- Optionnel : On peut le rattacher à un Site par défaut
     site_defaut_id INTEGER,
     FOREIGN KEY (personnel_role_id) REFERENCES personnel_role(id),
     FOREIGN KEY (entreprise_id) REFERENCES entreprise(id),
@@ -171,67 +174,50 @@ CREATE TABLE article (
     FOREIGN KEY (article_categorie_id) REFERENCES article_categorie(id)
 );
 
--- Table STOCK : Liée au DEPOT maintenant !
 CREATE TABLE stock (
     id SERIAL PRIMARY KEY,
     article_id INTEGER NOT NULL,
-    depot_id INTEGER NOT NULL, -- STOCK LOCALISÉ
-    
+    depot_id INTEGER NOT NULL,
     methode_valorisation_stock_id INTEGER NOT NULL, 
-    
     quantite_actuelle NUMERIC(15,2) DEFAULT 0,
-    
-    -- Données CMUP
     cmup_actuel NUMERIC(15,2) DEFAULT 0,
     valeur_stock_total NUMERIC(15,2) DEFAULT 0,
-    
     date_maj TIMESTAMP DEFAULT NOW(),
-    
-    UNIQUE(article_id, depot_id), -- Un article unique par dépôt
+    UNIQUE(article_id, depot_id),
     FOREIGN KEY (article_id) REFERENCES article(id),
     FOREIGN KEY (depot_id) REFERENCES depot(id),
     FOREIGN KEY (methode_valorisation_stock_id) REFERENCES methode_valorisation_stock(id)
 );
 
--- Mouvements : Liés au DEPOT
 CREATE TABLE mouvement_stock (
     id SERIAL PRIMARY KEY,
     date_mouvement TIMESTAMP DEFAULT NOW(),
     type_mouvement VARCHAR(20) NOT NULL,
-    
     quantite_stock_avant NUMERIC(15,2) NOT NULL DEFAULT 0,
     quantite_entree NUMERIC(15,2) DEFAULT 0,
     quantite_sortie NUMERIC(15,2) DEFAULT 0,
     quantite_stock_apres NUMERIC(15,2) NOT NULL DEFAULT 0,
-    
     prix_unitaire_mouvement NUMERIC(15,2),
-    
     article_id INTEGER NOT NULL,
-    depot_id INTEGER NOT NULL, -- LE DEPOT CONCERNÉ
+    depot_id INTEGER NOT NULL,
     personnel_id INTEGER NOT NULL,
     reference_document VARCHAR(100),
-    
     FOREIGN KEY (article_id) REFERENCES article(id),
     FOREIGN KEY (depot_id) REFERENCES depot(id),
     FOREIGN KEY (personnel_id) REFERENCES personnel(id)
 );
 
--- Lots : Liés au DEPOT
 CREATE TABLE lot_stock (
     id SERIAL PRIMARY KEY,
     numero_lot VARCHAR(50) UNIQUE NOT NULL,
     article_id INTEGER NOT NULL,
-    depot_id INTEGER NOT NULL, -- LE DEPOT DU LOT
-    
+    depot_id INTEGER NOT NULL,
     date_entree TIMESTAMP DEFAULT NOW(),
     mouvement_entree_id INTEGER,
-    
     quantite_initiale NUMERIC(15,2) NOT NULL,
     quantite_restante NUMERIC(15,2) NOT NULL,
     prix_unitaire_achat NUMERIC(15,2) NOT NULL,
-    
     statut VARCHAR(20) DEFAULT 'ACTIF' CHECK (statut IN ('ACTIF', 'EPUISE')),
-    
     FOREIGN KEY (article_id) REFERENCES article(id),
     FOREIGN KEY (depot_id) REFERENCES depot(id),
     FOREIGN KEY (mouvement_entree_id) REFERENCES mouvement_stock(id)
@@ -251,20 +237,60 @@ CREATE TABLE sortie_lot_detail (
 -- 5. ACHATS (LOGIQUE ENTREPRISE -> DEPOT)
 -- ==========================================
 
+-- [[[ MODULE DEMANDE D'ACHAT (Renommé) ]]] --
+CREATE TABLE proforma_demande_achat (
+    id SERIAL PRIMARY KEY,
+    numero_da VARCHAR(50) UNIQUE NOT NULL, -- Ex: DA-2023-0001
+    date_demande DATE DEFAULT CURRENT_DATE,
+    
+    personnel_demandeur_id INTEGER NOT NULL,
+    entreprise_id INTEGER NOT NULL, -- L'entreprise/Filiale qui a le besoin
+    depot_cible_id INTEGER, -- Pour quel dépôt le besoin est exprimé
+    
+    date_souhaitee DATE,
+    motif_achat TEXT,
+    statut_id INTEGER NOT NULL, 
+    date_creation TIMESTAMP DEFAULT NOW(),
+    
+    FOREIGN KEY (personnel_demandeur_id) REFERENCES personnel(id),
+    FOREIGN KEY (entreprise_id) REFERENCES entreprise(id),
+    FOREIGN KEY (depot_cible_id) REFERENCES depot(id),
+    FOREIGN KEY (statut_id) REFERENCES statut(id)
+);
+
+CREATE TABLE proforma_demande_achat_details (
+    id SERIAL PRIMARY KEY,
+    proforma_demande_achat_id INTEGER NOT NULL, -- FK renommée
+    article_id INTEGER NOT NULL,
+    quantite_demandee NUMERIC(15,2) NOT NULL,
+    prix_estime NUMERIC(15,2) DEFAULT 0,
+    FOREIGN KEY (proforma_demande_achat_id) REFERENCES proforma_demande_achat(id) ON DELETE CASCADE,
+    FOREIGN KEY (article_id) REFERENCES article(id)
+);
+-- [[[ FIN MODULE ]]] --
+
+
 CREATE TABLE proforma_fournisseur (
     id SERIAL PRIMARY KEY,
     numero_proforma VARCHAR(50) NOT NULL,
     date_emission DATE DEFAULT CURRENT_DATE,
     date_validite DATE,
     entreprise_fournisseur_id INTEGER NOT NULL,
-    entreprise_filiale_id INTEGER NOT NULL, -- Qui achète (Juridique)
+    entreprise_filiale_id INTEGER NOT NULL,
     personnel_id INTEGER NOT NULL,
     statut_id INTEGER NOT NULL,
     montant_ttc NUMERIC(15,2) DEFAULT 0,
+    
+    -- LIAISON MISE À JOUR VERS LA TABLE RENOMMÉE
+    proforma_demande_achat_id INTEGER, 
+    
     FOREIGN KEY (entreprise_fournisseur_id) REFERENCES entreprise(id),
     FOREIGN KEY (entreprise_filiale_id) REFERENCES entreprise(id),
     FOREIGN KEY (personnel_id) REFERENCES personnel(id),
-    FOREIGN KEY (statut_id) REFERENCES statut(id)
+    FOREIGN KEY (statut_id) REFERENCES statut(id),
+    
+    -- FK MISE À JOUR
+    FOREIGN KEY (proforma_demande_achat_id) REFERENCES proforma_demande_achat(id)
 );
 
 CREATE TABLE proforma_fournisseur_details (
@@ -287,7 +313,6 @@ CREATE TABLE bon_commande_achat (
     personnel_id INTEGER NOT NULL,
     statut_id INTEGER NOT NULL,
     montant_ttc NUMERIC(15,2) NOT NULL,
-    -- AJOUT CRITIQUE : Où doit-on livrer la marchandise ?
     depot_livraison_id INTEGER, 
     FOREIGN KEY (proforma_fournisseur_id) REFERENCES proforma_fournisseur(id),
     FOREIGN KEY (entreprise_fournisseur_id) REFERENCES entreprise(id),
@@ -317,7 +342,6 @@ CREATE TABLE facture_achat (
     statut_id INTEGER NOT NULL,
     montant_ttc NUMERIC(15,2) NOT NULL,
     reste_a_payer NUMERIC(15,2) NOT NULL,
-    -- AJOUT CRITIQUE : Dans quel dépôt le stock va entrer ?
     depot_reception_id INTEGER NOT NULL,
     FOREIGN KEY (bon_commande_achat_id) REFERENCES bon_commande_achat(id),
     FOREIGN KEY (entreprise_filiale_id) REFERENCES entreprise(id),
@@ -374,7 +398,6 @@ CREATE TABLE bon_commande_vente (
     personnel_id INTEGER NOT NULL,
     statut_id INTEGER NOT NULL,
     montant_ttc NUMERIC(15,2) NOT NULL,
-    -- AJOUT CRITIQUE : De quel dépôt on va sortir le stock ?
     depot_expedition_id INTEGER, 
     FOREIGN KEY (devis_vente_id) REFERENCES devis_vente(id),
     FOREIGN KEY (entreprise_client_id) REFERENCES entreprise(id),
@@ -400,12 +423,11 @@ CREATE TABLE facture_vente (
     date_facture DATE DEFAULT CURRENT_DATE,
     bon_commande_vente_id INTEGER,
     entreprise_client_id INTEGER NOT NULL,
-    entreprise_filiale_id INTEGER NOT NULL, -- Celle qui facture
+    entreprise_filiale_id INTEGER NOT NULL,
     personnel_id INTEGER NOT NULL,
     statut_id INTEGER NOT NULL,
     montant_ttc NUMERIC(15,2) NOT NULL,
     reste_a_payer NUMERIC(15,2) NOT NULL,
-    -- AJOUT CRITIQUE : De quel dépôt sort la marchandise ? (Obligatoire pour le mouvement stock)
     depot_expedition_id INTEGER NOT NULL,
     FOREIGN KEY (bon_commande_vente_id) REFERENCES bon_commande_vente(id),
     FOREIGN KEY (entreprise_client_id) REFERENCES entreprise(id),
@@ -434,7 +456,7 @@ CREATE TABLE caisse (
     code_caisse VARCHAR(50) UNIQUE,
     libelle VARCHAR(100) NOT NULL,
     solde_actuel NUMERIC(15,2) DEFAULT 0,
-    entreprise_id INTEGER NOT NULL, -- La caisse appartient à une Entreprise (Comptabilité)
+    entreprise_id INTEGER NOT NULL,
     FOREIGN KEY (entreprise_id) REFERENCES entreprise(id)
 );
 
@@ -452,7 +474,6 @@ CREATE TABLE caisse_mouvement (
     FOREIGN KEY (personnel_id) REFERENCES personnel(id)
 );
 
--- PAIEMENTS VENTE
 CREATE TABLE paiement_vente (
     id SERIAL PRIMARY KEY,
     numero_recu VARCHAR(50) UNIQUE,
@@ -474,7 +495,6 @@ CREATE TABLE paiement_vente_details (
     FOREIGN KEY (mode_paiement_id) REFERENCES mode_paiement(id)
 );
 
--- PAIEMENTS ACHAT
 CREATE TABLE paiement_achat (
     id SERIAL PRIMARY KEY,
     numero_paiement VARCHAR(50) UNIQUE,
@@ -497,20 +517,15 @@ CREATE TABLE paiement_achat_details (
 );
 
 -- ==========================================
--- 8. INDEX (CORRIGÉS)
+-- 8. INDEX
 -- ==========================================
 
--- Index sur le Stock par Dépôt (très important)
 CREATE INDEX idx_stock_depot ON stock(depot_id, article_id);
-
--- Index pour les Lots (par Dépôt)
 CREATE INDEX idx_lot_actif ON lot_stock(article_id, depot_id) WHERE statut = 'ACTIF';
-
--- Index Factures par Dépôt (Pour stats logistiques)
 CREATE INDEX idx_fac_vente_depot ON facture_vente(depot_expedition_id);
 CREATE INDEX idx_fac_achat_depot ON facture_achat(depot_reception_id);
-
--- Index standard
 CREATE INDEX idx_mvt_date ON mouvement_stock(date_mouvement);
 CREATE INDEX idx_fac_vente_num ON facture_vente(numero_facture);
 CREATE INDEX idx_paiement_vente_fac ON paiement_vente(facture_vente_id);
+-- Nouvel index mis à jour avec le nouveau nom
+CREATE INDEX idx_da_date ON proforma_demande_achat(date_demande);

@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
-    <SideBar />
-    <main class="main-content">
+    <SideBar v-if="showSidebar" />
+    <main class="main-content" :class="{ 'no-sidebar': !showSidebar }">
       <router-view v-slot="{ Component }">
         <transition name="page-fade" mode="out-in">
           <component :is="Component" :key="$route.path" />
@@ -13,6 +13,15 @@
 
 <script setup>
 import SideBar from './components/layout/SideBar.vue'
+import { useRoute } from 'vue-router'
+import { computed } from 'vue'
+
+const route = useRoute()
+
+const showSidebar = computed(() => {
+  // Hide sidebar if the active route (or any nested matched route) requests it
+  return !(route.matched && route.matched.some(r => r.meta && r.meta.hideSidebar))
+})
 </script>
 
 <style>
@@ -39,6 +48,11 @@ body {
 
 .main-content {
   @apply flex-1 min-h-screen;
+}
+
+/* Remove margin when no sidebar */
+.main-content.no-sidebar {
+  @apply ml-0;
 }
 
 /* Page Fade Transition */
