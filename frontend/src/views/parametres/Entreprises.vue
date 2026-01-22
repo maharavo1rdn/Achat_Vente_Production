@@ -215,6 +215,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Plus, Edit, Trash2, Eye, Search } from 'lucide-vue-next'
 import Modal from '@/components/elements/Modal.vue'
 import entrepriseService from '@/services/entrepriseService'
@@ -262,6 +263,8 @@ const getTypeBadgeClass = (type) => {
     default: return 'badge badge-secondary'
   }
 }
+
+const router = useRouter()
 
 const loadEntreprises = async () => {
   loading.value = true
@@ -326,11 +329,12 @@ const createEntreprise = async () => {
 }
 
 const openEntrepriseDetails = (entreprise) => {
-  console.log('Voir détails:', entreprise)
+  router.push({ name: 'entreprise-detail', params: { id: entreprise.id } })
 }
 
 const editEntreprise = (entreprise) => {
-  console.log('Edit entreprise:', entreprise)
+  // Navigate to detail page and open in edit mode
+  router.push({ name: 'entreprise-detail', params: { id: entreprise.id }, query: { edit: '1' } })
 }
 
 const deleteEntreprise = async (id) => {

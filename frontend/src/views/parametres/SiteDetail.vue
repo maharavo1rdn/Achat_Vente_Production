@@ -1,13 +1,13 @@
 <template>
   <div class="page-container">
     <!-- Loading state -->
-    <div v-if="loadingEntreprise" class="loading-state">
+    <div v-if="loadingSite" class="loading-state">
       <div class="spinner"></div>
       <p class="loading-text">Chargement de la fiche...</p>
     </div>
 
     <!-- Error state -->
-    <div v-else-if="errorEntreprise" class="error-state">
+    <div v-else-if="errorSite" class="error-state">
       <div class="error-icon">
         <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -15,7 +15,7 @@
           </path>
         </svg>
       </div>
-      <p class="error-message">{{ errorEntreprise }}</p>
+      <p class="error-message">{{ errorSite }}</p>
       <router-link to="/entreprises" class="btn-primary">
         Retour à la liste
       </router-link>
@@ -30,27 +30,31 @@
             <ArrowLeft class="w-5 h-5" />
           </router-link>
           <div>
-            <h1 class="page-title">Fiche Entreprise</h1>
-            <p class="page-subtitle">{{ entreprise?.nom }}</p>
+            <h1 class="page-title">Fiche Site</h1>
+            <p class="page-subtitle">{{ site?.nom }}</p>
           </div>
         </div>
-        <div class="flex gap-3">
-          <button @click="openCreateSiteModal" class="btn-primary">
-            <Plus class="w-4 h-4" />
-            <span>Nouveau Site</span>
-          </button>
+        <div class="flex gap-3 items-center">
+          <!-- Compact-only layout (no selector) -->
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in" style="animation-delay: 0.2s">
+      <div class="grid grid-cols-1 gap-6 fade-in" style="animation-delay: 0.2s">
 
-        <!-- Info Card (Left Column) -->
-        <div class="card lg:col-span-1 h-fit">
+        <!-- Info Card (Top Fiche) -->
+        <div class="card flex flex-col justify-between p-4">
           <div class="card-header-simple">
             <h2 class="card-title">Informations Générales</h2>
-            <button class="action-btn" title="Modifier">
-              <Edit class="w-4 h-4" />
-            </button>
+            <div>
+              <button v-if="!editing" @click="startEdit" class="action-btn" title="Modifier">
+                <Edit class="w-4 h-4" />
+              </button>
+
+              <div v-else class="flex gap-2">
+                <button @click="saveEdit" class="btn-primary">Enregistrer</button>
+                <button @click="cancelEdit" class="btn-secondary">Annuler</button>
+              </div>
+            </div>
           </div>
 
           <div class="space-y-6">
@@ -59,29 +63,29 @@
               <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3 text-gray-500">
                 <Building class="w-8 h-8" />
               </div>
-              <h3 class="text-lg font-bold text-gray-900 text-center">{{ entreprise.nom }}</h3>
+              <h3 class="text-lg font-bold text-gray-900 text-center">{{ site.nom }}</h3>
               <div class="mt-2 flex gap-2">
-                <span :class="getTypeBadgeClass(entreprise.type_entreprise)">
-                  {{ entreprise.type_entreprise }}
+                <span :class="site.est_actif ? 'badge badge-success' : 'badge badge-danger'">
+                  {{ site.est_actif ? 'Actif' : 'Inactif' }}
                 </span>
-                <span :class="entreprise.est_actif ? 'badge badge-success' : 'badge badge-danger'">
-                  {{ entreprise.est_actif ? 'Actif' : 'Inactif' }}
-                </span>
+                <span class="text-sm text-gray-500">{{ site.entreprise_nom ? 'Rattaché à ' + site.entreprise_nom : '' }}</span>
               </div>
             </div>
-
-            <!-- Details List -->
             <div class="space-y-4">
               <div class="info-item">
-                <span class="info-label">Matricule Fiscal</span>
-                <span class="info-value">{{ entreprise.matricule_fiscal || '-' }}</span>
+                <span class="info-label">Adresse</span>
+                <div>
+                  <span v-if="!editing" class="info-value">{{ site.adresse || '-' }}</span>
+                  <input v-else v-model="editedSite.adresse" class="input" />
+                </div>
               </div>
 
               <div class="info-item">
                 <span class="info-label">Email</span>
                 <div class="flex items-center gap-2 text-gray-900">
                   <Mail class="w-4 h-4 text-gray-400" />
-                  <span class="text-sm">{{ entreprise.email || '-' }}</span>
+                  <span v-if="!editing" class="text-sm">{{ site.email || '-' }}</span>
+                  <input v-else v-model="editedSite.email" class="input" type="email" />
                 </div>
               </div>
 
@@ -89,163 +93,167 @@
                 <span class="info-label">Téléphone</span>
                 <div class="flex items-center gap-2 text-gray-900">
                   <Phone class="w-4 h-4 text-gray-400" />
-                  <span class="text-sm">{{ entreprise.telephone || '-' }}</span>
+                  <span v-if="!editing" class="text-sm">{{ site.telephone || '-' }}</span>
+                  <input v-else v-model="editedSite.telephone" class="input" />
                 </div>
               </div>
 
               <div class="info-item">
-                <span class="info-label">Adresse Siège</span>
+                <span class="info-label">Notes</span>
                 <div class="flex items-start gap-2 text-gray-900">
-                  <MapPin class="w-4 h-4 text-gray-400 mt-0.5" />
-                  <span class="text-sm">{{ entreprise.adresse || '-' }}</span>
+                  <span v-if="!editing" class="text-sm">{{ site.notes || '-' }}</span>
+                  <textarea v-else v-model="editedSite.notes" class="input h-24"></textarea>
                 </div>
-              </div>
+              </div> 
             </div>
           </div>
         </div>
 
-        <!-- Sites List (Right Column - Wider) -->
-        <div class="card lg:col-span-2">
-          <div class="card-header-simple">
-            <h2 class="card-title">Sites rattachés</h2>
-            <span class="text-xs text-gray-500">{{ sites.length }} site(s)</span>
-          </div>
 
-          <!-- Loading Sites -->
-          <div v-if="loadingSites" class="py-12 flex justify-center">
-            <div class="spinner w-8 h-8"></div>
-          </div>
+      </div>
 
-          <!-- Table -->
-          <div v-else class="table-wrapper">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Nom du site</th>
-                  <th>Coordonnées</th>
-                  <th class="text-center">Statut</th>
-                  <th class="text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="sites.length === 0">
-                  <td colspan="4" class="text-center py-8 text-gray-500">
-                    Aucun site enregistré pour cette entreprise
-                  </td>
-                </tr>
-                <tr v-else v-for="site in sites" :key="site.id" class="table-row">
-                  <td>
-                    <div class="font-medium text-gray-900">{{ site.nom }}</div>
-                    <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                      <MapPin class="w-3 h-3" /> {{ site.adresse || 'Aucune adresse' }}
-                    </div>
-                  </td>
-                  <td>
-                    <div class="space-y-1">
-                      <div v-if="site.email" class="text-xs flex items-center gap-1 text-gray-600">
-                        <Mail class="w-3 h-3" /> {{ site.email }}
-                      </div>
-                      <div v-if="site.telephone" class="text-xs flex items-center gap-1 text-gray-600">
-                        <Phone class="w-3 h-3" /> {{ site.telephone }}
-                      </div>
-                      <span v-if="!site.email && !site.telephone" class="text-xs text-gray-400">-</span>
-                    </div>
-                  </td>
-                  <td class="text-center">
-                    <span :class="site.est_actif ? 'badge badge-success' : 'badge badge-danger'">
-                      {{ site.est_actif ? 'Actif' : 'Inactif' }}
-                    </span>
-                  </td>
-                  <td>
-                    <div class="flex justify-end gap-2">
-                      <router-link :to="{ name: 'site-detail', params: { id: site.id } }"
-                        class="action-btn text-blue-600" title="Voir détails">
-                        <ExternalLink class="w-4 h-4" />
-                      </router-link>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+      <!-- Depots List -->
+      <div class="card mt-4">
+        <div class="card-header-simple">
+          <h2 class="card-title">Dépôts rattachés</h2>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-500">{{ depots.length }} dépôt(s)</span>
+            <button @click="openCreateDepotModal" class="btn-primary text-sm">Ajouter dépôt</button>
           </div>
+        </div>
+
+        <div v-if="loadingDepots" class="py-6 flex justify-center">
+          <div class="spinner w-8 h-8"></div>
+        </div>
+
+        <div v-else class="table-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Adresse</th>
+                <th class="text-center">Statut</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="depots.length === 0">
+                <td colspan="4" class="text-center py-8 text-gray-500">Aucun dépôt pour ce site</td>
+              </tr>
+              <tr v-else v-for="d in depots" :key="d.id" class="table-row">
+                <td class="font-medium">{{ d.nom }}</td>
+                <td class="text-sm text-gray-600">{{ d.adresse || '-' }}</td>
+                <td class="text-center"><span :class="d.est_actif ? 'badge badge-success' : 'badge badge-danger'">{{ d.est_actif ? 'Actif' : 'Inactif' }}</span></td>
+                <td class="text-right"><button class="action-btn text-blue-600" @click="openDepotDetails(d)">Voir</button></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
+
+      <!-- Depot Details Modal -->
+      <Modal v-model:show="showDepotModal" title="Fiche Dépôt" size="md" :closeOnOverlay="true">
+        <template #body>
+          <div v-if="selectedDepot">
+            <h3 class="text-lg font-bold">{{ selectedDepot.nom }}</h3>
+            <div class="text-sm text-gray-600">{{ selectedDepot.adresse || '-' }}</div>
+            <div class="mt-3 text-sm text-gray-700"><strong>Statut:</strong> {{ selectedDepot.est_actif ? 'Actif' : 'Inactif' }}</div>
+          </div>
+        </template>
+        <template #footer>
+          <button class="btn-secondary" @click="closeDepotModal">Fermer</button>
+        </template>
+      </Modal>
+
+      <!-- Create Depot Modal -->
+      <Modal v-model:show="showCreateDepotModal" title="Nouveau Dépôt" size="md" :closeOnOverlay="true">
+        <template #body>
+          <div class="space-y-4">
+            <div>
+              <label class="label">Nom du dépôt *</label>
+              <input v-model="newDepot.nom" class="input" placeholder="Nom du dépôt" />
+            </div>
+
+            <div>
+              <label class="label">Adresse</label>
+              <input v-model="newDepot.adresse" class="input" placeholder="Adresse" />
+            </div>
+
+            <div class="flex items-center gap-3">
+              <label class="label inline-flex items-center gap-2">
+                <input type="checkbox" v-model="newDepot.est_actif" />
+                <span class="text-sm">Actif</span>
+              </label>
+            </div>
+
+            <p v-if="createDepotError" class="text-sm text-red-600">{{ createDepotError }}</p>
+          </div>
+        </template>
+        <template #footer>
+          <button class="btn-secondary" @click="showCreateDepotModal = false">Annuler</button>
+          <button class="btn-primary" @click="createDepot" :disabled="createDepotLoading">{{ createDepotLoading ? 'Enregistrement...' : 'Créer' }}</button>
+        </template>
+      </Modal>
+
     </div>
 
-    <!-- Create Site Modal -->
-    <Modal v-model:show="showCreateSiteModal" title="Nouveau Site" size="md" :closeOnOverlay="true">
-      <template #body>
-        <div class="space-y-4">
-          <div>
-            <label class="label">Nom du site *</label>
-            <input v-model="newSite.nom" class="input" placeholder="Ex: Siège social, Entrepôt Nord..." />
-          </div>
 
-          <div>
-            <label class="label">Adresse</label>
-            <input v-model="newSite.adresse" class="input" placeholder="Adresse complète" />
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="label">Téléphone</label>
-              <input v-model="newSite.telephone" class="input" placeholder="+261..." />
-            </div>
-            <div>
-              <label class="label">Email</label>
-              <input v-model="newSite.email" type="email" class="input" placeholder="site@exemple.com" />
-            </div>
-          </div>
-
-          <p v-if="createSiteError" class="text-sm text-red-600 mt-2 flex items-center gap-2">
-            <span class="w-1.5 h-1.5 bg-red-600 rounded-full"></span>
-            {{ createSiteError }}
-          </p>
-        </div>
-      </template>
-      <template #footer>
-        <button class="btn-secondary" @click="showCreateSiteModal = false">Annuler</button>
-        <button class="btn-primary" @click="createSite" :disabled="createSiteLoading">
-          {{ createSiteLoading ? 'Enregistrement...' : 'Créer le site' }}
-        </button>
-      </template>
-    </Modal>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
-  ArrowLeft, Plus, Edit, Building, Mail, Phone, MapPin, ExternalLink
+  ArrowLeft, Edit, Building, Mail, Phone
 } from 'lucide-vue-next'
 import Modal from '@/components/elements/Modal.vue'
-import entrepriseService from '@/services/entrepriseService'
 import siteService from '@/services/siteService'
+import depotService from '@/services/depotService'
 
 const route = useRoute()
-const entrepriseId = Number(route.params.id)
+const router = useRouter()
+const siteId = Number(route.params.id)
 
-const entreprise = ref(null)
-const sites = ref([])
+const site = ref(null)
 
-const loadingEntreprise = ref(true)
-const errorEntreprise = ref(null)
-const loadingSites = ref(false)
+const loadingSite = ref(true)
+const errorSite = ref(null)
 
-const showCreateSiteModal = ref(false)
-const createSiteLoading = ref(false)
-const createSiteError = ref(null)
-const newSite = ref({
-  nom: '',
-  adresse: '',
-  telephone: '',
-  email: '',
-  entreprise_id: entrepriseId,
-  est_actif: true
-})
+const editing = ref(false)
+const editedSite = ref(null)
+
+// Depots state
+const depots = ref([])
+const loadingDepots = ref(false)
+const showDepotModal = ref(false)
+const selectedDepot = ref(null)
+
+const loadDepots = async () => {
+  loadingDepots.value = true
+  try {
+    const resp = await depotService.getBySite(siteId)
+    depots.value = resp.data || []
+  } catch (err) {
+    console.error('Erreur chargement dépôts:', err)
+    depots.value = []
+  } finally {
+    loadingDepots.value = false
+  }
+}
+
+const openDepotDetails = (depot) => {
+  selectedDepot.value = depot
+  showDepotModal.value = true
+}
+
+const closeDepotModal = () => {
+  selectedDepot.value = null
+  showDepotModal.value = false
+}
 
 const getTypeBadgeClass = (type) => {
+  // Keep for potential reuse
   switch (type) {
     case 'CLIENT': return 'badge badge-success'
     case 'FOURNISSEUR': return 'badge badge-warning'
@@ -255,71 +263,88 @@ const getTypeBadgeClass = (type) => {
   }
 }
 
-const loadEntreprise = async () => {
-  loadingEntreprise.value = true
-  errorEntreprise.value = null
+const loadSite = async () => {
+  loadingSite.value = true
+  errorSite.value = null
   try {
-    const resp = await entrepriseService.getById(entrepriseId)
-    entreprise.value = resp.data
+    const resp = await siteService.getById(siteId)
+    site.value = resp.data
+    if (editing.value) editedSite.value = { ...site.value }
   } catch (err) {
-    errorEntreprise.value = "Impossible de charger les informations de l'entreprise."
+    errorSite.value = "Impossible de charger les informations du site."
     console.error(err)
   } finally {
-    loadingEntreprise.value = false
+    loadingSite.value = false
   }
 }
 
-const loadSites = async () => {
-  loadingSites.value = true
-  try {
-    const resp = await siteService.getByEntreprise(entrepriseId)
-    sites.value = resp.data || []
-  } catch (err) {
-    console.error('Erreur chargement sites:', err)
-    sites.value = []
-  } finally {
-    loadingSites.value = false
-  }
+const startEdit = () => {
+  editedSite.value = { ...site.value }
+  editing.value = true
 }
 
-const openCreateSiteModal = () => {
-  createSiteError.value = null
-  newSite.value = {
-    nom: '',
-    adresse: '',
-    telephone: '',
-    email: '',
-    entreprise_id: entrepriseId,
-    est_actif: true
-  }
-  showCreateSiteModal.value = true
+const cancelEdit = () => {
+  editedSite.value = null
+  editing.value = false
 }
 
-const createSite = async () => {
-  createSiteError.value = null
-  if (!newSite.value.nom) {
-    createSiteError.value = 'Le nom du site est obligatoire'
+// Create depot state and actions
+const showCreateDepotModal = ref(false)
+const createDepotLoading = ref(false)
+const createDepotError = ref(null)
+const newDepot = ref({
+  nom: '',
+  adresse: '',
+  est_actif: true
+})
+
+const openCreateDepotModal = () => {
+  createDepotError.value = null
+  newDepot.value = { nom: '', adresse: '', est_actif: true }
+  showCreateDepotModal.value = true
+}
+
+const createDepot = async () => {
+  createDepotError.value = null
+  if (!newDepot.value.nom) {
+    createDepotError.value = 'Le nom du dépôt est obligatoire'
     return
   }
-
-  createSiteLoading.value = true
+  createDepotLoading.value = true
   try {
-    await siteService.create(newSite.value)
-    showCreateSiteModal.value = false
-    await loadSites()
+    await depotService.create({ ...newDepot.value, site_id: siteId })
+    showCreateDepotModal.value = false
+    await loadDepots()
+    alert('Dépôt créé avec succès')
   } catch (err) {
-    console.error('Erreur création site:', err)
-    createSiteError.value = 'Une erreur est survenue lors de la création.'
+    console.error('Erreur création dépôt:', err)
+    createDepotError.value = 'Erreur lors de la création du dépôt'
   } finally {
-    createSiteLoading.value = false
+    createDepotLoading.value = false
   }
 }
 
-onMounted(async () => {
-  await loadEntreprise()
-  if (!errorEntreprise.value) {
-    await loadSites()
+const saveEdit = async () => {
+  try {
+    await siteService.update(siteId, editedSite.value)
+    await loadSite()
+    editing.value = false
+    alert('Site mis à jour avec succès')
+  } catch (err) {
+    console.error('Erreur mise à jour site:', err)
+    alert('Erreur lors de la mise à jour du site')
   }
+}
+
+
+
+
+
+
+
+onMounted(async () => {
+  await loadSite()
+  await loadDepots()
 })
 </script>
 
