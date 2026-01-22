@@ -34,7 +34,7 @@
             <p class="page-subtitle">{{ entreprise?.nom }}</p>
           </div>
         </div>
-        <div class="flex gap-3">
+        <div class="flex gap-3 items-center">
           <button @click="openCreateSiteModal" class="btn-primary">
             <Plus class="w-4 h-4" />
             <span>Nouveau Site</span>
@@ -42,15 +42,22 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in" style="animation-delay: 0.2s">
+      <div class="grid grid-cols-1 gap-6 fade-in" style="animation-delay: 0.2s">
 
-        <!-- Info Card (Left Column) -->
-        <div class="card lg:col-span-1 h-fit">
+        <!-- Info Card (Top Fiche that fills page) -->
+        <div class="card flex flex-col justify-between p-4">
           <div class="card-header-simple">
             <h2 class="card-title">Informations Générales</h2>
-            <button class="action-btn" title="Modifier">
-              <Edit class="w-4 h-4" />
-            </button>
+            <div>
+              <button v-if="!editing" @click="startEdit" class="action-btn" title="Modifier">
+                <Edit class="w-4 h-4" />
+              </button>
+
+              <div v-else class="flex gap-2">
+                <button @click="saveEdit" class="btn-primary">Enregistrer</button>
+                <button @click="cancelEdit" class="btn-secondary">Annuler</button>
+              </div>
+            </div>
           </div>
 
           <div class="space-y-6">
@@ -59,14 +66,34 @@
               <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3 text-gray-500">
                 <Building class="w-8 h-8" />
               </div>
-              <h3 class="text-lg font-bold text-gray-900 text-center">{{ entreprise.nom }}</h3>
-              <div class="mt-2 flex gap-2">
-                <span :class="getTypeBadgeClass(entreprise.type_entreprise)">
-                  {{ entreprise.type_entreprise }}
-                </span>
-                <span :class="entreprise.est_actif ? 'badge badge-success' : 'badge badge-danger'">
-                  {{ entreprise.est_actif ? 'Actif' : 'Inactif' }}
-                </span>
+              <div class="text-center">
+                <template v-if="!editing">
+                  <h3 class="text-lg font-bold text-gray-900 text-center">{{ entreprise.nom }}</h3>
+                  <div class="mt-2 flex gap-2">
+                    <span :class="getTypeBadgeClass(entreprise.type_entreprise)">
+                      {{ entreprise.type_entreprise }}
+                    </span>
+                    <span :class="entreprise.est_actif ? 'badge badge-success' : 'badge badge-danger'">
+                      {{ entreprise.est_actif ? 'Actif' : 'Inactif' }}
+                    </span>
+                  </div>
+                </template>
+
+                <template v-else>
+                  <input v-model="editedEntreprise.nom" class="input text-center font-bold text-lg" />
+                  <div class="mt-2 flex gap-2 items-center justify-center">
+                    <select v-model="editedEntreprise.type_entreprise" class="select">
+                      <option value="CLIENT">Client</option>
+                      <option value="FOURNISSEUR">Fournisseur</option>
+                      <option value="INTERNE">Interne (Filiale)</option>
+                      <option value="PARTENAIRE">Partenaire</option>
+                    </select>
+                    <label class="flex items-center gap-2 ml-2">
+                      <input type="checkbox" v-model="editedEntreprise.est_actif" />
+                      <span class="text-sm">Actif</span>
+                    </label>
+                  </div>
+                </template>
               </div>
             </div>
 
@@ -74,14 +101,18 @@
             <div class="space-y-4">
               <div class="info-item">
                 <span class="info-label">Matricule Fiscal</span>
-                <span class="info-value">{{ entreprise.matricule_fiscal || '-' }}</span>
+                <span class="info-value" v-if="!editing">{{ entreprise.matricule_fiscal || '-' }}</span>
+                <input v-else v-model="editedEntreprise.matricule_fiscal" class="input" />
               </div>
 
               <div class="info-item">
                 <span class="info-label">Email</span>
-                <div class="flex items-center gap-2 text-gray-900">
+                <div v-if="!editing" class="flex items-center gap-2 text-gray-900">
                   <Mail class="w-4 h-4 text-gray-400" />
                   <span class="text-sm">{{ entreprise.email || '-' }}</span>
+                </div>
+                <div v-else>
+                  <input v-model="editedEntreprise.email" class="input" type="email" />
                 </div>
               </div>
 
@@ -89,7 +120,8 @@
                 <span class="info-label">Téléphone</span>
                 <div class="flex items-center gap-2 text-gray-900">
                   <Phone class="w-4 h-4 text-gray-400" />
-                  <span class="text-sm">{{ entreprise.telephone || '-' }}</span>
+                  <span v-if="!editing" class="text-sm">{{ entreprise.telephone || '-' }}</span>
+                  <input v-else v-model="editedEntreprise.telephone" class="input" />
                 </div>
               </div>
 
@@ -97,22 +129,23 @@
                 <span class="info-label">Adresse Siège</span>
                 <div class="flex items-start gap-2 text-gray-900">
                   <MapPin class="w-4 h-4 text-gray-400 mt-0.5" />
-                  <span class="text-sm">{{ entreprise.adresse || '-' }}</span>
+                  <span v-if="!editing" class="text-sm">{{ entreprise.adresse || '-' }}</span>
+                  <input v-else v-model="editedEntreprise.adresse" class="input" />
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Sites List (Right Column - Wider) -->
-        <div class="card lg:col-span-2">
+        <!-- Sites List (Below the fiche, full width) -->
+        <div class="card lg:col-span-3 overflow-auto">
           <div class="card-header-simple">
             <h2 class="card-title">Sites rattachés</h2>
             <span class="text-xs text-gray-500">{{ sites.length }} site(s)</span>
           </div>
 
           <!-- Loading Sites -->
-          <div v-if="loadingSites" class="py-12 flex justify-center">
+          <div v-if="loadingSites" class="py-6 flex justify-center">
             <div class="spinner w-8 h-8"></div>
           </div>
 
@@ -158,8 +191,7 @@
                   </td>
                   <td>
                     <div class="flex justify-end gap-2">
-                      <router-link :to="{ name: 'site-detail', params: { id: site.id } }"
-                        class="action-btn text-blue-600" title="Voir détails">
+                      <router-link :to="{ name: 'site-detail', params: { id: site.id } }" class="action-btn text-blue-600" title="Voir détails">
                         <ExternalLink class="w-4 h-4" />
                       </router-link>
                     </div>
@@ -168,9 +200,11 @@
               </tbody>
             </table>
           </div>
-        </div>
+        </div> 
       </div>
     </div>
+
+
 
     <!-- Create Site Modal -->
     <Modal v-model:show="showCreateSiteModal" title="Nouveau Site" size="md" :closeOnOverlay="true">
@@ -215,7 +249,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeft, Plus, Edit, Building, Mail, Phone, MapPin, ExternalLink
 } from 'lucide-vue-next'
@@ -224,6 +258,7 @@ import entrepriseService from '@/services/entrepriseService'
 import siteService from '@/services/siteService'
 
 const route = useRoute()
+const router = useRouter()
 const entrepriseId = Number(route.params.id)
 
 const entreprise = ref(null)
@@ -232,6 +267,9 @@ const sites = ref([])
 const loadingEntreprise = ref(true)
 const errorEntreprise = ref(null)
 const loadingSites = ref(false)
+
+const editing = ref(Boolean(route.query.edit))
+const editedEntreprise = ref(null)
 
 const showCreateSiteModal = ref(false)
 const createSiteLoading = ref(false)
@@ -244,6 +282,29 @@ const newSite = ref({
   entreprise_id: entrepriseId,
   est_actif: true
 })
+
+// Edit handlers
+const startEdit = () => {
+  editedEntreprise.value = { ...entreprise.value }
+  editing.value = true
+}
+
+const cancelEdit = () => {
+  editedEntreprise.value = null
+  editing.value = false
+}
+
+const saveEdit = async () => {
+  try {
+    await entrepriseService.update(entrepriseId, editedEntreprise.value)
+    await loadEntreprise()
+    editing.value = false
+    alert('Entreprise mise à jour avec succès')
+  } catch (err) {
+    console.error('Erreur mise à jour entreprise:', err)
+    alert('Erreur lors de la mise à jour de l\'entreprise')
+  }
+}
 
 const getTypeBadgeClass = (type) => {
   switch (type) {
@@ -261,6 +322,9 @@ const loadEntreprise = async () => {
   try {
     const resp = await entrepriseService.getById(entrepriseId)
     entreprise.value = resp.data
+    if (editing.value) {
+      editedEntreprise.value = { ...entreprise.value }
+    }
   } catch (err) {
     errorEntreprise.value = "Impossible de charger les informations de l'entreprise."
     console.error(err)
@@ -313,6 +377,11 @@ const createSite = async () => {
   } finally {
     createSiteLoading.value = false
   }
+}
+
+const openSiteDetails = (site) => {
+  // Navigate to the dedicated Site detail page
+  router.push({ name: 'site-detail', params: { id: site.id } })
 }
 
 onMounted(async () => {
