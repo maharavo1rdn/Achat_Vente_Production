@@ -283,21 +283,25 @@ class DashboardModel
 
     private function getArticlesEnRupture(): array
     {
+        // Aggregate stock per article across depots and collect entreprise names
         $query = "
             SELECT
                 a.id,
                 a.reference,
                 a.designation,
-                COALESCE(s.quantite_actuelle, 0) as stock_actuel,
-                u.libelle as unite,
-                e.nom as entreprise_nom
+                COALESCE(SUM(s.quantite_actuelle), 0) AS stock_actuel,
+                u.libelle AS unite,
+                STRING_AGG(DISTINCT e.nom, ', ') AS entreprises
             FROM article a
             INNER JOIN unite u ON a.unite_id = u.id
             LEFT JOIN stock s ON a.id = s.article_id
-            LEFT JOIN entreprise e ON s.entreprise_id = e.id
+            LEFT JOIN depot d ON s.depot_id = d.id
+            LEFT JOIN site st ON d.site_id = st.id
+            LEFT JOIN entreprise e ON st.entreprise_id = e.id
             WHERE a.est_actif = true
-            AND COALESCE(s.quantite_actuelle, 0) <= 10
-            ORDER BY s.quantite_actuelle ASC, a.designation
+            GROUP BY a.id, a.reference, a.designation, u.libelle
+            HAVING COALESCE(SUM(s.quantite_actuelle), 0) <= 10
+            ORDER BY stock_actuel ASC, a.designation
             LIMIT 20
         ";
         $stmt = $this->db->prepare($query);

@@ -70,11 +70,11 @@ if (Debugger::$showBar && php_sapi_name() !== 'cli') {
 return [
 	'database' => [
 		// PostgreSQL settings
-		 'host' => 'localhost',
-		 'port' => 5432,
-		 'dbname' => 'achat_vente_db',
-		 'user' => 'postgres',
-		 'password' => 'ando'
+		'host' => 'localhost',
+		'port' => 5432,
+		'dbname' => 'achat_vente_db',
+		'user' => 'postgres',
+		'password' => 'p@ssw0rd'
 
 		// If you prefer SQLite, use the following instead
 		// 'file_path' => __DIR__ . $ds . '..' . $ds . 'database.sqlite'

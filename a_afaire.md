@@ -12,7 +12,6 @@ Ce document définit les tâches de développement pour le système ERP basé su
 
 ## 📦 MODULE 1 : Structure du Groupe & Référentiel(Maharavo)
 **Responsable : Développeur 1**
-
 ### 1.1. Gestion des Entreprises (Sociétés et Filiales)
 * **Saisie-Société** (optionnel)
     * **Métier :** Classe `EntrepriseModel`, fonction `save(data)`. Validation du type (CLIENT, FOURNISSEUR, INTERNE).

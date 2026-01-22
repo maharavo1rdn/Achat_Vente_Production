@@ -7,6 +7,8 @@ use app\controllers\VenteController;
 use app\controllers\CaisseController;
 use app\controllers\EntrepriseController;
 use app\controllers\PersonnelController;
+use app\controllers\SiteController;
+use app\controllers\DepotController;
 use app\controllers\DashboardController;
 
 use flight\Engine;
@@ -26,9 +28,11 @@ $Vente_Controller = new VenteController();
 $Caisse_Controller = new CaisseController();
 $Entreprise_Controller = new EntrepriseController();
 $Personnel_Controller = new PersonnelController();
+$Site_Controller = new SiteController();
+$Depot_Controller = new DepotController();
 
 // Page d'accueil
-$router->get('/', function() {
+$router->get('/', function () {
     Flight::json(['message' => 'API ERP Achat-Vente', 'version' => '1.0']);
 });
 
@@ -69,7 +73,7 @@ $router->group('/api/achats', function () use ($router, $Achat_Controller) {
         $router->delete('/@id:[0-9]+', [$Achat_Controller, 'deleteProforma']);
         $router->post('/@id:[0-9]+/convert-bc', [$Achat_Controller, 'convertProformaToBonCommande']);
     });
-    
+
     // Bon de Commande Achat
     $router->group('/bon-commande', function () use ($router, $Achat_Controller) {
         $router->get('', [$Achat_Controller, 'getAllBonCommande']);
@@ -79,7 +83,7 @@ $router->group('/api/achats', function () use ($router, $Achat_Controller) {
         $router->delete('/@id:[0-9]+', [$Achat_Controller, 'deleteBonCommande']);
         $router->post('/@id:[0-9]+/convert-facture', [$Achat_Controller, 'convertBonCommandeToFacture']);
     });
-    
+
     // Factures Achat
     $router->group('/factures', function () use ($router, $Achat_Controller) {
         $router->get('', [$Achat_Controller, 'getAllFactures']);
@@ -101,7 +105,7 @@ $router->group('/api/ventes', function () use ($router, $Vente_Controller) {
         $router->delete('/@id:[0-9]+', [$Vente_Controller, 'deleteDevis']);
         $router->post('/@id:[0-9]+/convert-bc', [$Vente_Controller, 'convertDevisToBonCommande']);
     });
-    
+
     $router->group('/bon-commande', function () use ($router, $Vente_Controller) {
         $router->get('', [$Vente_Controller, 'getAllBonCommande']);
         $router->get('/@id:[0-9]+', [$Vente_Controller, 'getBonCommandeById']);
@@ -110,7 +114,7 @@ $router->group('/api/ventes', function () use ($router, $Vente_Controller) {
         $router->delete('/@id:[0-9]+', [$Vente_Controller, 'deleteBonCommande']);
         $router->post('/@id:[0-9]+/convert-facture', [$Vente_Controller, 'convertBonCommandeToFacture']);
     });
-    
+
     $router->group('/factures', function () use ($router, $Vente_Controller) {
         $router->get('', [$Vente_Controller, 'getAllFactures']);
         $router->get('/@id:[0-9]+', [$Vente_Controller, 'getFactureById']);
@@ -146,6 +150,27 @@ $router->group('/api/entreprises', function () use ($router, $Entreprise_Control
     $router->get('/type/@type', [$Entreprise_Controller, 'getByType']);
 });
 
+$router->group('/api/sites', function () use ($router, $Site_Controller) {
+    $router->get('', [$Site_Controller, 'getAll']);
+    $router->get('/@id:[0-9]+', [$Site_Controller, 'getById']);
+    $router->post('', [$Site_Controller, 'create']);
+    $router->put('/@id:[0-9]+', [$Site_Controller, 'update']);
+    $router->delete('/@id:[0-9]+', [$Site_Controller, 'delete']);
+    $router->get('/entreprise/@entrepriseId:[0-9]+', [$Site_Controller, 'getByEntreprise']);
+    $router->post('/@id:[0-9]+/active', [$Site_Controller, 'setActive']);
+});
+
+$router->group('/api/depots', function () use ($router, $Depot_Controller) {
+    $router->get('', [$Depot_Controller, 'getAll']);
+    $router->get('/@id:[0-9]+', [$Depot_Controller, 'getById']);
+    $router->post('', [$Depot_Controller, 'create']);
+    $router->put('/@id:[0-9]+', [$Depot_Controller, 'update']);
+    $router->delete('/@id:[0-9]+', [$Depot_Controller, 'delete']);
+    $router->get('/site/@siteId:[0-9]+', [$Depot_Controller, 'getBySite']);
+    $router->get('/entreprise/@entrepriseId:[0-9]+', [$Depot_Controller, 'getByEntreprise']);
+    $router->post('/@id:[0-9]+/active', [$Depot_Controller, 'setActive']);
+});
+
 $router->group('/api/personnel', function () use ($router, $Personnel_Controller) {
     $router->get('', [$Personnel_Controller, 'getAll']);
     $router->get('/@id:[0-9]+', [$Personnel_Controller, 'getById']);
@@ -155,10 +180,11 @@ $router->group('/api/personnel', function () use ($router, $Personnel_Controller
     $router->post('/@id:[0-9]+/reset-password', [$Personnel_Controller, 'resetPassword']);
     $router->get('/role/@roleId:[0-9]+', [$Personnel_Controller, 'getByRole']);
     $router->get('/filiale/@filialeId:[0-9]+', [$Personnel_Controller, 'getByFiliale']);
+    $router->get('/roles', [$Personnel_Controller, 'getRoles']);
+    $router->post('/authenticate', [$Personnel_Controller, 'authenticate']);
 });
 
-// Gestion des erreurs 404
-$router->map('/*', function() {
+$router->map('/*', function () {
     Flight::json([
         'error' => true,
         'message' => 'Route not found'

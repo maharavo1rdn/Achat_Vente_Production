@@ -11,9 +11,25 @@ class PersonnelController
     public function getAll()
     {
         try {
-            $filters = Flight::request()->query;
-            $personnel = Flight::personnelModel()->getAll($filters);
-            Flight::json($personnel);
+            $raw = (array) Flight::request()->query;
+            $filters = [];
+            foreach ($raw as $k => $v) {
+                if ($v === null || $v === '') continue;
+                $filters[$k] = is_string($v) ? trim($v) : $v;
+            }
+
+            $result = Flight::personnelModel()->getAll($filters);
+            // Normalize response: { data, total, page, per_page }
+            if (is_array($result) && isset($result['data'])) {
+                Flight::json([
+                    'data' => $result['data'],
+                    'total' => $result['total'] ?? count($result['data']),
+                    'page' => $result['page'] ?? 1,
+                    'per_page' => $result['per_page'] ?? count($result['data'])
+                ]);
+            } else {
+                Flight::json(['data' => $result]);
+            }
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -36,9 +52,21 @@ class PersonnelController
     public function create()
     {
         try {
-            $data = Flight::request()->data;
+            $data = (array) Flight::request()->data;
+
+            if (isset($data['est_actif'])) {
+                $data['est_actif'] = filter_var($data['est_actif'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                if ($data['est_actif'] === null) $data['est_actif'] = true;
+            }
+
+            if (isset($data['entreprise_id']))
+                $data['entreprise_id'] = $data['entreprise_id'] === '' ? null : (int)$data['entreprise_id'];
+
+            if (isset($data['site_defaut_id']))
+                $data['site_defaut_id'] = $data['site_defaut_id'] === '' ? null : (int)$data['site_defaut_id'];
+
             $result = Flight::personnelModel()->create($data);
-            Flight::json($result, 201);
+            Flight::json(['id' => (int)$result], 201);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -47,9 +75,22 @@ class PersonnelController
     public function update($id)
     {
         try {
-            $data = Flight::request()->data;
+            $data = (array) Flight::request()->data;
+
+            if (isset($data['est_actif'])) {
+                $data['est_actif'] = filter_var($data['est_actif'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                if ($data['est_actif'] === null) $data['est_actif'] = true;
+            }
+
+            if (isset($data['entreprise_id']))
+                $data['entreprise_id'] = $data['entreprise_id'] === '' ? null : (int)$data['entreprise_id'];
+
+            if (isset($data['site_defaut_id']))
+                $data['site_defaut_id'] = $data['site_defaut_id'] === '' ? null : (int)$data['site_defaut_id'];
+
             $result = Flight::personnelModel()->update($id, $data);
-            Flight::json($result);
+            if ($result) Flight::json(['success' => true]);
+            else Flight::json(['error' => 'Aucune modification effectuée ou personnel introuvable'], 404);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -68,8 +109,10 @@ class PersonnelController
     public function resetPassword($id)
     {
         try {
-            $result = Flight::personnelModel()->resetPassword($id);
-            Flight::json($result);
+            $payload = (array) Flight::request()->data;
+            $newPassword = $payload['password'] ?? null;
+            $result = Flight::personnelModel()->resetPassword($id, $newPassword);
+            Flight::json(['success' => (bool)$result]);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -90,6 +133,16 @@ class PersonnelController
         try {
             $personnel = Flight::personnelModel()->getByFiliale($filialeId);
             Flight::json($personnel);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getRoles()
+    {
+        try {
+            $roles = Flight::personnelModel()->getRoles();
+            Flight::json($roles);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }

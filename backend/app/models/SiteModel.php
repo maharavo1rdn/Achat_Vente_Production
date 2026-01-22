@@ -5,7 +5,7 @@ namespace app\models;
 use InvalidArgumentException;
 use PDO;
 
-class EntrepriseModel
+class SiteModel
 {
     private $db;
 
@@ -16,67 +16,61 @@ class EntrepriseModel
 
     public function getAll($filters = [])
     {
-        error_log("EntrepriseModel::getAll called with filters: " . json_encode($filters));
+        error_log("SiteModel::getAll called with filters: " . json_encode($filters));
 
         $query = "
             SELECT
-                id,
-                nom,
-                groupe_id,
-                type_entreprise,
-                matricule_fiscal,
-                adresse,
-                telephone,
-                email,
-                est_actif,
-                date_creation
-            FROM entreprise
+                s.id,
+                s.nom,
+                s.adresse,
+                s.telephone,
+                s.email,
+                s.entreprise_id,
+                e.nom AS entreprise_nom,
+                s.est_actif,
+                s.date_creation
+            FROM site s
+            LEFT JOIN entreprise e ON e.id = s.entreprise_id
             WHERE 1=1
         ";
 
         $params = [];
 
-        if (isset($filters['type_entreprise'])) {
-            $query .= " AND type_entreprise = ?";
-            $params[] = $filters['type_entreprise'];
-        }
-
-        if (isset($filters['groupe_id'])) {
-            $query .= " AND groupe_id = ?";
-            $params[] = (int)$filters['groupe_id'];
+        if (isset($filters['entreprise_id'])) {
+            $query .= " AND s.entreprise_id = ?";
+            $params[] = (int)$filters['entreprise_id'];
         }
 
         if (isset($filters['est_actif'])) {
             $val = filter_var($filters['est_actif'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
             if ($val !== null) {
-                $query .= " AND est_actif = ?";
+                $query .= " AND s.est_actif = ?";
                 $params[] = $val;
             }
         }
 
-        $stringFields = ['nom', 'email', 'matricule_fiscal', 'adresse', 'telephone'];
+        $stringFields = ['s.nom', 's.adresse', 's.email', 's.telephone', 'e.nom'];
         foreach ($stringFields as $field) {
-            if (isset($filters[$field]) && $filters[$field] !== '') {
+            $key = str_replace(['s.', 'e.'], '', $field);
+            if (isset($filters[$key]) && $filters[$key] !== '') {
                 $query .= " AND UPPER(" . $field . ") LIKE ?";
-                $params[] = '%' . mb_strtoupper($filters[$field], 'UTF-8') . '%';
+                $params[] = '%' . mb_strtoupper($filters[$key], 'UTF-8') . '%';
             }
         }
 
         if (isset($filters['search']) && $filters['search'] !== '') {
             $s = '%' . mb_strtoupper($filters['search'], 'UTF-8') . '%';
-            $query .= " AND (UPPER(nom) LIKE ? OR UPPER(email) LIKE ? OR UPPER(matricule_fiscal) LIKE ? OR UPPER(adresse) LIKE ? OR UPPER(telephone) LIKE ?)";
-            for ($i = 0; $i < 5; $i++) {
-                $params[] = $s;
-            }
+            $query .= " AND (UPPER(s.nom) LIKE ? OR UPPER(s.adresse) LIKE ? OR UPPER(s.email) LIKE ? OR UPPER(s.telephone) LIKE ? OR UPPER(e.nom) LIKE ?)";
+            for ($i = 0; $i < 5; $i++) $params[] = $s;
         }
 
-        $query .= " ORDER BY nom";
+        $query .= " ORDER BY s.nom";
 
         $stmt = $this->db->prepare($query);
         $stmt->execute($params);
 
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        error_log("EntrepriseModel::getAll retrieved " . count($results) . " entreprises");
+        error_log("SiteModel::getAll retrieved " . count($results) . " sites");
 
         return $results;
     }
@@ -87,22 +81,22 @@ class EntrepriseModel
             throw new InvalidArgumentException("L'ID doit être un entier positif");
         }
 
-        error_log("EntrepriseModel::getById called with id=$id");
+        error_log("SiteModel::getById called with id=$id");
 
         $query = "
             SELECT
-                id,
-                nom,
-                groupe_id,
-                type_entreprise,
-                matricule_fiscal,
-                adresse,
-                telephone,
-                email,
-                est_actif,
-                date_creation
-            FROM entreprise
-            WHERE id = ?
+                s.id,
+                s.nom,
+                s.adresse,
+                s.telephone,
+                s.email,
+                s.entreprise_id,
+                e.nom AS entreprise_nom,
+                s.est_actif,
+                s.date_creation
+            FROM site s
+            LEFT JOIN entreprise e ON e.id = s.entreprise_id
+            WHERE s.id = ?
         ";
 
         $stmt = $this->db->prepare($query);
@@ -111,41 +105,38 @@ class EntrepriseModel
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$result) {
-            error_log("EntrepriseModel::getById entreprise with id=$id not found");
+            error_log("SiteModel::getById site with id=$id not found");
             return null;
         }
 
-        error_log("EntrepriseModel::getById entreprise found: " . $result['nom']);
+        error_log("SiteModel::getById site found: " . $result['nom']);
         return $result;
     }
 
     public function create($data)
     {
-        $this->validateEntrepriseData($data);
+        $this->validateSiteData($data);
 
-        error_log("EntrepriseModel::create called with data: " . json_encode($data));
+        error_log("SiteModel::create called with data: " . json_encode($data));
 
         $query = "
-            INSERT INTO entreprise (
-                nom, groupe_id, type_entreprise, matricule_fiscal, adresse,
-                telephone, email, est_actif
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO site (
+                nom, adresse, telephone, email, entreprise_id, est_actif
+            ) VALUES (?, ?, ?, ?, ?, ?)
         ";
 
         $stmt = $this->db->prepare($query);
         $stmt->execute([
             $data['nom'],
-            $data['groupe_id'] ?? null,
-            $data['type_entreprise'],
-            $data['matricule_fiscal'] ?? null,
             $data['adresse'] ?? null,
             $data['telephone'] ?? null,
             $data['email'] ?? null,
+            $data['entreprise_id'] ?? null,
             $data['est_actif'] ?? true
         ]);
 
         $newId = $this->db->lastInsertId();
-        error_log("EntrepriseModel::create created entreprise with id=$newId");
+        error_log("SiteModel::create created site with id=$newId");
 
         return (int)$newId;
     }
@@ -156,19 +147,17 @@ class EntrepriseModel
             throw new InvalidArgumentException("L'ID doit être un entier positif");
         }
 
-        $this->validateEntrepriseData($data, false);
+        $this->validateSiteData($data, false);
 
-        error_log("EntrepriseModel::update called with id=$id, data: " . json_encode($data));
+        error_log("SiteModel::update called with id=$id, data: " . json_encode($data));
 
         $query = "
-            UPDATE entreprise SET
+            UPDATE site SET
                 nom = ?,
-                groupe_id = ?,
-                type_entreprise = ?,
-                matricule_fiscal = ?,
                 adresse = ?,
                 telephone = ?,
                 email = ?,
+                entreprise_id = ?,
                 est_actif = ?
             WHERE id = ?
         ";
@@ -176,22 +165,20 @@ class EntrepriseModel
         $stmt = $this->db->prepare($query);
         $result = $stmt->execute([
             $data['nom'],
-            $data['groupe_id'] ?? 1,
-            $data['type_entreprise'],
-            $data['matricule_fiscal'] ?? null,
             $data['adresse'] ?? null,
             $data['telephone'] ?? null,
             $data['email'] ?? null,
+            $data['entreprise_id'] ?? null,
             $data['est_actif'] ?? true,
             $id
         ]);
 
         if ($result && $stmt->rowCount() > 0) {
-            error_log("EntrepriseModel::update updated entreprise with id=$id");
+            error_log("SiteModel::update updated site with id=$id");
             return true;
         }
 
-        error_log("EntrepriseModel::update no entreprise updated with id=$id");
+        error_log("SiteModel::update no site updated with id=$id");
         return false;
     }
 
@@ -201,18 +188,18 @@ class EntrepriseModel
             throw new InvalidArgumentException("L'ID doit être un entier positif");
         }
 
-        error_log("EntrepriseModel::delete called with id=$id");
+        error_log("SiteModel::delete called with id=$id");
 
-        $query = "DELETE FROM entreprise WHERE id = ?";
+        $query = "DELETE FROM site WHERE id = ?";
         $stmt = $this->db->prepare($query);
         $result = $stmt->execute([$id]);
 
         if ($result && $stmt->rowCount() > 0) {
-            error_log("EntrepriseModel::delete deleted entreprise with id=$id");
+            error_log("SiteModel::delete deleted site with id=$id");
             return true;
         }
 
-        error_log("EntrepriseModel::delete no entreprise deleted with id=$id");
+        error_log("SiteModel::delete no site deleted with id=$id");
         return false;
     }
 
@@ -262,39 +249,34 @@ class EntrepriseModel
         return $this->getByType('FOURNISSEUR');
     }
 
-    public function getFiliales(): array
+    public function getByEntreprise($entrepriseId): array
     {
-        error_log("EntrepriseModel::getFiliales called");
-        return $this->getByType('INTERNE');
-    }
-
-    private function groupeExists($groupeId): bool
-    {
-        if ($groupeId === null) return true;
-        if (!is_numeric($groupeId) || (int)$groupeId <= 0) return false;
-
-        $stmt = $this->db->prepare("SELECT 1 FROM groupe WHERE id = ?");
-        $stmt->execute([(int)$groupeId]);
-        return (bool)$stmt->fetchColumn();
-    }
-
-    public function getByGroupe($groupeId): array
-    {
-        if (!is_numeric($groupeId) || (int)$groupeId <= 0) {
-            throw new InvalidArgumentException("L'ID du groupe doit être un entier positif");
+        if (!is_numeric($entrepriseId) || (int)$entrepriseId <= 0) {
+            throw new InvalidArgumentException("L'ID de l'entreprise doit être un entier positif");
         }
 
         $query = "
-            SELECT id, nom, groupe_id, type_entreprise, matricule_fiscal, adresse, telephone, email, est_actif, date_creation
-            FROM entreprise
-            WHERE groupe_id = ?
-            ORDER BY nom
+            SELECT s.id, s.nom, s.adresse, s.telephone, s.email, s.entreprise_id, e.nom AS entreprise_nom, s.est_actif, s.date_creation
+            FROM site s
+            LEFT JOIN entreprise e ON e.id = s.entreprise_id
+            WHERE s.entreprise_id = ?
+            ORDER BY s.nom
         ";
 
         $stmt = $this->db->prepare($query);
-        $stmt->execute([(int)$groupeId]);
+        $stmt->execute([(int)$entrepriseId]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function entrepriseExists($entrepriseId): bool
+    {
+        if ($entrepriseId === null) return true;
+        if (!is_numeric($entrepriseId) || (int)$entrepriseId <= 0) return false;
+
+        $stmt = $this->db->prepare("SELECT 1 FROM entreprise WHERE id = ?");
+        $stmt->execute([(int)$entrepriseId]);
+        return (bool)$stmt->fetchColumn();
     }
 
     public function setActive($id, bool $active): bool
@@ -303,43 +285,26 @@ class EntrepriseModel
             throw new InvalidArgumentException("L'ID doit être un entier positif");
         }
 
-        $stmt = $this->db->prepare("UPDATE entreprise SET est_actif = ? WHERE id = ?");
+        $stmt = $this->db->prepare("UPDATE site SET est_actif = ? WHERE id = ?");
         $result = $stmt->execute([$active ? true : false, $id]);
 
         if ($result && $stmt->rowCount() > 0) {
-            error_log("EntrepriseModel::setActive updated entreprise id=$id to " . ($active ? 'active' : 'inactive'));
+            error_log("SiteModel::setActive updated site id=$id to " . ($active ? 'active' : 'inactive'));
             return true;
         }
 
         return false;
     }
 
-    private function validateEntrepriseData(array $data, bool $isCreation = true): void
+    private function validateSiteData(array $data, bool $isCreation = true): void
     {
         if ($isCreation || isset($data['nom'])) {
             if (empty($data['nom'])) {
-                throw new InvalidArgumentException("Le nom est obligatoire");
+                throw new InvalidArgumentException("Le nom du site est obligatoire");
             }
             if (strlen($data['nom']) > 200) {
-                throw new InvalidArgumentException("Le nom ne peut pas dépasser 200 caractères");
+                throw new InvalidArgumentException("Le nom du site ne peut pas dépasser 200 caractères");
             }
-        }
-
-        if ($isCreation || isset($data['type_entreprise'])) {
-            $typesValides = ['CLIENT', 'FOURNISSEUR', 'INTERNE', 'PARTENAIRE'];
-            if (!in_array($data['type_entreprise'], $typesValides)) {
-                throw new InvalidArgumentException("Type d'entreprise invalide");
-            }
-        }
-
-        if (isset($data['groupe_id'])) {
-            if (!$this->groupeExists($data['groupe_id'])) {
-                throw new InvalidArgumentException("Groupe invalide ou introuvable");
-            }
-        }
-
-        if (isset($data['matricule_fiscal']) && strlen($data['matricule_fiscal']) > 100) {
-            throw new InvalidArgumentException("Le matricule fiscal ne peut pas dépasser 100 caractères");
         }
 
         if (isset($data['adresse']) && strlen($data['adresse']) > 200) {
@@ -356,6 +321,12 @@ class EntrepriseModel
             }
             if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
                 throw new InvalidArgumentException("Format d'email invalide");
+            }
+        }
+
+        if (isset($data['entreprise_id'])) {
+            if (!$this->entrepriseExists($data['entreprise_id'])) {
+                throw new InvalidArgumentException("Entreprise invalide ou introuvable");
             }
         }
     }
