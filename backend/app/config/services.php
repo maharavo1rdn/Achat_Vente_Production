@@ -18,6 +18,8 @@ use app\models\DashboardModel;
 use app\models\SiteModel;
 use app\models\ProformaDemandeAchatModel;
 use app\models\ProformaFournisseurModel;
+use app\models\PaiementVenteModel;
+use app\models\PaiementAchatModel;
 
 /** 
  * @var array $config This comes from the returned array at the bottom of the config.php file
@@ -98,4 +100,12 @@ Flight::map('proformaDemandeAchatModel', function() {
 
 Flight::map('proformaFournisseurModel', function() {
     return new ProformaFournisseurModel(Flight::db());
+});
+
+Flight::map('paiementVenteModel', function() {
+    return new PaiementVenteModel(Flight::db());
+});
+
+Flight::map('paiementAchatModel', function() {
+    return new PaiementAchatModel(Flight::db());
 });

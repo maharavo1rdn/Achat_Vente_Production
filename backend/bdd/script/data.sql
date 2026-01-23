@@ -6,8 +6,8 @@
 -- 0. NETTOYAGE PRÉALABLE
 -- ==============================================================================
 TRUNCATE TABLE 
-paiement_achat_details, paiement_achat, 
-paiement_vente_details, paiement_vente, 
+paiement_achat, 
+paiement_vente, 
 caisse_mouvement, caisse, 
 facture_achat_details, facture_achat, 
 facture_vente_details, facture_vente, 
@@ -60,11 +60,6 @@ INSERT INTO mode_paiement (id, code, libelle) VALUES
 (4, 'MVola', 'Mobile Money (MVola)'),
 (5, 'AirtelMoney', 'Mobile Money (Airtel)'),
 (6, 'OrangeMoney', 'Mobile Money (Orange)');
-
-INSERT INTO paiement_statut (id, code, libelle, niveau) VALUES
-(1, 'NON_PAYE', 'Non payé', 0),
-(2, 'PARTIEL', 'Partiellement payé', 1),
-(3, 'PAYE', 'Payé', 2);
 
 INSERT INTO methode_valorisation_stock (id, code, libelle, description) VALUES
 (1, 'CMUP', 'Coût Moyen Unitaire Pondéré', 'Recalculé à chaque entrée'),
@@ -209,12 +204,10 @@ INSERT INTO caisse_mouvement (id, date_mouvement, libelle_operation, montant_ent
 (3, NOW() - INTERVAL '15 days', 'Paiement Facture Ecrans', 0, 4500000, 100000000, 95500000, 1, 2);
 UPDATE caisse SET solde_actuel = 95500000 WHERE id = 1;
 
-INSERT INTO paiement_achat (id, paiement_statut_id, numero_paiement, date_paiement, facture_achat_id, caisse_mouvement_id, montant_total_du, montant_total_paye) VALUES
-(1, 3, 'PAY-ACH-001', NOW() - INTERVAL '15 days', 1, 3, 4500000, 4500000);
-
-INSERT INTO paiement_achat_details (id, paiement_achat_id, mode_paiement_id, montant, reference_externe) VALUES
-(1, 1, 2, 4000000, 'CHQ-BNI-009988'),
-(2, 1, 1, 500000, NULL);
+-- Paiements achat : on remplace les lignes détails par paiements par mode
+INSERT INTO paiement_achat (id, numero_paiement, mode_paiement_id, statut_id, facture_achat_id, caisse_mouvement_id, montant, date_paiement) VALUES
+(1, 'PAY-ACH-001-1', 2, 3, 1, 3, 4000000, NOW() - INTERVAL '15 days'),
+(2, 'PAY-ACH-001-2', 1, 3, 1, 3, 500000, NOW() - INTERVAL '15 days');
 
 
 -- 7. SCÉNARIO : VENTE SHOWROOM
@@ -246,11 +239,12 @@ INSERT INTO caisse_mouvement (id, date_mouvement, libelle_operation, montant_ent
 (4, NOW() - INTERVAL '1 day', 'Vente Client Comptoir', 2425000, 0, 2000000, 4425000, 2, 4);
 UPDATE caisse SET solde_actuel = 4425000 WHERE id = 2;
 
-INSERT INTO paiement_vente (id, numero_recu, paiement_statut_id, date_paiement, facture_vente_id, caisse_mouvement_id, montant_total_du, montant_total_paye) VALUES
-(1, 'REC-001', 3, NOW() - INTERVAL '1 day', 1, 4, 2425000, 2425000);
+-- Paiements vente : paiement par mode (un enregistrement = un mode + montant)
+INSERT INTO paiement_vente (id, numero_recu, mode_paiement_id, statut_id, facture_vente_id, caisse_mouvement_id, montant, date_paiement) VALUES
+(1, 'REC-001', 4, 3, 1, 4, 2425000, NOW() - INTERVAL '1 day');
 
-INSERT INTO paiement_vente_details (id, paiement_vente_id, mode_paiement_id, montant, reference_externe) VALUES
-(1, 1, 4, 2425000, 'TRANS-ID-88887777');
+-- Exemple: Paiement partiel en attente pour la facture 2 (B2B) déplacé pour garantir l'existence de la facture (voir plus bas)
+-- INSERT moved below after creation of facture_vente id=2
 
 
 -- 8. SCÉNARIO : GROSSE VENTE B2B (Avec BC)
@@ -269,6 +263,10 @@ INSERT INTO facture_vente (id, numero_facture, date_facture, bon_commande_vente_
 
 INSERT INTO facture_vente_details (id, facture_vente_id, article_id, quantite, prix_unitaire) VALUES
 (3, 2, 1, 5, 2400000);
+
+-- Exemple: Paiement partiel en attente pour la facture 2 (B2B) : création d'un paiement draft
+INSERT INTO paiement_vente (id, numero_recu, mode_paiement_id, statut_id, facture_vente_id, caisse_mouvement_id, montant, date_paiement) VALUES
+(2, 'REC-002', 2, 1, 2, NULL, 4000000, NOW());
 
 -- 3. Stock
 UPDATE stock SET quantite_actuelle = 5 WHERE id = 1;
@@ -309,12 +307,10 @@ SELECT setval('bon_commande_achat_details_id_seq', (SELECT MAX(id) FROM bon_comm
 SELECT setval('facture_achat_id_seq', (SELECT MAX(id) FROM facture_achat));
 SELECT setval('facture_achat_details_id_seq', (SELECT MAX(id) FROM facture_achat_details));
 SELECT setval('paiement_achat_id_seq', (SELECT MAX(id) FROM paiement_achat));
-SELECT setval('paiement_achat_details_id_seq', (SELECT MAX(id) FROM paiement_achat_details));
 
 -- Séquences Ventes
 SELECT setval('facture_vente_id_seq', (SELECT MAX(id) FROM facture_vente));
 SELECT setval('facture_vente_details_id_seq', (SELECT MAX(id) FROM facture_vente_details));
 SELECT setval('paiement_vente_id_seq', (SELECT MAX(id) FROM paiement_vente));
-SELECT setval('paiement_vente_details_id_seq', (SELECT MAX(id) FROM paiement_vente_details));
 SELECT setval('bon_commande_vente_id_seq', (SELECT MAX(id) FROM bon_commande_vente));
 SELECT setval('bon_commande_vente_details_id_seq', (SELECT MAX(id) FROM bon_commande_vente_details));

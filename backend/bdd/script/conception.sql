@@ -11,7 +11,6 @@ CREATE DATABASE achat_vente_db;
 -- 1. NETTOYAGE
 DROP TABLE IF EXISTS paiement_vente_details CASCADE;
 DROP TABLE IF EXISTS paiement_vente CASCADE;
-DROP TABLE IF EXISTS paiement_achat_details CASCADE;
 DROP TABLE IF EXISTS paiement_achat CASCADE;
 DROP TABLE IF EXISTS mode_paiement CASCADE;
 DROP TABLE IF EXISTS caisse_mouvement CASCADE;
@@ -28,7 +27,6 @@ DROP TABLE IF EXISTS proforma_fournisseur_details CASCADE;
 DROP TABLE IF EXISTS proforma_fournisseur CASCADE;
 
 -- NOUVEAU NETTOYAGE (Noms mis à jour)
-DROP TABLE IF EXISTS proforma_demande_achat_details CASCADE;
 DROP TABLE IF EXISTS proforma_demande_achat CASCADE;
 
 DROP TABLE IF EXISTS devis_vente_details CASCADE;
@@ -474,64 +472,34 @@ CREATE TABLE caisse_mouvement (
     FOREIGN KEY (personnel_id) REFERENCES personnel(id)
 );
 
---non paye, partiellement paye, paye
-CREATE TABLE paiement_statut (
-    id SERIAL PRIMARY KEY,
-    code VARCHAR(50) UNIQUE NOT NULL,
-    libelle VARCHAR(100),
-    niveau INTEGER DEFAULT 0
-);
-
 CREATE TABLE paiement_vente (
     id SERIAL PRIMARY KEY,
     numero_recu VARCHAR(50) UNIQUE,
-    paiement_statut_id INTEGER NOT NULL,
-    date_paiement DATE DEFAULT CURRENT_DATE,
-    facture_vente_id INTEGER NOT NULL,
-    caisse_mouvement_id INTEGER NOT NULL,
-    montant_total_du NUMERIC(15,2) NOT NULL,
-    montant_total_paye NUMERIC(15,2) NOT NULL DEFAULT 0,
-    FOREIGN KEY (paiement_statut_id) REFERENCES paiement_statut(id),
-    FOREIGN KEY (facture_vente_id) REFERENCES facture_vente(id),
-    FOREIGN KEY (caisse_mouvement_id) REFERENCES caisse_mouvement(id)
-);
-
-CREATE TABLE paiement_vente_details (
-    id SERIAL PRIMARY KEY,
-    paiement_vente_id INTEGER NOT NULL,
     mode_paiement_id INTEGER NOT NULL,
-    statut_id INTEGER DEFAULT 2,
-    montant NUMERIC(15,2) NOT NULL,
-    reference_externe VARCHAR(100),
+    statut_id INTEGER NOT NULL DEFAULT 1,
+    facture_vente_id INTEGER NOT NULL,
+    caisse_mouvement_id INTEGER,
+    montant NUMERIC(15,2) NOT NULL DEFAULT 0,
+    date_paiement DATE DEFAULT CURRENT_DATE,
     FOREIGN KEY (statut_id) REFERENCES statut(id),
-    FOREIGN KEY (paiement_vente_id) REFERENCES paiement_vente(id) ON DELETE CASCADE,
-    FOREIGN KEY (mode_paiement_id) REFERENCES mode_paiement(id)
+    FOREIGN KEY (facture_vente_id) REFERENCES facture_vente(id),
+    FOREIGN KEY (mode_paiement_id) REFERENCES mode_paiement(id),
+    FOREIGN KEY (caisse_mouvement_id) REFERENCES caisse_mouvement(id)
 );
 
 CREATE TABLE paiement_achat (
     id SERIAL PRIMARY KEY,
-    paiement_statut_id INTEGER NOT NULL,
     numero_paiement VARCHAR(50) UNIQUE,
-    date_paiement DATE DEFAULT CURRENT_DATE,
-    facture_achat_id INTEGER NOT NULL,
-    caisse_mouvement_id INTEGER NOT NULL,
-    montant_total_du NUMERIC(15,2) NOT NULL,
-    montant_total_paye NUMERIC(15,2) NOT NULL DEFAULT 0,
-    FOREIGN KEY (facture_achat_id) REFERENCES facture_achat(id),
-    FOREIGN KEY (paiement_statut_id) REFERENCES paiement_statut(id),
-    FOREIGN KEY (caisse_mouvement_id) REFERENCES caisse_mouvement(id)
-);
-
-CREATE TABLE paiement_achat_details (
-    id SERIAL PRIMARY KEY,
-    paiement_achat_id INTEGER NOT NULL,
     mode_paiement_id INTEGER NOT NULL,
-    statut_id INTEGER DEFAULT 2,
-    montant NUMERIC(15,2) NOT NULL,
-    reference_externe VARCHAR(100),
+    statut_id INTEGER NOT NULL DEFAULT 1,
+    facture_achat_id INTEGER NOT NULL,
+    caisse_mouvement_id INTEGER,
+    montant NUMERIC(15,2) NOT NULL DEFAULT 0,
+    date_paiement DATE DEFAULT CURRENT_DATE,
     FOREIGN KEY (statut_id) REFERENCES statut(id),
-    FOREIGN KEY (paiement_achat_id) REFERENCES paiement_achat(id) ON DELETE CASCADE,
-    FOREIGN KEY (mode_paiement_id) REFERENCES mode_paiement(id)
+    FOREIGN KEY (facture_achat_id) REFERENCES facture_achat(id),
+    FOREIGN KEY (mode_paiement_id) REFERENCES mode_paiement(id),
+    FOREIGN KEY (caisse_mouvement_id) REFERENCES caisse_mouvement(id)
 );
 
 -- ==========================================

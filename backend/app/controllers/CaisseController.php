@@ -118,23 +118,4 @@ class CaisseController {
         }
     }
 
-    public function enregistrerPaiementVente($factureId) {
-        try {
-            $data = Flight::request()->data;
-            $result = Flight::caisseModel()->enregistrerPaiementVente($factureId, $data->caisse_mouvement_id, $data->montant);
-            Flight::json($result);
-        } catch (Exception $e) {
-            Flight::json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    public function enregistrerPaiementAchat($factureId) {
-        try {
-            $data = Flight::request()->data;
-            $result = Flight::caisseModel()->enregistrerPaiementAchat($factureId, $data->caisse_mouvement_id, $data->montant);
-            Flight::json($result);
-        } catch (Exception $e) {
-            Flight::json(['error' => $e->getMessage()], 500);
-        }
-    }
 }
