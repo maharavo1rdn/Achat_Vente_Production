@@ -130,8 +130,8 @@ class AchatModel
         $query = "
             INSERT INTO proforma_fournisseur (
                 numero_proforma, date_emission, date_validite, entreprise_fournisseur_id,
-                entreprise_filiale_id, personnel_id, statut_id, montant_ht, montant_ttc
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                entreprise_filiale_id, personnel_id, statut_id, montant_ht, montant_ttc, proforma_demande_achat_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
 
         $stmt = $this->db->prepare($query);
@@ -144,7 +144,8 @@ class AchatModel
             $data['personnel_id'],
             $data['statut_id'],
             $data['montant_ht'] ?? 0,
-            $data['montant_ttc'] ?? 0
+            $data['montant_ttc'] ?? 0,
+            isset($data['proforma_demande_achat_id']) ? $data['proforma_demande_achat_id'] : null
         ]);
 
         $newId = $this->db->lastInsertId();

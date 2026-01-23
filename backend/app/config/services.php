@@ -16,6 +16,7 @@ use app\models\EntrepriseModel;
 use app\models\PersonnelModel;
 use app\models\DashboardModel;
 use app\models\SiteModel;
+use app\models\ProformaDemandeAchatModel;
 
 /** 
  * @var array $config This comes from the returned array at the bottom of the config.php file
@@ -88,4 +89,8 @@ Flight::map('siteModel', function() {
 
 Flight::map('depotModel', function() {
     return new DepotModel(Flight::db());
+});
+
+Flight::map('proformaDemandeAchatModel', function() {
+    return new ProformaDemandeAchatModel(Flight::db());
 });

@@ -10,6 +10,7 @@ use app\controllers\PersonnelController;
 use app\controllers\SiteController;
 use app\controllers\DepotController;
 use app\controllers\DashboardController;
+use app\controllers\ProformaDemandeAchatController;
 
 use flight\Engine;
 use flight\net\Router;
@@ -30,6 +31,7 @@ $Entreprise_Controller = new EntrepriseController();
 $Personnel_Controller = new PersonnelController();
 $Site_Controller = new SiteController();
 $Depot_Controller = new DepotController();
+$ProformaDemandeAchat_Controller = new ProformaDemandeAchatController();
 
 // Page d'accueil
 $router->get('/', function () {
@@ -182,6 +184,18 @@ $router->group('/api/personnel', function () use ($router, $Personnel_Controller
     $router->get('/filiale/@filialeId:[0-9]+', [$Personnel_Controller, 'getByFiliale']);
     $router->get('/roles', [$Personnel_Controller, 'getRoles']);
     $router->post('/authenticate', [$Personnel_Controller, 'authenticate']);
+});
+
+$router->group('/api/proforma-demande-achat', function () use ($router, $ProformaDemandeAchat_Controller) {
+    $router->get('', [$ProformaDemandeAchat_Controller, 'getAll']);
+    $router->get('/@id:[0-9]+', [$ProformaDemandeAchat_Controller, 'getById']);
+    $router->post('', [$ProformaDemandeAchat_Controller, 'create']);
+    $router->put('/@id:[0-9]+', [$ProformaDemandeAchat_Controller, 'update']);
+    $router->delete('/@id:[0-9]+', [$ProformaDemandeAchat_Controller, 'delete']);
+    $router->get('/@id:[0-9]+/details', [$ProformaDemandeAchat_Controller, 'getDetails']);
+    $router->post('/@id:[0-9]+/valider', [$ProformaDemandeAchat_Controller, 'valider']);
+    $router->post('/@id:[0-9]+/annuler', [$ProformaDemandeAchat_Controller, 'annuler']);
+    $router->post('/@id:[0-9]+/generer-proforma', [$ProformaDemandeAchat_Controller, 'genererProforma']);
 });
 
 $router->map('/*', function () {
