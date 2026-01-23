@@ -25,13 +25,7 @@
         <div class="stat-card">
           <div class="stat-content">
             <p class="stat-label">Total demandes</p>
-            <h3 class="stat-value">{{ demandes.length }}</h3>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-content">
-            <p class="stat-label">En attente</p>
-            <h3 class="stat-value text-orange-600">{{ enAttenteCount }}</h3>
+            <h3 class="stat-value">{{ demandesAll.length }}</h3>
           </div>
         </div>
         <div class="stat-card">
@@ -46,6 +40,12 @@
             <h3 class="stat-value text-red-600">{{ annuleesCount }}</h3>
           </div>
         </div>
+        <div class="stat-card">
+          <div class="stat-content">
+              <p class="stat-label">Montant estimé</p>
+            <h3 class="stat-value text-blue-600">{{ formatCurrency(montantTotalDemandes) }}</h3>
+          </div>
+        </div>
       </div>
 
       <!-- Filters -->
@@ -55,9 +55,12 @@
             <Filter class="w-4 h-4" />
             <h3 class="text-sm font-medium">Filtres</h3>
           </div>
-          <button @click="clearFilters" class="text-xs text-gray-600 hover:text-gray-900">
-            Réinitialiser
-          </button>
+          <div class="flex items-center gap-2">
+            <button @click="applyFilters" class="btn-secondary text-xs">Appliquer</button>
+            <button @click="resetFilters" class="text-xs text-gray-600 hover:text-gray-900">
+              Réinitialiser
+            </button>
+          </div>
         </div>
 
         <div class="filter-grid">
@@ -152,10 +155,10 @@
                       class="action-btn text-red-600" title="Supprimer">
                       <Trash2 class="w-4 h-4" />
                     </button>
-                    <button v-if="demande.statut_id == 3" @click="handleGenerateProforma(demande)"
+                    <button v-if="demande.statut_id == 3" @click="viewDemandeWithFournisseur(demande)"
                       class="action-btn" title="Générer proforma fournisseur">
                       <FilePlus class="w-4 h-4" />
-                    </button>
+                    </button>  
                   </div>
                 </td>
               </tr>
@@ -164,18 +167,26 @@
         </div>
       </div>
     </div>
+
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Plus, FileText, Pencil, Trash2, Check, X, Filter } from 'lucide-vue-next'
+import { Search, Plus, FileText, Pencil, Trash2, Check, X, Filter, FilePlus } from 'lucide-vue-next'
 import proformaDemandeAchatService from '@/services/proformaDemandeAchatService'
+import entrepriseService from '@/services/entrepriseService' 
 
 const router = useRouter()
-const demandes = ref([])
+const demandes = ref([]) // filtered list
+const demandesAll = ref([]) // full dataset for stats
 const loading = ref(false)
+const error = ref(null)
+
+const viewDemandeWithFournisseur = (demande) => {
+  router.push({ name: 'proforma-demande-achat-detail', params: { id: demande.id }, query: { showFournisseur: '1' } })
+}  
 
 const searchQuery = ref('')
 const filterStatut = ref('')
@@ -183,43 +194,37 @@ const filterDateDebut = ref('')
 const filterDateFin = ref('')
 
 const filteredDemandes = computed(() => {
-  let result = demandes.value
-
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    result = result.filter(d =>
-      d.numero_da?.toLowerCase().includes(query) ||
-      d.demandeur_nom?.toLowerCase().includes(query) ||
-      d.entreprise_nom?.toLowerCase().includes(query)
-    )
-  }
-
-  if (filterStatut.value) {
-    result = result.filter(d => d.statut_id == filterStatut.value)
-  }
-
-  if (filterDateDebut.value) {
-    result = result.filter(d => d.date_demande >= filterDateDebut.value)
-  }
-
-  if (filterDateFin.value) {
-    result = result.filter(d => d.date_demande <= filterDateFin.value)
-  }
-
-  return result
+  return demandes.value
 })
 
-const enAttenteCount = computed(() => demandes.value.filter(d => d.statut_id == 2).length)
-const valideesCount = computed(() => demandes.value.filter(d => d.statut_id == 3).length)
-const annuleesCount = computed(() => demandes.value.filter(d => d.statut_id == 5).length)
+const montantTotalDemandes = computed(() => demandesAll.value.reduce((sum, d) => sum + (Number(d.montant_ttc) || 0), 0))
+const valideesCount = computed(() => demandesAll.value.filter(d => d.statut_id == 3).length)
+const annuleesCount = computed(() => demandesAll.value.filter(d => d.statut_id == 5).length)
+
+const loadFiltersAndStats = async () => {
+  try {
+    const response = await proformaDemandeAchatService.getAll()
+    demandesAll.value = response.data || []
+  } catch (err) {
+    console.error('Erreur chargement stats:', err)
+  }
+}
 
 const loadDemandes = async () => {
   loading.value = true
+  error.value = null
   try {
-    const response = await proformaDemandeAchatService.getAll()
+    const params = {}
+    if (filterStatut.value) params.statut_id = filterStatut.value
+    if (filterDateDebut.value) params.date_debut = filterDateDebut.value
+    if (filterDateFin.value) params.date_fin = filterDateFin.value
+    if (searchQuery.value) params.search = searchQuery.value
+
+    const response = await proformaDemandeAchatService.getAll(params)
     demandes.value = response.data || []
-  } catch (error) {
-    console.error('Erreur lors du chargement des demandes:', error)
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Erreur lors du chargement des demandes'
+    console.error('Erreur chargement demandes:', err)
   } finally {
     loading.value = false
   }
@@ -274,25 +279,18 @@ const annulerDemande = async (demande) => {
   }
 }
 
-const handleGenerateProforma = async (demande) => {
-  const fournisseurId = prompt('ID du fournisseur (entreprise) à utiliser pour générer la proforma :')
-  if (!fournisseurId) return
 
-  if (!confirm(`Générer une proforma fournisseur pour la demande ${demande.numero_da} ?`)) return
 
-  try {
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
-    const payload = {
-      entreprise_fournisseur_id: Number(fournisseurId),
-      user_id: user.id
-    }
-    const resp = await proformaDemandeAchatService.genererProforma(demande.id, payload)
-    alert('Proforma créée (ID: ' + resp.data.proforma_id + ')')
-    await loadDemandes()
-  } catch (error) {
-    console.error('Erreur génération proforma :', error)
-    alert(error.response?.data?.error || 'Erreur lors de la génération')
-  }
+const applyFilters = () => {
+  loadDemandes()
+}
+
+const resetFilters = () => {
+  searchQuery.value = ''
+  filterStatut.value = ''
+  filterDateDebut.value = ''
+  filterDateFin.value = ''
+  loadDemandes()
 }
 
 const getStatutClass = (statutCode) => {
@@ -322,6 +320,7 @@ const formatCurrency = (val) => {
 }
 
 onMounted(() => {
+  loadFiltersAndStats()
   loadDemandes()
 })
 </script>

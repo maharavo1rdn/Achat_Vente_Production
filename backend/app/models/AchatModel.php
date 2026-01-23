@@ -4,6 +4,7 @@ namespace app\models;
 
 use InvalidArgumentException;
 use PDO;
+use Flight;
 
 class AchatModel
 {
@@ -14,223 +15,6 @@ class AchatModel
         $this->db = $base_db;
     }
 
-    public function getAllProforma($filters = [])
-    {
-        error_log("AchatModel::getAllProforma called with filters: " . json_encode($filters));
-
-        $query = "
-            SELECT
-                pf.id,
-                pf.numero_proforma,
-                pf.date_emission,
-                pf.date_validite,
-                pf.entreprise_fournisseur_id,
-                pf.entreprise_filiale_id,
-                pf.personnel_id,
-                pf.statut_id,
-                pf.montant_ht,
-                pf.montant_ttc,
-                ef.nom as fournisseur_nom,
-                efi.nom as filiale_nom,
-                p.nom as personnel_nom,
-                p.prenom as personnel_prenom,
-                s.libelle as statut_libelle
-            FROM proforma_fournisseur pf
-            INNER JOIN entreprise ef ON pf.entreprise_fournisseur_id = ef.id
-            INNER JOIN entreprise efi ON pf.entreprise_filiale_id = efi.id
-            INNER JOIN personnel p ON pf.personnel_id = p.id
-            INNER JOIN statut s ON pf.statut_id = s.id
-            WHERE 1=1
-        ";
-
-        $params = [];
-
-        if (isset($filters['fournisseur_id'])) {
-            $query .= " AND pf.entreprise_fournisseur_id = ?";
-            $params[] = $filters['fournisseur_id'];
-        }
-
-        if (isset($filters['filiale_id'])) {
-            $query .= " AND pf.entreprise_filiale_id = ?";
-            $params[] = $filters['filiale_id'];
-        }
-
-        if (isset($filters['statut_id'])) {
-            $query .= " AND pf.statut_id = ?";
-            $params[] = $filters['statut_id'];
-        }
-
-        if (isset($filters['date_debut'])) {
-            $query .= " AND pf.date_emission >= ?";
-            $params[] = $filters['date_debut'];
-        }
-
-        if (isset($filters['date_fin'])) {
-            $query .= " AND pf.date_emission <= ?";
-            $params[] = $filters['date_fin'];
-        }
-
-        $query .= " ORDER BY pf.date_emission DESC";
-
-        $stmt = $this->db->prepare($query);
-        $stmt->execute($params);
-
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        error_log("AchatModel::getAllProforma retrieved " . count($results) . " proformas");
-
-        return $results;
-    }
-
-    public function getProformaById($id)
-    {
-        if ($id <= 0) {
-            throw new InvalidArgumentException("L'ID doit être un entier positif");
-        }
-
-        error_log("AchatModel::getProformaById called with id=$id");
-
-        $query = "
-            SELECT
-                pf.*,
-                ef.nom as fournisseur_nom,
-                efi.nom as filiale_nom,
-                p.nom as personnel_nom,
-                p.prenom as personnel_prenom,
-                s.libelle as statut_libelle
-            FROM proforma_fournisseur pf
-            INNER JOIN entreprise ef ON pf.entreprise_fournisseur_id = ef.id
-            INNER JOIN entreprise efi ON pf.entreprise_filiale_id = efi.id
-            INNER JOIN personnel p ON pf.personnel_id = p.id
-            INNER JOIN statut s ON pf.statut_id = s.id
-            WHERE pf.id = ?
-        ";
-
-        $stmt = $this->db->prepare($query);
-        $stmt->execute([$id]);
-
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($result) {
-            // Récupérer les détails
-            $result['details'] = $this->getProformaDetails($id);
-            error_log("AchatModel::getProformaById proforma found with " . count($result['details']) . " details");
-        } else {
-            error_log("AchatModel::getProformaById proforma with id=$id not found");
-        }
-
-        return $result ?: null;
-    }
-
-    public function createProforma($data)
-    {
-        $this->validateProformaData($data);
-
-        error_log("AchatModel::createProforma called with data: " . json_encode($data));
-
-        $query = "
-            INSERT INTO proforma_fournisseur (
-                numero_proforma, date_emission, date_validite, entreprise_fournisseur_id,
-                entreprise_filiale_id, personnel_id, statut_id, montant_ht, montant_ttc, proforma_demande_achat_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ";
-
-        $stmt = $this->db->prepare($query);
-        $stmt->execute([
-            $data['numero_proforma'],
-            $data['date_emission'] ?? date('Y-m-d'),
-            $data['date_validite'] ?? null,
-            $data['entreprise_fournisseur_id'],
-            $data['entreprise_filiale_id'],
-            $data['personnel_id'],
-            $data['statut_id'],
-            $data['montant_ht'] ?? 0,
-            $data['montant_ttc'] ?? 0,
-            isset($data['proforma_demande_achat_id']) ? $data['proforma_demande_achat_id'] : null
-        ]);
-
-        $newId = $this->db->lastInsertId();
-
-        // Créer les détails si fournis
-        if (isset($data['details']) && is_array($data['details'])) {
-            $this->createProformaDetails($newId, $data['details']);
-        }
-
-        error_log("AchatModel::createProforma created proforma with id=$newId");
-        return (int)$newId;
-    }
-
-    public function updateProforma($id, $data)
-    {
-        if ($id <= 0) {
-            throw new InvalidArgumentException("L'ID doit être un entier positif");
-        }
-
-        $this->validateProformaData($data, false);
-
-        error_log("AchatModel::updateProforma called with id=$id, data: " . json_encode($data));
-
-        $query = "
-            UPDATE proforma_fournisseur SET
-                numero_proforma = ?,
-                date_emission = ?,
-                date_validite = ?,
-                entreprise_fournisseur_id = ?,
-                entreprise_filiale_id = ?,
-                personnel_id = ?,
-                statut_id = ?,
-                montant_ht = ?,
-                montant_ttc = ?
-            WHERE id = ?
-        ";
-
-        $stmt = $this->db->prepare($query);
-        $result = $stmt->execute([
-            $data['numero_proforma'],
-            $data['date_emission'] ?? date('Y-m-d'),
-            $data['date_validite'] ?? null,
-            $data['entreprise_fournisseur_id'],
-            $data['entreprise_filiale_id'],
-            $data['personnel_id'],
-            $data['statut_id'],
-            $data['montant_ht'] ?? 0,
-            $data['montant_ttc'] ?? 0,
-            $id
-        ]);
-
-        if ($result && $stmt->rowCount() > 0) {
-            // Mettre à jour les détails si fournis
-            if (isset($data['details']) && is_array($data['details'])) {
-                $this->updateProformaDetails($id, $data['details']);
-            }
-
-            error_log("AchatModel::updateProforma updated proforma with id=$id");
-            return true;
-        }
-
-        error_log("AchatModel::updateProforma no proforma updated with id=$id");
-        return false;
-    }
-
-    public function deleteProforma($id)
-    {
-        if ($id <= 0) {
-            throw new InvalidArgumentException("L'ID doit être un entier positif");
-        }
-
-        error_log("AchatModel::deleteProforma called with id=$id");
-
-        $query = "DELETE FROM proforma_fournisseur WHERE id = ?";
-        $stmt = $this->db->prepare($query);
-        $result = $stmt->execute([$id]);
-
-        if ($result && $stmt->rowCount() > 0) {
-            error_log("AchatModel::deleteProforma deleted proforma with id=$id");
-            return true;
-        }
-
-        error_log("AchatModel::deleteProforma no proforma deleted with id=$id");
-        return false;
-    }
 
     public function convertProformaToBonCommande($proformaId)
     {
@@ -240,11 +24,14 @@ class AchatModel
 
         error_log("AchatModel::convertProformaToBonCommande called with proformaId=$proformaId");
 
-        // Récupérer la proforma
-        $proforma = $this->getProformaById($proformaId);
+        // Récupérer la proforma depuis le modèle dédié
+        $proforma = Flight::proformaFournisseurModel()->getById($proformaId);
         if (!$proforma) {
             throw new InvalidArgumentException("Proforma non trouvée");
         }
+
+        // Récupérer les détails depuis le modèle dédié
+        $details = Flight::proformaFournisseurModel()->getDetails($proformaId);
 
         // Générer numéro BC
         $numeroBc = $this->generateNumeroBonCommande();
@@ -263,8 +50,16 @@ class AchatModel
 
         $bcId = $this->createBonCommande($bcData);
 
-        // Copier les détails
-        $this->copyProformaDetailsToBonCommande($proformaId, $bcId);
+        // Copier les détails fournis
+        if ($details && count($details) > 0) {
+            $this->createBonCommandeDetails($bcId, array_map(function($d){
+                return [
+                    'article_id' => $d['article_id'],
+                    'quantite' => $d['quantite'],
+                    'prix_unitaire' => $d['prix_unitaire'] ?? ($d['prix_unitaire'] ?? 0)
+                ];
+            }, $details));
+        }
 
         error_log("AchatModel::convertProformaToBonCommande created BC with id=$bcId");
         return $bcId;
@@ -716,19 +511,6 @@ class AchatModel
 
     // =================== MÉTHODES UTILITAIRES ===================
 
-    private function getProformaDetails($proformaId)
-    {
-        $query = "
-            SELECT pfd.*, a.reference, a.designation
-            FROM proforma_fournisseur_details pfd
-            INNER JOIN article a ON pfd.article_id = a.id
-            WHERE pfd.proforma_fournisseur_id = ?
-            ORDER BY pfd.id
-        ";
-        $stmt = $this->db->prepare($query);
-        $stmt->execute([$proformaId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
 
     private function getBonCommandeDetails($bcId)
     {
@@ -758,14 +540,6 @@ class AchatModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function createProformaDetails($proformaId, $details)
-    {
-        foreach ($details as $detail) {
-            $query = "INSERT INTO proforma_fournisseur_details (proforma_fournisseur_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([$proformaId, $detail['article_id'], $detail['quantite'], $detail['prix_unitaire']]);
-        }
-    }
 
     private function createBonCommandeDetails($bcId, $details)
     {
@@ -785,16 +559,6 @@ class AchatModel
         }
     }
 
-    private function updateProformaDetails($proformaId, $details)
-    {
-        // Supprimer les anciens détails
-        $query = "DELETE FROM proforma_fournisseur_details WHERE proforma_fournisseur_id = ?";
-        $stmt = $this->db->prepare($query);
-        $stmt->execute([$proformaId]);
-
-        // Recréer les détails
-        $this->createProformaDetails($proformaId, $details);
-    }
 
     private function updateBonCommandeDetails($bcId, $details)
     {
@@ -814,7 +578,8 @@ class AchatModel
 
     private function copyProformaDetailsToBonCommande($proformaId, $bcId)
     {
-        $details = $this->getProformaDetails($proformaId);
+        // Use dedicated ProformaFournisseurModel to retrieve details (no duplication).
+        $details = Flight::proformaFournisseurModel()->getDetails($proformaId);
         foreach ($details as $detail) {
             $query = "INSERT INTO bon_commande_achat_details (bon_commande_achat_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
             $stmt = $this->db->prepare($query);

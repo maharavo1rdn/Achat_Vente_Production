@@ -49,11 +49,11 @@
           </template>
 
           <template v-if="!isEditing && demande.statut_id == 3">
-            <button @click="handleGenerateProforma" class="btn btn-outline">
+            <button @click="openSupplierModal" class="btn btn-outline flex items-center gap-2">
               <FilePlus class="w-4 h-4" />
               <span>Générer Proforma Fournisseur</span>
             </button>
-          </template>
+          </template> 
 
           <template v-if="isEditing">
             <button @click="cancelEdit" class="btn btn-ghost text-slate-500 hover:text-slate-800">
@@ -69,7 +69,46 @@
       </div>
     </header>
 
-    <!-- Content Area -->
+      <!-- Modal stylée: sélection fournisseur -->
+      <div v-if="showSupplierSelector" class="fixed inset-0 z-50 flex items-center justify-center">
+        <div @click="showSupplierSelector = false" class="absolute inset-0 bg-black/40"></div>
+        <div class="bg-white rounded-xl p-6 z-10 w-[min(720px,95%)] shadow-2xl">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-bold">Sélectionner un fournisseur</h3>
+              <p class="text-sm text-slate-500">Choisissez le fournisseur à utiliser pour générer la proforma.</p>
+            </div>
+            <button @click="showSupplierSelector = false" class="text-slate-400 hover:text-slate-700">
+              ✕
+            </button>
+          </div>
+
+          <div class="mb-4">
+            <input v-model="supplierSearch" type="text" placeholder="Rechercher un fournisseur..." class="modern-input w-full" />
+          </div>
+
+          <div class="max-h-60 overflow-auto mb-4 border rounded-md p-2">
+            <ul class="space-y-2">
+              <li v-for="f in filteredFournisseurs" :key="f.id" class="flex items-center justify-between p-2 rounded hover:bg-slate-50">
+                <div class="flex items-center gap-3">
+                  <input type="radio" :value="f.id" v-model="selectedFournisseurId" class="accent-indigo-600" />
+                  <div>
+                    <div class="font-medium">{{ f.nom }}</div>
+                    <div class="text-xs text-slate-400">{{ f.email || '-' }} • {{ f.telephone || '-' }}</div>
+                  </div>
+                </div>
+                <div class="text-xs text-slate-500">{{ f.type_entreprise }}</div>
+              </li>
+              <li v-if="!filteredFournisseurs.length" class="text-center text-slate-400 py-6">Aucun fournisseur trouvé.</li>
+            </ul>
+          </div>
+
+          <div class="flex justify-end gap-3">
+            <button @click="showSupplierSelector = false" class="btn btn-ghost">Annuler</button>
+            <button @click="confirmGenerateProforma" class="btn btn-primary" :disabled="!selectedFournisseurId">Générer</button>
+          </div>
+        </div>
+      </div>
     <main class="max-w-7xl mx-auto pb-12 space-y-8">
 
       <!-- Loading Skeleton -->
@@ -321,9 +360,9 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  ArrowLeft, Save, X, Plus, Trash2, Check, Pencil,
+  ArrowLeft, Save, X, Plus, Trash2, Check, Pencil, FilePlus,
   Info, MapPin, Package, ShoppingCart
-} from 'lucide-vue-next'
+} from 'lucide-vue-next' 
 
 // Services import (simulated for component structure)
 import proformaDemandeAchatService from '@/services/proformaDemandeAchatService'
@@ -365,6 +404,47 @@ const personnels = ref([])
 const entreprises = ref([])
 const depots = ref([])
 const articles = ref([])
+
+const selectedFournisseurId = ref(null)
+const showSupplierSelector = ref(false)
+const supplierSearch = ref('')
+const fournisseursList = computed(() => {
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  return (entreprises.value || []).filter(e => e.type_entreprise === 'FOURNISSEUR' && e.id !== (user.entreprise_id ? Number(user.entreprise_id) : null))
+})
+
+const filteredFournisseurs = computed(() => {
+  const q = (supplierSearch.value || '').toLowerCase()
+  return (fournisseursList.value || []).filter(f => f.nom.toLowerCase().includes(q) || (f.email || '').toLowerCase().includes(q) || (f.telephone || '').toLowerCase().includes(q))
+})
+
+const openSupplierModal = () => {
+  if (!fournisseursList.value || fournisseursList.value.length === 0) {
+    alert('Aucun fournisseur disponible. Veuillez ajouter un fournisseur avant de générer une proforma.')
+    return
+  }
+  selectedFournisseurId.value = fournisseursList.value[0]?.id ?? null
+  supplierSearch.value = ''
+  showSupplierSelector.value = true
+}
+
+// Auto-open modal si ?showFournisseur=1
+watch(() => route.query.showFournisseur, (val) => {
+  if (val === '1') {
+    if (fournisseursList.value && fournisseursList.value.length) {
+      selectedFournisseurId.value = fournisseursList.value[0].id
+      showSupplierSelector.value = true
+    } else {
+      const stop = watch(() => fournisseursList.value, (list) => {
+        if (list && list.length) {
+          selectedFournisseurId.value = list[0].id
+          showSupplierSelector.value = true
+          stop()
+        }
+      })
+    }
+  }
+})
 
 // Total Calculation
 const filledDetails = computed(() => {
@@ -573,26 +653,26 @@ const validerDemande = async () => {
   }
 }
 
-const generateProforma = async () => {
-  const fournisseurId = prompt('ID du fournisseur (entreprise) à utiliser pour générer la proforma :')
-  if (!fournisseurId) return
 
+
+const confirmGenerateProforma = async () => {
+  if (!selectedFournisseurId.value) return alert('Sélectionner un fournisseur')
   if (!confirm('Générer une proforma fournisseur pour cette demande ?')) return
-
   try {
     const user = JSON.parse(localStorage.getItem('user') || '{}')
     const payload = {
-      entreprise_fournisseur_id: Number(fournisseurId),
+      entreprise_fournisseur_id: Number(selectedFournisseurId.value),
       user_id: user.id
     }
     const resp = await proformaDemandeAchatService.genererProforma(demandeId.value, payload)
-    alert('Proforma créée (ID: ' + resp.data.proforma_id + ')')
-    await loadDemande()
+    // Fermer modal et rediriger directement vers la fiche du proforma créé
+    showSupplierSelector.value = false
+    router.push({ name: 'proforma-fournisseur-detail', params: { id: resp.data.proforma_id }, query: { edit: '1' } })
   } catch (error) {
     console.error('Erreur génération proforma :', error)
     alert(error.response?.data?.error || 'Erreur lors de la génération')
   }
-}
+} 
 
 const annulerDemande = async () => {
   if (!confirm('Confirmer l\'annulation de cette demande ?')) return
@@ -806,5 +886,47 @@ input[type=number]::-webkit-outer-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
   /* Firefox */
+}
+
+/* --- CUSTOM RADIO STYLE: Ensure white background for unselected radios --- */
+input[type="radio"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #e6e9ef; /* slate-200 */
+  border-radius: 9999px;
+  background: #ffffff;
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+  box-shadow: inset 0 0 0 0 rgba(0,0,0,0.0);
+}
+
+input[type="radio"]:hover {
+  box-shadow: 0 0 0 4px rgba(79,70,229,0.06);
+}
+
+input[type="radio"]:focus-visible {
+  outline: 2px solid rgba(79,70,229,0.14);
+  outline-offset: 2px;
+}
+
+input[type="radio"]:checked {
+  background: #4f46e5; /* indigo-600 */
+  border-color: #4f46e5;
+}
+
+input[type="radio"]:checked::after {
+  content: "";
+  display: block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  background: #ffffff;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 </style>
