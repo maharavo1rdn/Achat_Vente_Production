@@ -2,26 +2,9 @@ import api from './api/api'
 
 // Service pour la gestion des achats (Proforma, BC, Factures)
 export default {
-  // Proforma Fournisseur
-  proforma: {
-    getAll(filters = {}) {
-      return api.get('/achats/proforma', { params: filters })
-    },
-    getById(id) {
-      return api.get(`/achats/proforma/${id}`)
-    },
-    create(data) {
-      return api.post('/achats/proforma', data)
-    },
-    update(id, data) {
-      return api.put(`/achats/proforma/${id}`, data)
-    },
-    delete(id) {
-      return api.delete(`/achats/proforma/${id}`)
-    },
-    convertToBonCommande(id) {
-      return api.post(`/achats/proforma/${id}/convert-bc`)
-    }
+  // Legacy / shop-specific actions for proforma (only conversion left here)
+  convertProformaToBonCommande(id) {
+    return api.post(`/achats/proforma/${id}/convert-bc`)
   },
 
   // Bons de Commande Achat

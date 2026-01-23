@@ -7,6 +7,7 @@ import ArticleDetail from "../views/stock/ArticleDetail.vue"
 import Stock from "../views/stock/Stock.vue"
 
 import ProformaFournisseur from "../views/achat/ProformaFournisseur.vue"
+import ProformaFournisseurDetail from "../views/achat/ProformaFournisseurDetail.vue"
 import BonCommandeAchat from "../views/achat/BonCommandeAchat.vue"
 import FactureAchat from "../views/achat/FactureAchat.vue"
 import ProformaDemandeAchat from "../views/achat/ProformaDemandeAchat.vue"
@@ -39,6 +40,8 @@ const router = createRouter({
     { path: "/personnel/:id", name: "personnel-detail", component: () => import('../views/parametres/PersonnelDetail.vue') },
     
     { path: "/achats/proforma", name: "proforma-fournisseur", component: ProformaFournisseur },
+    { path: "/achats/proforma/new", name: "proforma-fournisseur-new", component: ProformaFournisseurDetail },
+    { path: "/achats/proforma/:id", name: "proforma-fournisseur-detail", component: ProformaFournisseurDetail },
     { path: "/achats/demande-achat", name: "proforma-demande-achat", component: ProformaDemandeAchat },
     { path: "/achats/demande-achat/new", name: "proforma-demande-achat-new", component: ProformaDemandeAchatDetail },
     { path: "/achats/demande-achat/:id", name: "proforma-demande-achat-detail", component: ProformaDemandeAchatDetail },

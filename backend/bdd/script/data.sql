@@ -61,6 +61,11 @@ INSERT INTO mode_paiement (id, code, libelle) VALUES
 (5, 'AirtelMoney', 'Mobile Money (Airtel)'),
 (6, 'OrangeMoney', 'Mobile Money (Orange)');
 
+INSERT INTO paiement_statut (id, code, libelle, niveau) VALUES
+(1, 'NON_PAYE', 'Non payé', 0),
+(2, 'PARTIEL', 'Partiellement payé', 1),
+(3, 'PAYE', 'Payé', 2);
+
 INSERT INTO methode_valorisation_stock (id, code, libelle, description) VALUES
 (1, 'CMUP', 'Coût Moyen Unitaire Pondéré', 'Recalculé à chaque entrée'),
 (2, 'FIFO', 'First In, First Out', 'Premier entré, premier sorti (PEPS)'),
@@ -204,8 +209,8 @@ INSERT INTO caisse_mouvement (id, date_mouvement, libelle_operation, montant_ent
 (3, NOW() - INTERVAL '15 days', 'Paiement Facture Ecrans', 0, 4500000, 100000000, 95500000, 1, 2);
 UPDATE caisse SET solde_actuel = 95500000 WHERE id = 1;
 
-INSERT INTO paiement_achat (id, numero_paiement, facture_achat_id, caisse_mouvement_id, montant_total_paye) VALUES
-(1, 'PAY-ACH-001', 1, 3, 4500000);
+INSERT INTO paiement_achat (id, paiement_statut_id, numero_paiement, date_paiement, facture_achat_id, caisse_mouvement_id, montant_total_du, montant_total_paye) VALUES
+(1, 3, 'PAY-ACH-001', NOW() - INTERVAL '15 days', 1, 3, 4500000, 4500000);
 
 INSERT INTO paiement_achat_details (id, paiement_achat_id, mode_paiement_id, montant, reference_externe) VALUES
 (1, 1, 2, 4000000, 'CHQ-BNI-009988'),
@@ -241,8 +246,8 @@ INSERT INTO caisse_mouvement (id, date_mouvement, libelle_operation, montant_ent
 (4, NOW() - INTERVAL '1 day', 'Vente Client Comptoir', 2425000, 0, 2000000, 4425000, 2, 4);
 UPDATE caisse SET solde_actuel = 4425000 WHERE id = 2;
 
-INSERT INTO paiement_vente (id, numero_recu, facture_vente_id, caisse_mouvement_id, montant_total_paye) VALUES
-(1, 'REC-001', 1, 4, 2425000);
+INSERT INTO paiement_vente (id, numero_recu, paiement_statut_id, date_paiement, facture_vente_id, caisse_mouvement_id, montant_total_du, montant_total_paye) VALUES
+(1, 'REC-001', 3, NOW() - INTERVAL '1 day', 1, 4, 2425000, 2425000);
 
 INSERT INTO paiement_vente_details (id, paiement_vente_id, mode_paiement_id, montant, reference_externe) VALUES
 (1, 1, 4, 2425000, 'TRANS-ID-88887777');

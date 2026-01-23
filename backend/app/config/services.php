@@ -17,6 +17,7 @@ use app\models\PersonnelModel;
 use app\models\DashboardModel;
 use app\models\SiteModel;
 use app\models\ProformaDemandeAchatModel;
+use app\models\ProformaFournisseurModel;
 
 /** 
  * @var array $config This comes from the returned array at the bottom of the config.php file
@@ -93,4 +94,8 @@ Flight::map('depotModel', function() {
 
 Flight::map('proformaDemandeAchatModel', function() {
     return new ProformaDemandeAchatModel(Flight::db());
+});
+
+Flight::map('proformaFournisseurModel', function() {
+    return new ProformaFournisseurModel(Flight::db());
 });

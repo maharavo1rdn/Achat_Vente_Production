@@ -474,6 +474,7 @@ CREATE TABLE caisse_mouvement (
     FOREIGN KEY (personnel_id) REFERENCES personnel(id)
 );
 
+--non paye, partiellement paye, paye
 CREATE TABLE paiement_statut (
     id SERIAL PRIMARY KEY,
     code VARCHAR(50) UNIQUE NOT NULL,

@@ -6,14 +6,15 @@
       <p class="loading-text">Chargement des proformas...</p>
     </div>
 
-    <!-- Error state -->
-    <div v-else-if="error" class="error-state">
-      <div class="error-icon">
-        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+    <!-- Error state (Adapté au style) -->
+    <div v-else-if="error" class="loading-state">
+      <div class="text-red-500 mb-4">
+        <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
       </div>
-      <p class="error-message">{{ error }}</p>
+      <p class="text-sm text-red-600 mb-4">{{ error }}</p>
       <button @click="loadProformas" class="btn-primary">
         Réessayer
       </button>
@@ -38,7 +39,7 @@
         <div class="stat-card">
           <div class="stat-content">
             <p class="stat-label">Total proformas</p>
-            <h3 class="stat-value">{{ proformas.length }}</h3>
+            <h3 class="stat-value">{{ proformasAll.length }}</h3>
           </div>
         </div>
         <div class="stat-card">
@@ -63,33 +64,37 @@
 
       <!-- Filters -->
       <div class="card fade-in" style="animation-delay: 0.2s">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <Filter class="w-4 h-4" />
+            <h3 class="text-sm font-medium">Filtres</h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <button @click="applyFilters" class="btn-secondary text-xs">Appliquer</button>
+            <button @click="resetFilters" class="text-xs text-gray-600 hover:text-gray-900">Réinitialiser</button>
+          </div>
+        </div>
+
         <div class="filter-grid">
           <div class="filter-item">
             <label class="label">Rechercher</label>
             <div class="search-box">
               <Search class="w-4 h-4 text-gray-400" />
-              <input
-                v-model="searchQuery"
-                type="text"
-                class="search-input"
-                placeholder="Numéro, fournisseur..."
-              />
+              <input v-model="searchQuery" type="text" class="search-input" placeholder="Numéro, fournisseur..." />
             </div>
           </div>
           <div class="filter-item">
             <label class="label">Fournisseur</label>
             <select v-model="selectedFournisseur" class="select">
               <option value="">Tous les fournisseurs</option>
-              <option value="1">Fournisseur X</option>
-              <option value="2">Fournisseur Y</option>
+              <option v-for="e in entreprisesOptions.filter(ent => ent.type_entreprise === 'FOURNISSEUR')" :key="e.id" :value="e.id">{{ e.nom || e.raison_sociale || e.name }}</option>
             </select>
           </div>
           <div class="filter-item">
             <label class="label">Statut</label>
             <select v-model="selectedStatut" class="select">
               <option value="">Tous les statuts</option>
-              <option value="BROUILLON">Brouillon</option>
-              <option value="VALIDE">Validé</option>
+              <option v-for="s in statutsOptions" :key="s.id" :value="s.id">{{ s.libelle }}</option>
             </select>
           </div>
           <div class="filter-item">
@@ -114,7 +119,6 @@
                 <th>Fournisseur</th>
                 <th>Filiale</th>
                 <th>Date Validité</th>
-                <th class="text-right">Montant HT</th>
                 <th class="text-right">Montant TTC</th>
                 <th class="text-center">Statut</th>
                 <th class="text-center">Actions</th>
@@ -122,7 +126,7 @@
             </thead>
             <tbody>
               <tr v-if="filteredProformas.length === 0">
-                <td colspan="9" class="text-center py-8 text-gray-500">
+                <td colspan="8" class="text-center py-8 text-gray-500">
                   Aucun proforma trouvé
                 </td>
               </tr>
@@ -132,8 +136,7 @@
                 <td class="font-medium">{{ proforma.fournisseur }}</td>
                 <td class="text-gray-600">{{ proforma.filiale }}</td>
                 <td class="text-gray-600">{{ formatDate(proforma.date_validite) }}</td>
-                <td class="text-right font-medium">{{ formatCurrency(proforma.montant_ht) }}</td>
-                <td class="text-right font-semibold">{{ formatCurrency(proforma.montant_ttc) }}</td>
+                <td class="text-right font-medium">{{ formatCurrency(proforma.montant_ttc) }}</td>
                 <td class="text-center">
                   <span :class="getStatutBadgeClass(proforma.statut)">
                     {{ proforma.statut }}
@@ -144,12 +147,13 @@
                     <button @click="viewProforma(proforma)" class="action-btn" title="Voir">
                       <Eye class="w-4 h-4" />
                     </button>
-                    <button 
-                      v-if="proforma.statut === 'VALIDE'"
-                      @click="convertToBonCommande(proforma)" 
-                      class="action-btn text-green-600" 
-                      title="Convertir en BC"
-                    >
+                    <button v-if="proforma.statut === 'VALIDE'" @click="convertToBonCommande(proforma)"
+                      class="action-btn text-green-600" title="Convertir en BC">
+                      <Check class="w-4 h-4" />
+                    </button>
+                    <button
+                      v-if="proforma.statut === 'BROUILLON' && (JSON.parse(localStorage.getItem('user') || '{}').niveau_acces || 0) >= 5"
+                      @click="validerProforma(proforma)" class="action-btn text-green-500" title="Valider proforma">
                       <Check class="w-4 h-4" />
                     </button>
                     <button @click="deleteProforma(proforma.id)" class="action-btn text-red-600" title="Supprimer">
@@ -168,59 +172,86 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Plus, Eye, Check, Trash2, Search } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
+import { Plus, Eye, Check, Trash2, Search, Filter } from 'lucide-vue-next'
 import achatService from '@/services/achatService'
+import proformaFournisseurService from '@/services/proformaFournisseurService'
+import entrepriseService from '@/services/entrepriseService'
 
+const router = useRouter()
 const searchQuery = ref('')
 const selectedFournisseur = ref('')
 const selectedStatut = ref('')
 const dateFilter = ref('')
 
-const proformas = ref([])
+// Data sets
+const proformas = ref([]) // filtered list shown in table
+const proformasAll = ref([]) // full dataset for stats and filter population
+const entreprisesOptions = ref([])
+const statutsOptions = ref([])
+
 const loading = ref(false)
 const error = ref(null)
 
-const loadProformas = async () => {
+// Load all proformas (for stats and filter options) and entreprises
+const loadFiltersAndStats = async () => {
   try {
-    loading.value = true
-    error.value = null
-    const response = await achatService.proforma.getAll()
+    const [allResp, eResp] = await Promise.all([
+      proformaFournisseurService.getAll(),
+      entrepriseService.getAll()
+    ])
+    proformasAll.value = allResp.data || []
+    entreprisesOptions.value = eResp.data ?? eResp
+
+    // build statut options dynamically from returned proformas
+    const statMap = new Map()
+    for (const p of proformasAll.value) {
+      if (p.statut_id) statMap.set(p.statut_id, p.statut_libelle || p.statut || String(p.statut_id))
+    }
+    statutsOptions.value = Array.from(statMap.entries()).map(([id, libelle]) => ({ id, libelle }))
+  } catch (err) {
+    console.error('Erreur chargement filtres/statistiques', err)
+  }
+}
+
+// Load proformas with current filters (server-side filtering)
+const loadProformas = async () => {
+  loading.value = true
+  try {
+    const params = {}
+    if (selectedFournisseur.value) params.fournisseur_id = selectedFournisseur.value
+    if (selectedStatut.value) params.statut_id = selectedStatut.value
+    if (dateFilter.value) params.date_debut = dateFilter.value // simple period filter (start only)
+    if (searchQuery.value) params.search = searchQuery.value
+
+    const response = await proformaFournisseurService.getAll(params)
     proformas.value = response.data || []
   } catch (err) {
-    error.value = err.response?.data?.message || 'Erreur lors du chargement des proformas'
-    console.error('Erreur chargement proformas:', err)
+    error.value = err.response?.data?.message || 'Erreur lors du chargement des proformas filtrées'
+    console.error('Erreur chargement proformas filtrées:', err)
   } finally {
     loading.value = false
   }
 }
 
 const filteredProformas = computed(() => {
-  return proformas.value.filter(p => {
-    const matchSearch = !searchQuery.value || 
-      p.numero_proforma?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      p.fournisseur?.toLowerCase().includes(searchQuery.value.toLowerCase())
-    
-    const matchFournisseur = !selectedFournisseur.value || p.fournisseur === selectedFournisseur.value
-    const matchStatut = !selectedStatut.value || p.statut === selectedStatut.value
-    
-    return matchSearch && matchFournisseur && matchStatut
-  })
+  return proformas.value
 })
 
 const proformasBrouillon = computed(() => {
-  return proformas.value.filter(p => p.statut === 'BROUILLON').length
+  return proformasAll.value.filter(p => p.statut_id == 1).length
 })
 
 const proformasValides = computed(() => {
-  return proformas.value.filter(p => p.statut === 'VALIDE').length
+  return proformasAll.value.filter(p => p.statut_id == 3).length
 })
 
 const montantTotal = computed(() => {
-  return proformas.value.reduce((sum, p) => sum + (p.montant_ttc || 0), 0)
+  return proformasAll.value.reduce((sum, p) => sum + (Number(p.montant_ttc) || 0), 0)
 })
 
 const getStatutBadgeClass = (statut) => {
-  switch(statut) {
+  switch (statut) {
     case 'BROUILLON': return 'badge badge-secondary'
     case 'VALIDE': return 'badge badge-success'
     default: return 'badge badge-secondary'
@@ -240,18 +271,19 @@ const formatDate = (date) => {
 }
 
 const openCreateModal = () => {
-  console.log('Open create modal')
+  // rediriger vers la page de création de proforma fournisseur
+  router.push({ name: 'proforma-fournisseur-new' })
 }
 
 const viewProforma = (proforma) => {
-  console.log('View proforma:', proforma)
+  router.push({ name: 'proforma-fournisseur-detail', params: { id: proforma.id } })
 }
 
 const convertToBonCommande = async (proforma) => {
   if (!confirm('Convertir ce proforma en bon de commande ?')) return
-  
+
   try {
-    await achatService.proforma.convertToBonCommande(proforma.id)
+    await achatService.convertProformaToBonCommande(proforma.id)
     await loadProformas()
     alert('Proforma converti en bon de commande avec succès')
   } catch (err) {
@@ -260,11 +292,22 @@ const convertToBonCommande = async (proforma) => {
   }
 }
 
+const applyFilters = () => {
+  loadProformas()
+}
+
+const resetFilters = () => {
+  searchQuery.value = ''
+  selectedFournisseur.value = ''
+  selectedStatut.value = ''
+  dateFilter.value = ''
+  loadProformas()
+}
 const deleteProforma = async (id) => {
   if (!confirm('Êtes-vous sûr de vouloir supprimer ce proforma ?')) return
-  
+
   try {
-    await achatService.proforma.delete(id)
+    await proformaFournisseurService.delete(id)
     await loadProformas()
   } catch (err) {
     error.value = err.response?.data?.message || 'Erreur lors de la suppression'
@@ -272,7 +315,23 @@ const deleteProforma = async (id) => {
   }
 }
 
+const validerProforma = async (proforma) => {
+  if (!confirm(`Valider la proforma ${proforma.numero_proforma} ?`)) return
+
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    await proformaFournisseurService.valider(proforma.id, user.id)
+    await loadProformas()
+    alert('Proforma validée')
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Erreur lors de la validation'
+    console.error('Erreur validation:', err)
+    alert(err.response?.data?.error || 'Erreur lors de la validation')
+  }
+}
+
 onMounted(() => {
+  loadFiltersAndStats()
   loadProformas()
 })
 </script>
@@ -304,23 +363,13 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {
   @apply mt-4 text-sm text-gray-600;
-}
-
-.error-state {
-  @apply flex flex-col items-center justify-center py-20;
-}
-
-.error-icon {
-  @apply text-red-600 mb-4;
-}
-
-.error-message {
-  @apply text-sm text-red-600 mb-4;
 }
 
 .content-wrapper {
@@ -332,6 +381,7 @@ onMounted(() => {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -412,11 +462,11 @@ onMounted(() => {
 }
 
 .input {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm;
+  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white;
 }
 
 .select {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm;
+  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white;
 }
 
 .table-wrapper {
@@ -455,12 +505,29 @@ onMounted(() => {
   @apply p-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all;
 }
 
+/* Bouton primary ajouté au cas où il manquerait dans les styles globaux */
+.btn-primary {
+  @apply flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors;
+}
+
 .badge {
   @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
 }
 
 .badge-success {
   @apply bg-green-100 text-green-700;
+}
+
+.badge-danger {
+  @apply bg-red-100 text-red-700;
+}
+
+.badge-warning {
+  @apply bg-orange-100 text-orange-700;
+}
+
+.badge-info {
+  @apply bg-blue-100 text-blue-700;
 }
 
 .badge-secondary {

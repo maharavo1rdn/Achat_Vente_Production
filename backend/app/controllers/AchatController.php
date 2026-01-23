@@ -6,58 +6,6 @@ use Exception;
 use Flight;
 class AchatController {
 
-    public function getAllProforma() {
-        try {
-            $filters = Flight::request()->query;
-            $proformas = Flight::achatModel()->getAllProforma($filters);
-            Flight::json($proformas);
-        } catch (Exception $e) {
-            Flight::json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    public function getProformaById($id) {
-        try {
-            $proforma = Flight::achatModel()->getProformaById($id);
-            if ($proforma) {
-                Flight::json($proforma);
-            } else {
-                Flight::json(['error' => 'Proforma non trouvé'], 404);
-            }
-        } catch (Exception $e) {
-            Flight::json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    public function createProforma() {
-        try {
-            $data = Flight::request()->data;
-            $result = Flight::achatModel()->createProforma($data);
-            Flight::json($result, 201);
-        } catch (Exception $e) {
-            Flight::json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    public function updateProforma($id) {
-        try {
-            $data = Flight::request()->data;
-            $result = Flight::achatModel()->updateProforma($id, $data);
-            Flight::json($result);
-        } catch (Exception $e) {
-            Flight::json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    public function deleteProforma($id) {
-        try {
-            $result = Flight::achatModel()->deleteProforma($id);
-            Flight::json($result);
-        } catch (Exception $e) {
-            Flight::json(['error' => $e->getMessage()], 500);
-        }
-    }
-
     public function convertProformaToBonCommande($id) {
         try {
             $result = Flight::achatModel()->convertProformaToBonCommande($id);
@@ -66,6 +14,7 @@ class AchatController {
             Flight::json(['error' => $e->getMessage()], 500);
         }
     }
+
 
     public function getAllBonCommande() {
         try {

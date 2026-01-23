@@ -136,7 +136,7 @@ class ProformaDemandeAchatController
         }
     }
 
-    // Génère un proforma fournisseur à partir d'une demande validée
+    // Génère un proforma fournisseur à partir d'une demande validée (tout en UN)
     public function genererProforma($id)
     {
         try {
@@ -166,7 +166,18 @@ class ProformaDemandeAchatController
                 return;
             }
 
-            // Construire les détails pour le proforma fournisseur
+            // Vérifier le niveau d'accès de l'utilisateur pour générer la proforma
+            $personnel = Flight::personnelModel()->getById($userId);
+            if (!$personnel) {
+                Flight::json(['error' => 'Utilisateur introuvable'], 404);
+                return;
+            }
+            if (!isset($personnel['niveau_acces']) || (int)$personnel['niveau_acces'] < 5) {
+                Flight::json(['error' => 'Droits insuffisants pour générer une proforma fournisseur'], 403);
+                return;
+            }
+
+            // Construire les détails et calculer le total
             $pfDetails = [];
             $total = 0;
             foreach ($details as $d) {
@@ -180,7 +191,7 @@ class ProformaDemandeAchatController
                 $total += $q * $p;
             }
 
-            // Numero unique simple
+            // Numéro unique
             $numero = 'PF' . date('Ym') . substr(md5(uniqid()), 0, 6);
 
             $payload = [
@@ -189,16 +200,14 @@ class ProformaDemandeAchatController
                 'entreprise_fournisseur_id' => $fournisseurId,
                 'entreprise_filiale_id' => (int)$demande['entreprise_id'],
                 'personnel_id' => $userId,
-                'statut_id' => 2, // EN_ATTENTE
-                'montant_ht' => $total,
+                'statut_id' => 1, // Brouillon
                 'montant_ttc' => $total,
                 'details' => $pfDetails,
                 'proforma_demande_achat_id' => $id
             ];
 
-            // $proformaId = Flight::achatModel()->createProforma($payload);
-
-            Flight::json(['success' => true, 'payload' => $payload]);
+            $newId = Flight::proformaFournisseurModel()->create($payload);
+            Flight::json(['success' => true, 'proforma_id' => (int)$newId], 201);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }

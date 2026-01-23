@@ -11,6 +11,7 @@ use app\controllers\SiteController;
 use app\controllers\DepotController;
 use app\controllers\DashboardController;
 use app\controllers\ProformaDemandeAchatController;
+use app\controllers\ProformaFournisseurController;
 
 use flight\Engine;
 use flight\net\Router;
@@ -32,6 +33,7 @@ $Personnel_Controller = new PersonnelController();
 $Site_Controller = new SiteController();
 $Depot_Controller = new DepotController();
 $ProformaDemandeAchat_Controller = new ProformaDemandeAchatController();
+$ProformaFournisseur_Controller = new ProformaFournisseurController();
 
 // Page d'accueil
 $router->get('/', function () {
@@ -66,13 +68,8 @@ $router->group('/api/stock', function () use ($router, $Stock_Controller) {
 });
 
 $router->group('/api/achats', function () use ($router, $Achat_Controller) {
-    // Proforma Fournisseur
+    // Proforma Fournisseur (ONLY conversion remains in AchatController)
     $router->group('/proforma', function () use ($router, $Achat_Controller) {
-        $router->get('', [$Achat_Controller, 'getAllProforma']);
-        $router->get('/@id:[0-9]+', [$Achat_Controller, 'getProformaById']);
-        $router->post('', [$Achat_Controller, 'createProforma']);
-        $router->put('/@id:[0-9]+', [$Achat_Controller, 'updateProforma']);
-        $router->delete('/@id:[0-9]+', [$Achat_Controller, 'deleteProforma']);
         $router->post('/@id:[0-9]+/convert-bc', [$Achat_Controller, 'convertProformaToBonCommande']);
     });
 
@@ -196,6 +193,17 @@ $router->group('/api/proforma-demande-achat', function () use ($router, $Proform
     $router->post('/@id:[0-9]+/valider', [$ProformaDemandeAchat_Controller, 'valider']);
     $router->post('/@id:[0-9]+/annuler', [$ProformaDemandeAchat_Controller, 'annuler']);
     $router->post('/@id:[0-9]+/generer-proforma', [$ProformaDemandeAchat_Controller, 'genererProforma']);
+});
+
+// API dédiée aux proformas fournisseur (nouveau controller + modèle)
+$router->group('/api/proforma-fournisseur', function () use ($router, $ProformaFournisseur_Controller) {
+    $router->get('', [$ProformaFournisseur_Controller, 'getAll']);
+    $router->get('/@id:[0-9]+', [$ProformaFournisseur_Controller, 'getById']);
+    $router->post('', [$ProformaFournisseur_Controller, 'create']);
+    $router->put('/@id:[0-9]+', [$ProformaFournisseur_Controller, 'update']);
+    $router->delete('/@id:[0-9]+', [$ProformaFournisseur_Controller, 'delete']);
+    $router->get('/@id:[0-9]+/details', [$ProformaFournisseur_Controller, 'getDetails']);
+    $router->post('/@id:[0-9]+/valider', [$ProformaFournisseur_Controller, 'valider']);
 });
 
 $router->map('/*', function () {
