@@ -161,8 +161,8 @@ INSERT INTO lot_stock (id, numero_lot, article_id, depot_id, date_entree, mouvem
 -- Contexte : Tina (Logistique) a besoin de 10 Écrans Samsung pour le Siège.
 
 -- ETAPE 1 : La Demande Interne (DA)
-INSERT INTO proforma_demande_achat (id, numero_da, date_demande, personnel_demandeur_id, entreprise_id, depot_cible_id, date_souhaitee, motif_achat, statut_id) VALUES
-(1, 'DA-HQ-23-001', NOW() - INTERVAL '20 days', 3, 1, 1, NOW() - INTERVAL '10 days', 'Renouvellement parc écran', 3); -- Statut 3 = VALIDÉ
+INSERT INTO proforma_demande_achat (id, numero_da, date_demande, personnel_demandeur_id, entreprise_id, depot_cible_id, date_souhaitee, motif_achat, statut_id, montant_ttc) VALUES
+(1, 'DA-HQ-23-001', NOW() - INTERVAL '20 days', 3, 1, 1, NOW() - INTERVAL '10 days', 'Renouvellement parc écran', 3, 4600000); -- Statut 3 = VALIDÉ
 
 INSERT INTO proforma_demande_achat_details (id, proforma_demande_achat_id, article_id, quantite_demandee, prix_estime) VALUES
 (1, 1, 3, 10, 460000); -- Estimation un peu plus chère que le réel

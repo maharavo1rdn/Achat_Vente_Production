@@ -240,6 +240,7 @@ const openMenus = ref({
 })
 
 const achatsMenuItems = [
+  { path: '/achats/demande-achat', label: 'Demandes d\'Achat' },
   { path: '/achats/proforma', label: 'Proforma' },
   { path: '/achats/bon-commande', label: 'Bons de Commande' },
   { path: '/achats/factures', label: 'Factures' }
