@@ -244,6 +244,99 @@
         </div>
       </div>
 
+      <!-- New Statistique Commerciale Section -->
+      <div class="space-y-6 fade-in" style="animation-delay: 0.32s">
+        <div class="flex items-center justify-between border-b pb-2">
+          <h2 class="text-xl font-bold text-gray-800">Statistique Commerciale</h2>
+          <router-link to="/stats/commercial" class="text-sm text-gray-500 hover:text-gray-900">
+            Voir le détail
+          </router-link>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-header">
+              <div class="stat-icon bg-blue-100 text-blue-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+            </div>
+            <div class="stat-content">
+              <p class="stat-label">Taux de fidélisation</p>
+              <h3 class="stat-value">{{ formatPercent(commercialStats.fidelisation.taux_fidelisation) }}</h3>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-header">
+              <div class="stat-icon bg-green-100 text-green-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9V3H6v6m12 0l-6 6-6-6m12 0H6" />
+                </svg>
+              </div>
+            </div>
+            <div class="stat-content">
+              <p class="stat-label">Nouveaux clients</p>
+              <h3 class="stat-value">{{ commercialStats.nouveauxClients }}</h3>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-header">
+              <div class="stat-icon bg-purple-100 text-purple-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0-12a5.5 5.5 0 019.288 0m-9.288 0a5.5 5.5 0 019.288 0m-9.288 0H2v2a3 3 0 015.356 1.857M7 4v2c0 .656.126 1.283.356 1.857m9.288-4H22v2a3 3 0 01-5.356 1.857M17 4v2c0 .656-.126 1.283-.356 1.857M7 10h.01M17 10h.01" />
+                </svg>
+              </div>
+            </div>
+            <div class="stat-content">
+              <p class="stat-label">Clients fidèles</p>
+              <h3 class="stat-value">{{ commercialStats.fidelisation.clients_fideles }}</h3>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-header">
+              <div class="stat-icon bg-orange-100 text-orange-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+            </div>
+            <div class="stat-content">
+              <p class="stat-label">Total clients</p>
+              <h3 class="stat-value">{{ commercialStats.fidelisation.total_clients }}</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Performers -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Top commerciaux</h3>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commercial</th>
+                  <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ventes</th>
+                  <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="item in commercialStats.performance.slice(0, 5)" :key="item.personnel_id" class="hover:bg-gray-50">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ item.nom_complet }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">{{ item.nombre_ventes }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-green-600">{{ formatCurrency(item.total_ventes) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- Recent Activities -->
       <div class="activities-grid fade-in" style="animation-delay: 0.3s">
         <!-- Recent Sales -->
@@ -331,6 +424,7 @@ import { Package, TrendingUp, ShoppingCart, Wallet } from 'lucide-vue-next'
 import api from '@/services/api/api'
 import statStockService from '@/services/statStockService'
 import financeService from '@/services/financeService'
+import statCommercialService from '@/services/statCommercialService'
 import { Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -371,6 +465,12 @@ const financeStats = ref({
     dettes_fournisseurs: 0,
     bfr: 0
   }
+})
+
+const commercialStats = ref({
+  performance: [],
+  fidelisation: { taux_fidelisation: 0, clients_fideles: 0, total_clients: 0 },
+  nouveauxClients: 0
 })
 
 const totalEncoursClients = computed(() => 
@@ -532,6 +632,20 @@ const loadDashboardData = async () => {
       console.error('Erreur stats financières:', err)
     }
 
+    // Statistiques Commerciales
+    try {
+      const perfResp = await statCommercialService.getPerformanceCommercial()
+      commercialStats.value.performance = perfResp.data || []
+
+      const fidResp = await statCommercialService.getTauxFidelisation()
+      commercialStats.value.fidelisation = fidResp.data || commercialStats.value.fidelisation
+
+      const nouveauxResp = await statCommercialService.getNouveauxClients()
+      commercialStats.value.nouveauxClients = nouveauxResp.data.nouveaux_clients || 0
+    } catch (err) {
+      console.error('Erreur stats commerciales:', err)
+    }
+
   } catch (err) {
     error.value = 'Erreur lors du chargement des données'
     console.error('Erreur chargement dashboard:', err)
@@ -547,6 +661,11 @@ const loadDashboardData = async () => {
       valeurImmobilise: 0,
       dureeMoyenne: 0,
       articlesRupture: []
+    }
+    commercialStats.value = {
+      performance: [],
+      fidelisation: { taux_fidelisation: 0, clients_fideles: 0, total_clients: 0 },
+      nouveauxClients: 0
     }
     recentVentes.value = []
     recentAchats.value = []

@@ -25,6 +25,7 @@ import SiteDetail from "../views/parametres/SiteDetail.vue"
 import Personnel from "../views/parametres/Personnel.vue"
 import Login from "../views/Login.vue"
 
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [

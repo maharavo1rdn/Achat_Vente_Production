@@ -215,7 +215,7 @@ Ce document définit les tâches de développement pour le système ERP basé su
     * **Intégration :** Page `StatsFinances.vue`
 
 ### 6.6. Statistiques Commerciales(Bijou)
-* **Stat-Commercial**
+* **Stat-Commercial**PDash
     * **Métier :** Classe `StatCommercialModel`, fonctions :
         * `getPerformanceCommercial()` : Performance par commercial/équipe
         * `getTauxFidelisation()` : Taux de fidélisation clients
