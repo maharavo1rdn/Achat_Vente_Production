@@ -14,6 +14,7 @@ use app\controllers\PaiementVenteController;
 use app\controllers\PaiementAchatController;
 use app\controllers\ProformaDemandeAchatController;
 use app\controllers\ProformaFournisseurController;
+use app\controllers\StatStockController;
 
 use flight\Engine;
 use flight\net\Router;
@@ -38,6 +39,7 @@ $PaiementVente_Controller = new PaiementVenteController();
 $PaiementAchat_Controller = new PaiementAchatController();
 $ProformaDemandeAchat_Controller = new ProformaDemandeAchatController();
 $ProformaFournisseur_Controller = new ProformaFournisseurController();
+$StatStock_Controller = new StatStockController();
 
 // Page d'accueil
 $router->get('/', function () {
@@ -224,6 +226,13 @@ $router->group('/api/proforma-fournisseur', function () use ($router, $ProformaF
     $router->delete('/@id:[0-9]+', [$ProformaFournisseur_Controller, 'delete']);
     $router->get('/@id:[0-9]+/details', [$ProformaFournisseur_Controller, 'getDetails']);
     $router->post('/@id:[0-9]+/valider', [$ProformaFournisseur_Controller, 'valider']);
+});
+
+$router->group('/api/stock/stats', function () use ($router, $StatStock_Controller) {
+    $router->get('/rotation', [$StatStock_Controller, 'getTauxRotationStock']);
+    $router->get('/valeur-immobilise', [$StatStock_Controller, 'getValeurStockImmobilise']);
+    $router->get('/articles-rupture', [$StatStock_Controller, 'getArticlesRupture']);
+    $router->get('/duree-moyenne', [$StatStock_Controller, 'getDureeStockMoyenne']);
 });
 
 $router->map('/*', function () {

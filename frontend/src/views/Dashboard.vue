@@ -10,7 +10,8 @@
     <div v-else-if="error" class="error-state">
       <div class="error-icon">
         <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
       </div>
       <p class="error-message">{{ error }}</p>
@@ -30,7 +31,9 @@
         <div class="header-actions">
           <button @click="loadDashboardData" class="btn-secondary">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+              </path>
             </svg>
             <span>Actualiser</span>
           </button>
@@ -86,6 +89,85 @@
             <h3 class="stat-value">{{ formatCurrency(stats.soldeCaisse) }}</h3>
           </div>
         </div>
+
+        <!-- Rotation Sparkline Card -->
+        <div class="stat-card">
+          <div class="stat-header">
+            <div class="stat-icon bg-indigo-100 text-indigo-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+            </div>
+            <span class="text-xs font-medium text-indigo-600">Moyenne: {{ formatPercent(stockStats.tauxRotationMoyenne) }}</span>
+          </div>
+          <div class="stat-content">
+            <p class="stat-label">Rotation des stocks</p>
+            <div class="h-16 mt-2">
+              <Line :data="chartData" :options="{ ...chartOptions, scales: { x: { display: false }, y: { display: false } }, plugins: { legend: { display: false }, tooltip: { enabled: true } } }" />
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <div class="stat-icon bg-yellow-100 text-yellow-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+          <div class="stat-content">
+            <p class="stat-label">Durée moyenne stockage</p>
+            <h3 class="stat-value">{{ stockStats.dureeMoyenne }} jours</h3>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rotation Detailed Section -->
+      <div class="card fade-in" style="animation-delay: 0.25s">
+        <div class="card-header">
+          <h2 class="card-title">Analyse détaillée de la rotation des stocks</h2>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div class="lg:col-span-2 h-80">
+            <Line :data="chartData" :options="chartOptions" />
+          </div>
+          <div class="overflow-x-auto border rounded-lg">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Article</th>
+                  <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sorties</th>
+                  <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                  <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Taux</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="(item, index) in stockStats.rotationData" :key="index" class="hover:bg-gray-50 transition-colors">
+                  <td class="px-3 py-3 whitespace-nowrap">
+                    <div class="font-medium text-gray-900 truncate max-w-[150px]" :title="item.designation">
+                      {{ item.designation }}
+                    </div>
+                    <div class="text-xs text-gray-500">{{ item.categorie }}</div>
+                  </td>
+                  <td class="px-3 py-3 text-right text-gray-600">{{ item.total_sorties }}</td>
+                  <td class="px-3 py-3 text-right text-gray-600">{{ item.stock_actuel }}</td>
+                  <td class="px-3 py-3 text-right">
+                    <span :class="[
+                      'px-2 py-1 rounded text-xs font-bold',
+                      item.taux_rotation >= 100 ? 'bg-green-100 text-green-700' : 
+                      item.taux_rotation > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                    ]">
+                      {{ item.taux_rotation.toFixed(1) }}%
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- Recent Activities -->
@@ -102,12 +184,7 @@
             <div v-if="recentVentes.length === 0" class="empty-state-small">
               <p>Aucune vente récente</p>
             </div>
-            <div 
-              v-else
-              v-for="vente in recentVentes" 
-              :key="vente.id" 
-              class="activity-item"
-            >
+            <div v-else v-for="vente in recentVentes" :key="vente.id" class="activity-item">
               <div class="activity-info">
                 <p class="activity-title">{{ vente.numero }}</p>
                 <p class="activity-subtitle">{{ vente.client }}</p>
@@ -132,12 +209,7 @@
             <div v-if="recentAchats.length === 0" class="empty-state-small">
               <p>Aucun achat récent</p>
             </div>
-            <div 
-              v-else
-              v-for="achat in recentAchats" 
-              :key="achat.id" 
-              class="activity-item"
-            >
+            <div v-else v-for="achat in recentAchats" :key="achat.id" class="activity-item">
               <div class="activity-info">
                 <p class="activity-title">{{ achat.numero }}</p>
                 <p class="activity-subtitle">{{ achat.fournisseur }}</p>
@@ -149,15 +221,55 @@
             </div>
           </div>
         </div>
+
+        <!-- New Stock Alert Section -->
+        <div class="card col-span-2">
+          <div class="card-header">
+            <h2 class="card-title">Articles proches de la rupture</h2>
+            <router-link to="/stock" class="card-link">
+              Gérer le stock
+            </router-link>
+          </div>
+          <div class="activity-list">
+            <div v-if="stockStats.articlesRupture.length === 0" class="empty-state-small">
+              <p>Aucun article en alerte</p>
+            </div>
+            <div v-else v-for="article in stockStats.articlesRupture" :key="article.id" class="activity-item">
+              <div class="activity-info">
+                <p class="activity-title">{{ article.designation }}</p>
+                <p class="activity-subtitle">{{ article.categorie }}</p>
+              </div>
+              <div class="activity-meta">
+                <p class="activity-amount text-red-600">{{ article.quantite_actuelle }} unités</p>
+                <span class="badge badge-danger">Alerte</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { Package, TrendingUp, ShoppingCart, Wallet } from 'lucide-vue-next'
 import api from '@/services/api/api'
+import statStockService from '@/services/statStockService'
+import { Line } from 'vue-chartjs'
+import {
+  Chart as ChartJS,
+  Title,
+  Tooltip,
+  Legend,
+  LineElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  Filler
+} from 'chart.js'
+
+ChartJS.register(Title, Tooltip, Legend, LineElement, CategoryScale, LinearScale, PointElement, Filler)
 
 const stats = ref({
   totalArticles: 0,
@@ -165,6 +277,62 @@ const stats = ref({
   totalFacturesAchat: 0,
   soldeCaisse: 0
 })
+
+const stockStats = ref({
+  tauxRotationMoyenne: 0,
+  valeurImmobilise: 0,
+  dureeMoyenne: 0,
+  articlesRupture: [],
+  rotationData: [] // Store full rotation data
+})
+
+const chartData = computed(() => {
+  return {
+    labels: stockStats.value.rotationData.map(item => item.designation),
+    datasets: [
+      {
+        label: 'Taux de rotation (%)',
+        backgroundColor: 'rgba(79, 70, 229, 0.2)',
+        borderColor: '#4f46e5',
+        pointBackgroundColor: '#4f46e5',
+        pointBorderColor: '#fff',
+        data: stockStats.value.rotationData.map(item => item.taux_rotation),
+        fill: true,
+        tension: 0.4
+      }
+    ]
+  }
+})
+
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false
+    },
+    tooltip: {
+      callbacks: {
+        label: function (context) {
+          const item = stockStats.value.rotationData[context.dataIndex]
+          return [
+            `Taux: ${context.parsed.y.toFixed(1)}%`,
+            `Sorties: ${item.total_sorties}`,
+            `Stock: ${item.stock_actuel}`
+          ]
+        }
+      }
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      ticks: {
+        callback: value => value + '%'
+      }
+    }
+  }
+}
 
 const recentVentes = ref([])
 const recentAchats = ref([])
@@ -179,10 +347,18 @@ const formatCurrency = (amount) => {
   }).format(amount)
 }
 
+const formatPercent = (value) => {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'percent',
+    minimumFractionDigits: 1
+  }).format(value / 100)
+}
+
 const loadDashboardData = async () => {
   loading.value = true
   error.value = null
   try {
+    // Stats de base
     const statsResponse = await api.get('/dashboard/stats')
     stats.value = statsResponse.data || stats.value
 
@@ -192,15 +368,72 @@ const loadDashboardData = async () => {
     const achatsResponse = await api.get('/dashboard/recent-achats')
     recentAchats.value = achatsResponse.data || []
 
+    try {
+      const rotationResp = await statStockService.getTauxRotationStock()
+      console.log('Rotation response:', rotationResp) // DEBUG
+
+      const rotationData = Array.isArray(rotationResp.data) ? rotationResp.data : []
+      stockStats.value.rotationData = rotationData
+
+      const avgRotation = rotationData.length > 0
+        ? rotationData.reduce((sum, item) => {
+          const taux = parseFloat(item.taux_rotation) || 0
+          return sum + taux
+        }, 0) / rotationData.length
+        : 0
+      stockStats.value.tauxRotationMoyenne = avgRotation
+    } catch (err) {
+      console.error('Erreur taux rotation:', err)
+      stockStats.value.tauxRotationMoyenne = 0
+      stockStats.value.rotationData = []
+    }
+
+    try {
+      const immobiliseResp = await statStockService.getValeurStockImmobilise()
+      console.log('Immobilise response:', immobiliseResp) // DEBUG
+
+      stockStats.value.valeurImmobilise = parseFloat(immobiliseResp.data?.total) || 0
+    } catch (err) {
+      console.error('Erreur valeur immobilisé:', err)
+      stockStats.value.valeurImmobilise = 0
+    }
+
+    try {
+      const dureeResp = await statStockService.getDureeStockMoyenne()
+      console.log('Duree response:', dureeResp) 
+
+      const duree = parseFloat(dureeResp.data?.duree_moyenne)
+      stockStats.value.dureeMoyenne = !isNaN(duree) ? Math.round(duree) : 0
+    } catch (err) {
+      console.error('Erreur durée moyenne:', err)
+      stockStats.value.dureeMoyenne = 0
+    }
+
+    try {
+      const ruptureResp = await statStockService.getArticlesRupture()
+      console.log('Rupture response:', ruptureResp) 
+
+      stockStats.value.articlesRupture = Array.isArray(ruptureResp.data) ? ruptureResp.data : []
+    } catch (err) {
+      console.error('Erreur articles rupture:', err)
+      stockStats.value.articlesRupture = []
+    }
+
   } catch (err) {
     error.value = 'Erreur lors du chargement des données'
     console.error('Erreur chargement dashboard:', err)
-    
+
     stats.value = {
       totalArticles: 0,
       totalFacturesVente: 0,
       totalFacturesAchat: 0,
       soldeCaisse: 0
+    }
+    stockStats.value = {
+      tauxRotationMoyenne: 0,
+      valeurImmobilise: 0,
+      dureeMoyenne: 0,
+      articlesRupture: []
     }
     recentVentes.value = []
     recentAchats.value = []
@@ -242,7 +475,9 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {
@@ -273,6 +508,7 @@ onMounted(() => {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -303,7 +539,7 @@ onMounted(() => {
 
 /* Stats Grid */
 .stats-grid {
-  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4;
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
 }
 
 .stat-card {
@@ -333,6 +569,11 @@ onMounted(() => {
 /* Activities Grid */
 .activities-grid {
   @apply grid grid-cols-1 lg:grid-cols-2 gap-6;
+}
+
+/* Badges */
+.badge-danger {
+  @apply bg-red-100 text-red-700;
 }
 
 .card {
