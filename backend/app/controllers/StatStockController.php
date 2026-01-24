@@ -26,6 +26,7 @@ class StatStockController {
             
             // Nettoyer les valeurs NaN ou infinies
             $data = array_map(function($item) {
+                // Utilisation des clés retournées par StatStockModel : total_sorties, stock_actuel, taux_rotation
                 $item['taux_rotation'] = isset($item['taux_rotation']) && is_numeric($item['taux_rotation']) && is_finite($item['taux_rotation']) 
                     ? floatval($item['taux_rotation']) 
                     : 0;
@@ -101,7 +102,7 @@ class StatStockController {
             
             // Nettoyer les quantités
             $data = array_map(function($item) {
-                $item['quantite_actuelle'] = is_numeric($item['quantite_actuelle']) 
+                $item['quantite_actuelle'] = isset($item['quantite_actuelle']) && is_numeric($item['quantite_actuelle']) 
                     ? intval($item['quantite_actuelle']) 
                     : 0;
                 return $item;
@@ -170,7 +171,7 @@ class StatStockController {
             $tauxRotationMoyen = 0;
             if (is_array($tauxRotation) && count($tauxRotation) > 0) {
                 $sum = array_reduce($tauxRotation, function($carry, $item) {
-                    $taux = is_numeric($item['taux_rotation']) && is_finite($item['taux_rotation']) 
+                    $taux = isset($item['taux_rotation']) && is_numeric($item['taux_rotation']) && is_finite($item['taux_rotation']) 
                         ? floatval($item['taux_rotation']) 
                         : 0;
                     return $carry + $taux;
@@ -190,7 +191,7 @@ class StatStockController {
             // Construire la réponse
             $response = [
                 'taux_rotation_moyenne' => $tauxRotationMoyen,
-                'valeur_immobilise' => is_numeric($valeurImmobilise['total']) 
+                'valeur_immobilise' => isset($valeurImmobilise['total']) && is_numeric($valeurImmobilise['total']) 
                     ? floatval($valeurImmobilise['total']) 
                     : 0,
                 'duree_moyenne' => $duree,

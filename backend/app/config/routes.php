@@ -15,6 +15,7 @@ use app\controllers\PaiementAchatController;
 use app\controllers\ProformaDemandeAchatController;
 use app\controllers\ProformaFournisseurController;
 use app\controllers\StatStockController;
+use app\controllers\StatFinanceController;
 
 use flight\Engine;
 use flight\net\Router;
@@ -40,6 +41,7 @@ $PaiementAchat_Controller = new PaiementAchatController();
 $ProformaDemandeAchat_Controller = new ProformaDemandeAchatController();
 $ProformaFournisseur_Controller = new ProformaFournisseurController();
 $StatStock_Controller = new StatStockController();
+$StatFinance_Controller = new StatFinanceController();
 
 // Page d'accueil
 $router->get('/', function () {
@@ -233,6 +235,14 @@ $router->group('/api/stock/stats', function () use ($router, $StatStock_Controll
     $router->get('/valeur-immobilise', [$StatStock_Controller, 'getValeurStockImmobilise']);
     $router->get('/articles-rupture', [$StatStock_Controller, 'getArticlesRupture']);
     $router->get('/duree-moyenne', [$StatStock_Controller, 'getDureeStockMoyenne']);
+});
+
+$router->group('/api/finance/stats', function () use ($router, $StatFinance_Controller) {
+    $router->get('', [$StatFinance_Controller, 'getAllStats']);
+    $router->get('/encours-clients', [$StatFinance_Controller, 'getEncoursClients']);
+    $router->get('/encours-fournisseurs', [$StatFinance_Controller, 'getEncoursFournisseurs']);
+    $router->get('/tresorerie', [$StatFinance_Controller, 'getTresorerieNet']);
+    $router->get('/bfr', [$StatFinance_Controller, 'getBFR']);
 });
 
 $router->map('/*', function () {

@@ -170,6 +170,80 @@
         </div>
       </div>
 
+      <!-- Statistiques Financières Section -->
+      <div class="space-y-6 fade-in" style="animation-delay: 0.28s">
+        <div class="flex items-center justify-between border-b pb-2">
+          <h2 class="text-xl font-bold text-gray-800">Statistiques Financières</h2>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-shadow">
+            <div class="stat-content">
+              <p class="stat-label">Encours Clients</p>
+              <h3 class="stat-value text-blue-600">{{ formatCurrency(totalEncoursClients) }}</h3>
+              <p class="text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Créances à recouvrer</p>
+            </div>
+          </div>
+
+          <div class="stat-card border-l-4 border-l-red-500 shadow-sm hover:shadow-md transition-shadow">
+            <div class="stat-content">
+              <p class="stat-label">Encours Fournisseurs</p>
+              <h3 class="stat-value text-red-600">{{ formatCurrency(totalEncoursFournisseurs) }}</h3>
+              <p class="text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Dettes à payer</p>
+            </div>
+          </div>
+
+          <div class="stat-card border-l-4 border-l-green-500 shadow-sm hover:shadow-md transition-shadow">
+            <div class="stat-content">
+              <p class="stat-label">Trésorerie Nette</p>
+              <h3 class="stat-value text-green-600">{{ formatCurrency(totalTresorerie) }}</h3>
+              <p class="text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Liquidités disponibles</p>
+            </div>
+          </div>
+
+          <div class="stat-card border-l-4 border-l-purple-500 shadow-sm hover:shadow-md transition-shadow">
+            <div class="stat-content">
+              <p class="stat-label">BFR</p>
+              <h3 class="stat-value text-purple-600">{{ formatCurrency(financeStats.bfr.bfr) }}</h3>
+              <p class="text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Besoin en Fonds de Roulement</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Détails Encours -->
+          <div class="card">
+            <div class="card-header border-none pb-0">
+              <h3 class="font-semibold text-gray-700">Top clients avec factures impayées</h3>
+            </div>
+            <div class="activity-list mt-4">
+              <div v-if="financeStats.encoursClients.length === 0" class="empty-state-small py-4">
+                Aucun encours client
+              </div>
+              <div v-for="item in financeStats.encoursClients.slice(0, 5)" :key="item.entreprise_id" class="activity-item">
+                <span class="text-sm font-medium">{{ item.client_nom }}</span>
+                <span class="text-sm font-bold text-blue-600">{{ formatCurrency(item.total_encours) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header border-none pb-0">
+              <h3 class="font-semibold text-gray-700">Répartition par Caisse</h3>
+            </div>
+            <div class="activity-list mt-4">
+              <div v-for="caisse in financeStats.tresorerieNet" :key="caisse.id" class="activity-item">
+                <div>
+                  <p class="text-sm font-medium">{{ caisse.libelle }}</p>
+                  <p class="text-xs text-gray-500">{{ caisse.entreprise_nom }}</p>
+                </div>
+                <span class="text-sm font-bold text-green-600">{{ formatCurrency(caisse.solde_actuel) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Recent Activities -->
       <div class="activities-grid fade-in" style="animation-delay: 0.3s">
         <!-- Recent Sales -->
@@ -256,6 +330,7 @@ import { ref, onMounted, computed } from 'vue'
 import { Package, TrendingUp, ShoppingCart, Wallet } from 'lucide-vue-next'
 import api from '@/services/api/api'
 import statStockService from '@/services/statStockService'
+import financeService from '@/services/financeService'
 import { Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -285,6 +360,30 @@ const stockStats = ref({
   articlesRupture: [],
   rotationData: [] // Store full rotation data
 })
+
+const financeStats = ref({
+  encoursClients: [],
+  encoursFournisseurs: [],
+  tresorerieNet: [],
+  bfr: {
+    valeur_stock: 0,
+    creances_clients: 0,
+    dettes_fournisseurs: 0,
+    bfr: 0
+  }
+})
+
+const totalEncoursClients = computed(() => 
+  financeStats.value.encoursClients.reduce((sum, item) => sum + parseFloat(item.total_encours), 0)
+)
+
+const totalEncoursFournisseurs = computed(() => 
+  financeStats.value.encoursFournisseurs.reduce((sum, item) => sum + parseFloat(item.total_encours), 0)
+)
+
+const totalTresorerie = computed(() => 
+  financeStats.value.tresorerieNet.reduce((sum, item) => sum + parseFloat(item.solde_actuel), 0)
+)
 
 const chartData = computed(() => {
   return {
@@ -417,6 +516,20 @@ const loadDashboardData = async () => {
     } catch (err) {
       console.error('Erreur articles rupture:', err)
       stockStats.value.articlesRupture = []
+    }
+
+    // Statistiques Financières
+    try {
+      const finResp = await financeService.getAllStats()
+      console.log('Finance stats:', finResp.data)
+      financeStats.value = {
+        encoursClients: finResp.data.encours_clients || [],
+        encoursFournisseurs: finResp.data.encours_fournisseurs || [],
+        tresorerieNet: finResp.data.tresorerie_net || [],
+        bfr: finResp.data.bfr || financeStats.value.bfr
+      }
+    } catch (err) {
+      console.error('Erreur stats financières:', err)
     }
 
   } catch (err) {
