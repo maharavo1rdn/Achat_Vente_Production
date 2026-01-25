@@ -18,6 +18,15 @@ import BonCommandeVente from "../views/vente/BonCommandeVente.vue"
 import FactureVente from "../views/vente/FactureVente.vue"
 
 import Caisse from "../views/finance/Caisse.vue"
+import Caisses from "../views/finance/Caisses.vue"
+import CaisseDetail from "../views/finance/CaisseDetail.vue"
+import MouvementsCaisse from "../views/finance/MouvementsCaisse.vue"
+import MouvementCaisseDetail from "../views/finance/MouvementCaisseDetail.vue"
+import MouvementCreate from "../views/finance/MouvementCreate.vue"
+import PaiementsVente from "../views/finance/PaiementsVente.vue"
+import PaiementVenteDetail from "../views/finance/PaiementVenteDetail.vue"
+import PaiementsAchat from "../views/finance/PaiementsAchat.vue"
+import PaiementAchatDetail from "../views/finance/PaiementAchatDetail.vue"
 
 import Entreprises from "../views/parametres/Entreprises.vue"
 import EntrepriseDetail from "../views/parametres/EntrepriseDetail.vue"
@@ -33,6 +42,7 @@ const router = createRouter({
     { path: "/articles/:id", name: "article-detail", component: ArticleDetail },
     { path: "/stock", name: "stock", component: Stock },
     { path: "/entreprises", name: "entreprises", component: Entreprises },
+    { path: "/parametres/mode-paiements", name: "mode-paiements", component: () => import('@/views/parametres/ModePaiements.vue') },
     { path: "/entreprises/:id", name: "entreprise-detail", component: EntrepriseDetail },
     { path: "/sites/:id", name: "site-detail", component: SiteDetail },
     { path: "/personnel", name: "personnel", component: Personnel },
@@ -53,6 +63,17 @@ const router = createRouter({
     { path: "/ventes/factures", name: "facture-vente", component: FactureVente },
     
     { path: "/caisse", name: "caisse", component: Caisse },
+    { path: "/caisses", name: "caisses", component: Caisses },
+    { path: "/caisses/:id", name: "caisse-detail", component: CaisseDetail },
+    { path: "/mouvements-caisse", name: "mouvements-caisse", component: MouvementsCaisse },
+    { path: "/mouvements-caisse/new", name: "mouvement-caisse-new", component: MouvementCreate },
+    { path: "/mouvements-caisse/:id", name: "mouvement-caisse-detail", component: MouvementCaisseDetail },
+    { path: "/paiements/vente", name: "paiements-vente", component: PaiementsVente },
+    { path: "/paiements/vente/:id", name: "paiement-vente-detail", component: PaiementVenteDetail },
+    { path: "/paiements/achat", name: "paiements-achat", component: PaiementsAchat },
+    { path: "/paiements/achat/:id", name: "paiement-achat-detail", component: PaiementAchatDetail },
+    { path: "/paiements/vente/new/:factureId", name: "paiement-vente-new", component: () => import('@/views/finance/PaymentCreate.vue'), props: (r) => ({ type: 'vente', factureId: Number(r.params.factureId) }) },
+    { path: "/paiements/achat/new/:factureId", name: "paiement-achat-new", component: () => import('@/views/finance/PaymentCreate.vue'), props: (r) => ({ type: 'achat', factureId: Number(r.params.factureId) }) },
     { path: "/login", name: "login", component: Login, meta: { hideSidebar: true } },
   ],
 })

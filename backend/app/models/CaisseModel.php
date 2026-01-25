@@ -4,6 +4,7 @@ namespace app\models;
 
 use InvalidArgumentException;
 use PDO;
+use Exception;
 
 class CaisseModel
 {
@@ -208,12 +209,16 @@ class CaisseModel
                 cm.solde_apres,
                 cm.caisse_id,
                 cm.personnel_id,
+                cm.statut_id,
                 c.libelle as caisse_libelle,
                 p.nom as personnel_nom,
-                p.prenom as personnel_prenom
+                p.prenom as personnel_prenom,
+                s.libelle as statut_libelle,
+                s.code as statut_code
             FROM caisse_mouvement cm
             INNER JOIN caisse c ON cm.caisse_id = c.id
             INNER JOIN personnel p ON cm.personnel_id = p.id
+            INNER JOIN statut s ON cm.statut_id = s.id
             WHERE 1=1
         ";
 
@@ -239,6 +244,15 @@ class CaisseModel
             $params[] = $filters['date_fin'];
         }
 
+        // Optional filter: type (ENTREE | SORTIE) - server-side helper
+        if (isset($filters['type'])) {
+            if (strtoupper($filters['type']) === 'ENTREE') {
+                $query .= " AND cm.montant_entree > 0";
+            } elseif (strtoupper($filters['type']) === 'SORTIE') {
+                $query .= " AND cm.montant_sortie > 0";
+            }
+        }
+
         $query .= " ORDER BY cm.date_mouvement DESC";
 
         $stmt = $this->db->prepare($query);
@@ -250,7 +264,98 @@ class CaisseModel
         return $results;
     }
 
-    public function createEntree($caisseId, $data)
+    public function getMouvementById($id)
+    {
+        if ($id <= 0) {
+            throw new InvalidArgumentException("L'ID doit être un entier positif");
+        }
+
+        error_log("CaisseModel::getMouvementById called with id=$id");
+
+        $query = "
+            SELECT
+                cm.id,
+                cm.date_mouvement,
+                cm.libelle_operation,
+                cm.montant_entree,
+                cm.montant_sortie,
+                cm.solde_avant,
+                cm.solde_apres,
+                cm.caisse_id,
+                cm.personnel_id,
+                cm.statut_id,
+                s.niveau,
+                c.libelle as caisse_libelle,
+                c.code_caisse,
+                p.nom as personnel_nom,
+                p.prenom as personnel_prenom,
+                s.libelle as statut_libelle,
+                s.code as statut_code
+            FROM caisse_mouvement cm
+            INNER JOIN caisse c ON cm.caisse_id = c.id
+            INNER JOIN personnel p ON cm.personnel_id = p.id
+            INNER JOIN statut s ON cm.statut_id = s.id
+            WHERE cm.id = ?
+        ";
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$id]);
+
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($result) {
+            error_log("CaisseModel::getMouvementById mouvement found");
+        } else {
+            error_log("CaisseModel::getMouvementById mouvement with id=$id not found");
+        }
+
+        return $result ?: null;
+    }
+
+    public function updateMouvement($id, $data)
+    {
+        if ($id <= 0) {
+            throw new InvalidArgumentException("L'ID doit être un entier positif");
+        }
+
+        error_log("CaisseModel::updateMouvement called with id=$id, data: " . json_encode($data));
+
+        // Get current mouvement
+        $current = $this->getMouvementById($id);
+        if (!$current) {
+            throw new InvalidArgumentException("Mouvement non trouvé");
+        }
+
+        if ($current['statut_id'] != 2) {
+            throw new InvalidArgumentException("Seuls les mouvements en attente peuvent être modifiés");
+        }
+
+        $query = "
+            UPDATE caisse_mouvement SET
+                libelle_operation = ?,
+                montant_entree = ?,
+                montant_sortie = ?
+            WHERE id = ?
+        ";
+
+        $stmt = $this->db->prepare($query);
+        $result = $stmt->execute([
+            $data['libelle_operation'] ?? $current['libelle_operation'],
+            $data['montant_entree'] ?? $current['montant_entree'],
+            $data['montant_sortie'] ?? $current['montant_sortie'],
+            $id
+        ]);
+
+        if ($result && $stmt->rowCount() > 0) {
+            error_log("CaisseModel::updateMouvement updated mouvement with id=$id");
+            return true;
+        }
+
+        error_log("CaisseModel::updateMouvement no mouvement updated with id=$id");
+        return false;
+    }
+
+    public function createEntree($caisseId, $data, $statutId = 3)
     {
         if ($caisseId <= 0) {
             throw new InvalidArgumentException("L'ID de caisse doit être un entier positif");
@@ -258,39 +363,64 @@ class CaisseModel
 
         $this->validateMouvementData($data);
 
-        error_log("CaisseModel::createEntree called with caisseId=$caisseId, data: " . json_encode($data));
+        error_log("CaisseModel::createEntree called with caisseId=$caisseId, data: " . json_encode($data) . ", statutId=" . $statutId);
 
-        // Récupérer le solde actuel
         $soldeAvant = $this->getSolde($caisseId) ?? 0;
-        $soldeApres = $soldeAvant + $data['montant'];
 
-        $query = "
-            INSERT INTO caisse_mouvement (
-                libelle_operation, montant_entree, montant_sortie,
-                solde_avant, solde_apres, caisse_id, personnel_id
-            ) VALUES (?, ?, 0, ?, ?, ?, ?)
-        ";
+        $soldeApres = $statutId == 2 ? $soldeAvant : $soldeAvant + $data['montant'];
 
-        $stmt = $this->db->prepare($query);
-        $stmt->execute([
-            $data['libelle_operation'],
-            $data['montant'],
-            $soldeAvant,
-            $soldeApres,
-            $caisseId,
-            $data['personnel_id']
-        ]);
+        // Allow client to specify date_mouvement (optional)
+        if (isset($data['date_mouvement'])) {
+            $query = "
+                INSERT INTO caisse_mouvement (
+                    date_mouvement, libelle_operation, montant_entree, montant_sortie,
+                    solde_avant, solde_apres, caisse_id, personnel_id, statut_id
+                ) VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)
+            ";
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([
+                $data['date_mouvement'],
+                $data['libelle_operation'],
+                $data['montant'],
+                $soldeAvant,
+                $soldeApres,
+                $caisseId,
+                $data['personnel_id'],
+                $statutId
+            ]);
+        } else {
+            $query = "
+                INSERT INTO caisse_mouvement (
+                    libelle_operation, montant_entree, montant_sortie,
+                    solde_avant, solde_apres, caisse_id, personnel_id, statut_id
+                ) VALUES (?, ?, 0, ?, ?, ?, ?, ?)
+            ";
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([
+                $data['libelle_operation'],
+                $data['montant'],
+                $soldeAvant,
+                $soldeApres,
+                $caisseId,
+                $data['personnel_id'],
+                $statutId
+            ]);
+        }
 
         $mouvementId = $this->db->lastInsertId();
 
-        // Mettre à jour le solde de la caisse
-        $this->updateCaisseSolde($caisseId, $soldeApres);
+        // Mettre à jour le solde de la caisse uniquement si le mouvement est validé
+        if ($statutId != 2) {
+            $this->updateCaisseSolde($caisseId, $soldeApres);
+        }
 
         error_log("CaisseModel::createEntree created entree with id=$mouvementId");
         return (int)$mouvementId;
     }
 
-    public function createSortie($caisseId, $data)
+    public function createSortie($caisseId, $data, $statutId = 3)
     {
         if ($caisseId <= 0) {
             throw new InvalidArgumentException("L'ID de caisse doit être un entier positif");
@@ -298,40 +428,122 @@ class CaisseModel
 
         $this->validateMouvementData($data);
 
-        error_log("CaisseModel::createSortie called with caisseId=$caisseId, data: " . json_encode($data));
+        error_log("CaisseModel::createSortie called with caisseId=$caisseId, data: " . json_encode($data) . ", statutId=" . $statutId);
 
-        // Récupérer le solde actuel
         $soldeAvant = $this->getSolde($caisseId) ?? 0;
-        $soldeApres = $soldeAvant - $data['montant'];
+
+        $soldeApres = $statutId == 2 ? $soldeAvant : $soldeAvant - $data['montant'];
 
         if ($soldeApres < 0) {
             throw new InvalidArgumentException("Solde insuffisant pour cette sortie");
         }
 
-        $query = "
-            INSERT INTO caisse_mouvement (
-                libelle_operation, montant_entree, montant_sortie,
-                solde_avant, solde_apres, caisse_id, personnel_id
-            ) VALUES (?, 0, ?, ?, ?, ?, ?)
-        ";
+        // Allow client to specify date_mouvement (optional)
+        if (isset($data['date_mouvement'])) {
+            $query = "
+                INSERT INTO caisse_mouvement (
+                    date_mouvement, libelle_operation, montant_entree, montant_sortie,
+                    solde_avant, solde_apres, caisse_id, personnel_id, statut_id
+                ) VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)
+            ";
 
-        $stmt = $this->db->prepare($query);
-        $stmt->execute([
-            $data['libelle_operation'],
-            $data['montant'],
-            $soldeAvant,
-            $soldeApres,
-            $caisseId,
-            $data['personnel_id']
-        ]);
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([
+                $data['date_mouvement'],
+                $data['libelle_operation'],
+                $data['montant'],
+                $soldeAvant,
+                $soldeApres,
+                $caisseId,
+                $data['personnel_id'],
+                $statutId
+            ]);
+        } else {
+            $query = "
+                INSERT INTO caisse_mouvement (
+                    libelle_operation, montant_entree, montant_sortie,
+                    solde_avant, solde_apres, caisse_id, personnel_id, statut_id
+                ) VALUES (?, 0, ?, ?, ?, ?, ?, ?)
+            ";
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([
+                $data['libelle_operation'],
+                $data['montant'],
+                $soldeAvant,
+                $soldeApres,
+                $caisseId,
+                $data['personnel_id'],
+                $statutId
+            ]);
+        }
 
         $mouvementId = $this->db->lastInsertId();
 
-        // Mettre à jour le solde de la caisse
-        $this->updateCaisseSolde($caisseId, $soldeApres);
+        if ($statutId != 2) {
+            $this->updateCaisseSolde($caisseId, $soldeApres);
+        }
 
         error_log("CaisseModel::createSortie created sortie with id=$mouvementId");
         return (int)$mouvementId;
+    }
+
+    public function createMouvement($caisseId, $data, $statutId = 2) {
+        $this->db->beginTransaction();
+
+        try {
+            $montantEntree = floatval($data['montant_entree'] ?? 0);
+            $montantSortie = floatval($data['montant_sortie'] ?? 0);
+
+            if ($montantEntree <= 0 && $montantSortie <= 0) {
+                throw new InvalidArgumentException("Au moins un montant (entrée ou sortie) doit être supérieur à 0");
+            }
+
+            error_log("CaisseModel::createMouvement called with caisseId=$caisseId, entree=$montantEntree, sortie=$montantSortie, statutId=$statutId");
+
+            $caisse = $this->getCaisseById($caisseId);
+            if (!$caisse) {
+                throw new InvalidArgumentException("Caisse introuvable");
+            }
+
+            $soldeAvant = floatval($caisse['solde_actuel']);
+            $soldeApres = $soldeAvant + $montantEntree - $montantSortie;
+
+            $query = "
+                INSERT INTO caisse_mouvement (
+                    libelle_operation, montant_entree, montant_sortie,
+                    solde_avant, solde_apres, caisse_id, personnel_id, statut_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ";
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([
+                $data['libelle_operation'],
+                $montantEntree,
+                $montantSortie,
+                $soldeAvant,
+                $soldeApres,
+                $caisseId,
+                $data['personnel_id'],
+                $statutId
+            ]);
+
+            $mouvementId = $this->db->lastInsertId();
+
+            // Si le mouvement n'est pas EN_ATTENTE, mettre à jour le solde de la caisse
+            if ($statutId != 2) {
+                $this->updateCaisseSolde($caisseId, $soldeApres);
+            }
+
+            $this->db->commit();
+            error_log("CaisseModel::createMouvement created movement with id=$mouvementId");
+            return (int)$mouvementId;
+
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            error_log("CaisseModel::createMouvement error: " . $e->getMessage());
+            throw $e;
+        }
     }
 
     // =================== PAIEMENTS ===================
@@ -548,7 +760,7 @@ class CaisseModel
         }
     }
 
-    private function validateMouvementData( $data)     
+    private function validateMouvementData($data)
     {
         if (empty($data['libelle_operation'])) {
             throw new InvalidArgumentException("Le libellé d'opération est obligatoire");
@@ -557,9 +769,65 @@ class CaisseModel
         if (!isset($data['montant']) || $data['montant'] <= 0) {
             throw new InvalidArgumentException("Le montant doit être positif");
         }
+    }
 
-        if (!isset($data['personnel_id']) || $data['personnel_id'] <= 0) {
-            throw new InvalidArgumentException("Le personnel est obligatoire");
+    /**
+     * Finalize a mouvement and optionally update its montant in the same atomic transaction.
+     * If $newMontant is provided, it will update either montant_entree or montant_sortie depending on the existing columns
+     * or on $isSortie flag (if provided).
+     */
+    public function finalizeMouvement($mouvementId, $statutId = 3, $newMontant = null, $isSortie = null)
+    {
+        if ($mouvementId <= 0) throw new InvalidArgumentException('mouvementId invalide');
+
+        $startedTransaction = false;
+        if (!$this->db->inTransaction()) {
+            $this->db->beginTransaction();
+            $startedTransaction = true;
+        }
+
+        try {
+            $stmt = $this->db->prepare('SELECT * FROM caisse_mouvement WHERE id = ? FOR UPDATE');
+            $stmt->execute([$mouvementId]);
+            $m = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$m) throw new InvalidArgumentException('Mouvement introuvable');
+
+            $montantEntree = (float)$m['montant_entree'];
+            $montantSortie = (float)$m['montant_sortie'];
+            $soldeAvant = (float)$m['solde_avant'];
+            $caisseId = (int)$m['caisse_id'];
+
+            // If caller provided a new montant, decide whether to set montant_entree or montant_sortie
+            if ($newMontant !== null) {
+                // If isSortie explicitly provided, use it. Otherwise infer based on which column currently has a non-zero value.
+                if ($isSortie === null) {
+                    $isSortie = ($montantEntree == 0 && $montantSortie > 0) || ($montantSortie > 0 && $montantEntree == 0);
+                }
+
+                if ($isSortie) {
+                    $montantSortie = (float)$newMontant;
+                } else {
+                    $montantEntree = (float)$newMontant;
+                }
+            }
+
+            $soldeApres = $soldeAvant + $montantEntree - $montantSortie;
+
+            $stmt = $this->db->prepare('UPDATE caisse_mouvement SET statut_id = ?, solde_apres = ?, montant_entree = ?, montant_sortie = ? WHERE id = ?');
+            $stmt->execute([$statutId, $soldeApres, $montantEntree, $montantSortie, $mouvementId]);
+
+            $this->updateCaisseSolde($caisseId, $soldeApres);
+
+            if ($startedTransaction) {
+                $this->db->commit();
+            }
+            error_log("CaisseModel::finalizeMouvement finalized mouvement $mouvementId with statut $statutId");
+            return true;
+        } catch (Exception $e) {
+            if ($startedTransaction) {
+                $this->db->rollBack();
+            }
+            throw $e;
         }
     }
 }

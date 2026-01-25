@@ -142,10 +142,13 @@ class DashboardModel
 
     private function getVentesTotalByMonth($month)
     {
+        // Only count validated payments (statut_id = 3 for 'valide')
         $query = "
-            SELECT COALESCE(SUM(montant_ttc), 0) as total
-            FROM facture_vente
-            WHERE TO_CHAR(date_facture, 'YYYY-MM') = ?
+            SELECT COALESCE(SUM(pv.montant), 0) as total
+            FROM paiement_vente pv
+            INNER JOIN facture_vente fv ON pv.facture_vente_id = fv.id
+            WHERE pv.statut_id = 3
+            AND TO_CHAR(pv.date_paiement, 'YYYY-MM') = ?
         ";
         $stmt = $this->db->prepare($query);
         $stmt->execute([$month]);
@@ -155,10 +158,13 @@ class DashboardModel
 
     private function getAchatsTotalByMonth($month)
     {
+        // Only count validated payments (statut_id = 3 for 'valide')
         $query = "
-            SELECT COALESCE(SUM(montant_ttc), 0) as total
-            FROM facture_achat
-            WHERE TO_CHAR(date_facture, 'YYYY-MM') = ?
+            SELECT COALESCE(SUM(pa.montant), 0) as total
+            FROM paiement_achat pa
+            INNER JOIN facture_achat fa ON pa.facture_achat_id = fa.id
+            WHERE pa.statut_id = 3
+            AND TO_CHAR(pa.date_paiement, 'YYYY-MM') = ?
         ";
         $stmt = $this->db->prepare($query);
         $stmt->execute([$month]);
@@ -168,13 +174,15 @@ class DashboardModel
 
     private function getEvolutionVentes($months)
     {
+        // Only count validated payments
         $query = "
             SELECT
-                TO_CHAR(date_facture, 'YYYY-MM') as mois,
-                COALESCE(SUM(montant_ttc), 0) as total
-            FROM facture_vente
-            WHERE date_facture >= CURRENT_DATE - INTERVAL '" . $months . " months'
-            GROUP BY TO_CHAR(date_facture, 'YYYY-MM')
+                TO_CHAR(pv.date_paiement, 'YYYY-MM') as mois,
+                COALESCE(SUM(pv.montant), 0) as total
+            FROM paiement_vente pv
+            WHERE pv.statut_id = 3
+            AND pv.date_paiement >= CURRENT_DATE - INTERVAL '" . $months . " months'
+            GROUP BY TO_CHAR(pv.date_paiement, 'YYYY-MM')
             ORDER BY mois
         ";
         $stmt = $this->db->prepare($query);
@@ -210,13 +218,15 @@ class DashboardModel
 
     private function getEvolutionAchats($months)
     {
+        // Only count validated payments
         $query = "
             SELECT
-                TO_CHAR(date_facture, 'YYYY-MM') as mois,
-                COALESCE(SUM(montant_ttc), 0) as total
-            FROM facture_achat
-            WHERE date_facture >= CURRENT_DATE - INTERVAL '" . $months . " months'
-            GROUP BY TO_CHAR(date_facture, 'YYYY-MM')
+                TO_CHAR(pa.date_paiement, 'YYYY-MM') as mois,
+                COALESCE(SUM(pa.montant), 0) as total
+            FROM paiement_achat pa
+            WHERE pa.statut_id = 3
+            AND pa.date_paiement >= CURRENT_DATE - INTERVAL '" . $months . " months'
+            GROUP BY TO_CHAR(pa.date_paiement, 'YYYY-MM')
             ORDER BY mois
         ";
         $stmt = $this->db->prepare($query);
@@ -318,24 +328,27 @@ class DashboardModel
 
     private function getCAMensuel($months)
     {
+        // Only count validated payments for both ventes and achats
         $query = "
             SELECT
-                TO_CHAR(date_facture, 'YYYY-MM') as mois,
-                COALESCE(SUM(montant_ttc), 0) as ca_ventes,
+                TO_CHAR(pv.date_paiement, 'YYYY-MM') as mois,
+                COALESCE(SUM(pv.montant), 0) as ca_ventes,
                 0 as ca_achats
-            FROM facture_vente
-            WHERE date_facture >= CURRENT_DATE - INTERVAL '" . $months . " months'
-            GROUP BY TO_CHAR(date_facture, 'YYYY-MM')
+            FROM paiement_vente pv
+            WHERE pv.statut_id = 3
+            AND pv.date_paiement >= CURRENT_DATE - INTERVAL '" . $months . " months'
+            GROUP BY TO_CHAR(pv.date_paiement, 'YYYY-MM')
 
             UNION ALL
 
             SELECT
-                TO_CHAR(date_facture, 'YYYY-MM') as mois,
+                TO_CHAR(pa.date_paiement, 'YYYY-MM') as mois,
                 0 as ca_ventes,
-                COALESCE(SUM(montant_ttc), 0) as ca_achats
-            FROM facture_achat
-            WHERE date_facture >= CURRENT_DATE - INTERVAL '" . $months . " months'
-            GROUP BY TO_CHAR(date_facture, 'YYYY-MM')
+                COALESCE(SUM(pa.montant), 0) as ca_achats
+            FROM paiement_achat pa
+            WHERE pa.statut_id = 3
+            AND pa.date_paiement >= CURRENT_DATE - INTERVAL '" . $months . " months'
+            GROUP BY TO_CHAR(pa.date_paiement, 'YYYY-MM')
 
             ORDER BY mois
         ";

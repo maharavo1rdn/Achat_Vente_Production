@@ -146,12 +146,48 @@
       <!-- Finance -->
       <div class="nav-section">
         <h3 v-if="!isCollapsed" class="nav-section-title">FINANCE</h3>
-        <router-link to="/caisse" class="nav-item" :class="{ 'active': isActive('/caisse') }">
-          <div class="nav-item-icon">
-            <Wallet class="w-4 h-4" />
-          </div>
-          <span v-if="!isCollapsed" class="nav-item-label">Caisse</span>
-        </router-link>
+        <div class="nav-group">
+          <button
+            @click="toggleMenu('finance')"
+            class="nav-item nav-item-parent"
+            :class="{ 'active': isFinanceActive, 'expanded': openMenus.finance }"
+          >
+            <div class="nav-item-icon">
+              <Wallet class="w-4 h-4" />
+            </div>
+            <span v-if="!isCollapsed" class="nav-item-label">Finance & Caisse</span>
+            <ChevronDown
+              v-if="!isCollapsed"
+              class="nav-chevron"
+              :class="{ 'rotated': openMenus.finance }"
+            />
+          </button>
+          
+          <Transition name="dropdown">
+            <div v-if="openMenus.finance && !isCollapsed" class="nav-submenu">
+              <router-link to="/caisse" class="nav-subitem" :class="{ 'active': isActive('/caisse') }">
+                <div class="nav-subitem-dot"></div>
+                <span>Journal de Caisse</span>
+              </router-link>
+              <router-link to="/caisses" class="nav-subitem" :class="{ 'active': isActive('/caisses') }">
+                <div class="nav-subitem-dot"></div>
+                <span>Situation des Caisses</span>
+              </router-link>
+              <router-link to="/mouvements-caisse" class="nav-subitem" :class="{ 'active': isActive('/mouvements-caisse') }">
+                <div class="nav-subitem-dot"></div>
+                <span>Mouvements de Caisse</span>
+              </router-link>
+              <router-link to="/paiements/vente" class="nav-subitem" :class="{ 'active': isActive('/paiements/vente') }">
+                <div class="nav-subitem-dot"></div>
+                <span>Paiements Vente</span>
+              </router-link>
+              <router-link to="/paiements/achat" class="nav-subitem" :class="{ 'active': isActive('/paiements/achat') }">
+                <div class="nav-subitem-dot"></div>
+                <span>Paiements Achat</span>
+              </router-link>
+            </div>
+          </Transition>
+        </div>
       </div>
 
       <!-- Paramètres -->
@@ -183,6 +219,10 @@
               <router-link to="/personnel" class="nav-subitem" :class="{ 'active': isActive('/personnel') }">
                 <div class="nav-subitem-dot"></div>
                 <span>Personnel</span>
+              </router-link>
+              <router-link to="/parametres/mode-paiements" class="nav-subitem" :class="{ 'active': isActive('/parametres/mode-paiements') }">
+                <div class="nav-subitem-dot"></div>
+                <span>Modes Paiement</span>
               </router-link>
             </div>
           </Transition>
@@ -236,6 +276,7 @@ const openMenus = ref({
   stock: false,
   achats: false,
   ventes: false,
+  finance: false,
   settings: false
 })
 
@@ -255,7 +296,8 @@ const ventesMenuItems = [
 const isStockActive = computed(() => route.path.startsWith('/articles') || route.path.startsWith('/stock'))
 const isAchatsActive = computed(() => route.path.startsWith('/achats'))
 const isVentesActive = computed(() => route.path.startsWith('/ventes'))
-const isSettingsActive = computed(() => route.path.startsWith('/entreprises') || route.path.startsWith('/personnel'))
+const isFinanceActive = computed(() => route.path.startsWith('/caisse') || route.path.startsWith('/paiements') || route.path.startsWith('/mouvements-caisse'))
+const isSettingsActive = computed(() => route.path.startsWith('/entreprises') || route.path.startsWith('/personnel') || route.path.startsWith('/parametres'))
 
 watch(() => route.path, (newPath) => {
   if (newPath.startsWith('/articles') || newPath.startsWith('/stock')) {
@@ -267,14 +309,18 @@ watch(() => route.path, (newPath) => {
   if (newPath.startsWith('/ventes')) {
     openMenus.value.ventes = true
   }
-  if (newPath.startsWith('/entreprises') || newPath.startsWith('/personnel')) {
+  if (newPath.startsWith('/caisse') || newPath.startsWith('/paiements') || newPath.startsWith('/mouvements-caisse')) {
+    openMenus.value.finance = true
+  }
+  if (newPath.startsWith('/entreprises') || newPath.startsWith('/personnel') || newPath.startsWith('/parametres')) {
     openMenus.value.settings = true
   }
 }, { immediate: true })
 
 const isActive = computed(() => (path) => {
   if (path === '/') return route.path === '/'
-  return route.path.startsWith(path)
+  // Exact match or proper subpath (avoid '/caisses' marking '/caisse' active)
+  return route.path === path || route.path.startsWith(path + '/')
 })
 
 function toggleMenu(menu) {

@@ -607,8 +607,8 @@ class VenteModel
             INSERT INTO facture_vente (
                 numero_facture, date_facture, bon_commande_vente_id,
                 entreprise_client_id, entreprise_filiale_id, personnel_id,
-                statut_id, montant_ttc, reste_a_payer
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                statut_id, montant_ttc, reste_a_payer, remarques
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
 
         $stmt = $this->db->prepare($query);
@@ -621,7 +621,8 @@ class VenteModel
             $data['personnel_id'],
             $data['statut_id'],
             $data['montant_ttc'] ?? 0,
-            $data['reste_a_payer'] ?? $data['montant_ttc'] ?? 0
+            $data['reste_a_payer'] ?? $data['montant_ttc'] ?? 0,
+            $data['remarques'] ?? null
         ]);
 
         $newId = $this->db->lastInsertId();
@@ -654,7 +655,8 @@ class VenteModel
                 personnel_id = ?,
                 statut_id = ?,
                 montant_ttc = ?,
-                reste_a_payer = ?
+                reste_a_payer = ?,
+                remarques = ?
             WHERE id = ?
         ";
 
@@ -669,6 +671,7 @@ class VenteModel
             $data['statut_id'],
             $data['montant_ttc'] ?? 0,
             $data['reste_a_payer'] ?? $data['montant_ttc'] ?? 0,
+            $data['remarques'] ?? null,
             $id
         ]);
 

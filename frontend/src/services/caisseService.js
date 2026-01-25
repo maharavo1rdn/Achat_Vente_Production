@@ -24,9 +24,23 @@ export default {
   },
 
   // Récupérer les mouvements de caisse
-  getMouvements(caisseId = null, filters = {}) {
-    const url = caisseId ? `/caisse/${caisseId}/mouvements` : '/caisse/mouvements'
-    return api.get(url, { params: filters })
+  getMouvements(filters = {}) {
+    return api.get('/caisse/mouvements', { params: filters })
+  },
+
+  // Récupérer un mouvement par ID
+  getMouvementById(id) {
+    return api.get(`/caisse/mouvements/${id}`)
+  },
+
+  // Mettre à jour un mouvement
+  updateMouvement(id, data) {
+    return api.put(`/caisse/mouvements/${id}`, data)
+  },
+
+  // Valider un mouvement
+  validateMouvement(id) {
+    return api.post(`/caisse/mouvements/${id}/validate`)
   },
 
   // Créer une entrée de caisse
@@ -37,6 +51,11 @@ export default {
   // Créer une sortie de caisse
   createSortie(caisseId, data) {
     return api.post(`/caisse/${caisseId}/sortie`, data)
+  },
+
+  // Créer un mouvement avec entrée et/ou sortie
+  createMouvement(caisseId, data) {
+    return api.post(`/caisse/${caisseId}/mouvement`, data)
   },
 
   // Récupérer le solde actuel

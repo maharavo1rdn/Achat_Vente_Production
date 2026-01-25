@@ -120,9 +120,9 @@ INSERT INTO caisse (id, code_caisse, libelle, solde_actuel, entreprise_id) VALUE
 (1, 'C-MAIN-HQ', 'Caisse Principale Siège', 100000000, 1),
 (2, 'C-POS-01', 'Caisse Vente Showroom', 2000000, 2);
 
-INSERT INTO caisse_mouvement (id, date_mouvement, libelle_operation, montant_entree, montant_sortie, solde_avant, solde_apres, caisse_id, personnel_id) VALUES
-(1, NOW() - INTERVAL '30 days', 'Apport Capital Initial', 100000000, 0, 0, 100000000, 1, 1),
-(2, NOW() - INTERVAL '30 days', 'Fond de caisse démarrage', 2000000, 0, 0, 2000000, 2, 2);
+INSERT INTO caisse_mouvement (id, date_mouvement, statut_id, libelle_operation, montant_entree, montant_sortie, solde_avant, solde_apres, caisse_id, personnel_id) VALUES
+(1, NOW() - INTERVAL '30 days', 3, 'Apport Capital Initial', 100000000, 0, 0, 100000000, 1, 1),
+(2, NOW() - INTERVAL '30 days', 3, 'Fond de caisse démarrage', 2000000, 0, 0, 2000000, 2, 2);
 
 
 -- 5. STOCK INITIAL (DEPOTS)
@@ -200,22 +200,38 @@ INSERT INTO lot_stock (id, numero_lot, article_id, depot_id, date_entree, mouvem
 (7, 'LOT-ACH-ECR-001', 3, 1, NOW() - INTERVAL '15 days', 7, 10, 10, 450000);
 
 -- ETAPE 5 : Le Paiement
-INSERT INTO caisse_mouvement (id, date_mouvement, libelle_operation, montant_entree, montant_sortie, solde_avant, solde_apres, caisse_id, personnel_id) VALUES
-(3, NOW() - INTERVAL '15 days', 'Paiement Facture Ecrans', 0, 4500000, 100000000, 95500000, 1, 2);
+INSERT INTO caisse_mouvement (id, date_mouvement, statut_id, libelle_operation, montant_entree, montant_sortie, solde_avant, solde_apres, caisse_id, personnel_id) VALUES
+(3, NOW() - INTERVAL '15 days', 3, 'Paiement Facture Ecrans', 0, 4500000, 100000000, 95500000, 1, 2);
 UPDATE caisse SET solde_actuel = 95500000 WHERE id = 1;
 
 -- Paiements achat : on remplace les lignes détails par paiements par mode
+INSERT INTO paiement_achat (id, numero_paiement, mode_paiement_id, statut_id, facture_achat_id, caisse_mouvement_id, montant, date_paiement, reference_externe) VALUES
+(1, 'PAY-ACH-001-1', 2, 3, 1, 3, 4000000, NOW() - INTERVAL '15 days', NULL),
+(2, 'PAY-ACH-001-2', 1, 3, 1, 3, 500000, NOW() - INTERVAL '15 days', 'ESP-001');
+-- Exemple: paiement achat draft (en attente) pour tests
+INSERT INTO paiement_achat (id, numero_paiement, mode_paiement_id, statut_id, facture_achat_id, caisse_mouvement_id, montant, date_paiement, reference_externe) VALUES
+(3, 'PAY-ACH-002-1', 1, 1, 1, NULL, 300000, NOW(),' CHQ-123456'); -- Chèque en attente
+
+-- Exemple: paiement achat validé (sortie caisse)
+INSERT INTO caisse_mouvement (id, date_mouvement, statut_id, libelle_operation, montant_entree, montant_sortie, solde_avant, solde_apres, caisse_id, personnel_id) VALUES
+(6, NOW() - INTERVAL '10 days', 3, 'Paiement fournisseur partiel', 0, 300000, 95500000, 95200000, 1, 2);
+UPDATE caisse SET solde_actuel = 95200000 WHERE id = 1;
 INSERT INTO paiement_achat (id, numero_paiement, mode_paiement_id, statut_id, facture_achat_id, caisse_mouvement_id, montant, date_paiement) VALUES
-(1, 'PAY-ACH-001-1', 2, 3, 1, 3, 4000000, NOW() - INTERVAL '15 days'),
-(2, 'PAY-ACH-001-2', 1, 3, 1, 3, 500000, NOW() - INTERVAL '15 days');
+(4, 'PAY-ACH-002-2', 2, 3, 1, 6, 300000, NOW() - INTERVAL '10 days');
 
 
 -- 7. SCÉNARIO : VENTE SHOWROOM
 -- ============================
 
 -- 1. Facture Vente (Directe)
-INSERT INTO facture_vente (id, numero_facture, date_facture, entreprise_client_id, entreprise_filiale_id, depot_expedition_id, personnel_id, statut_id, montant_ttc, reste_a_payer) VALUES
-(1, 'FV-SH-23001', NOW() - INTERVAL '1 day', 6, 2, 2, 4, 5, 2425000, 0);
+INSERT INTO facture_vente (id, numero_facture, date_facture, entreprise_client_id, entreprise_filiale_id, depot_expedition_id, personnel_id, statut_id, montant_ttc, reste_a_payer, remarques) VALUES
+(1, 'FV-SH-23001', NOW() - INTERVAL '1 day', 6, 2, 2, 4, 5, 2425000, 0, 'Vente showroom');
+
+-- 1b. Facture Achat test (pour e2e)
+INSERT INTO facture_achat (id, numero_facture_fournisseur, date_facture, bon_commande_achat_id, entreprise_fournisseur_id, entreprise_filiale_id, depot_reception_id, statut_id, montant_ttc, reste_a_payer) VALUES
+(2, 'FAC-FRN-2024-TEST', NOW(), NULL, 4, 1, 1, 2, 1000000, 1000000);
+INSERT INTO facture_achat_details (id, facture_achat_id, article_id, quantite, prix_unitaire) VALUES
+(2, 2, 5, 10, 100000);
 
 INSERT INTO facture_vente_details (id, facture_vente_id, article_id, quantite, prix_unitaire) VALUES
 (1, 1, 1, 1, 2400000),
@@ -235,8 +251,8 @@ UPDATE lot_stock SET quantite_restante = 1 WHERE id = 5;
 UPDATE lot_stock SET quantite_restante = 49 WHERE id = 6; 
 
 -- 4. Paiement
-INSERT INTO caisse_mouvement (id, date_mouvement, libelle_operation, montant_entree, montant_sortie, solde_avant, solde_apres, caisse_id, personnel_id) VALUES
-(4, NOW() - INTERVAL '1 day', 'Vente Client Comptoir', 2425000, 0, 2000000, 4425000, 2, 4);
+INSERT INTO caisse_mouvement (id, date_mouvement, statut_id, libelle_operation, montant_entree, montant_sortie, solde_avant, solde_apres, caisse_id, personnel_id) VALUES
+(4, NOW() - INTERVAL '1 day', 3, 'Vente Client Comptoir', 2425000, 0, 2000000, 4425000, 2, 4);
 UPDATE caisse SET solde_actuel = 4425000 WHERE id = 2;
 
 -- Paiements vente : paiement par mode (un enregistrement = un mode + montant)
@@ -258,20 +274,40 @@ INSERT INTO bon_commande_vente_details (id, bon_commande_vente_id, article_id, q
 (1, 1, 1, 5, 2400000);
 
 -- 2. Facture
-INSERT INTO facture_vente (id, numero_facture, date_facture, bon_commande_vente_id, entreprise_client_id, entreprise_filiale_id, depot_expedition_id, personnel_id, statut_id, montant_ttc, reste_a_payer) VALUES
-(2, 'FV-HQ-23050', NOW(), 1, 5, 1, 1, 2, 3, 12000000, 12000000);
+INSERT INTO facture_vente (id, numero_facture, date_facture, bon_commande_vente_id, entreprise_client_id, entreprise_filiale_id, depot_expedition_id, personnel_id, statut_id, montant_ttc, reste_a_payer, remarques) VALUES
+(2, 'FV-HQ-23050', NOW(), 1, 5, 1, 1, 2, 3, 12000000, 10000000, 'B2B partiel'); -- reste mis à jour (paiement validé de 2_000_000 à posteriori)
 
 INSERT INTO facture_vente_details (id, facture_vente_id, article_id, quantite, prix_unitaire) VALUES
 (3, 2, 1, 5, 2400000);
 
 -- Exemple: Paiement partiel en attente pour la facture 2 (B2B) : création d'un paiement draft
-INSERT INTO paiement_vente (id, numero_recu, mode_paiement_id, statut_id, facture_vente_id, caisse_mouvement_id, montant, date_paiement) VALUES
-(2, 'REC-002', 2, 1, 2, NULL, 4000000, NOW());
+INSERT INTO paiement_vente (id, numero_recu, mode_paiement_id, statut_id, facture_vente_id, caisse_mouvement_id, montant, date_paiement, reference_externe) VALUES
+(2, 'REC-002', 2, 1, 2, NULL, 4000000, NOW(), 'CHQ-556677'); -- Chèque en attente
+
+-- Ajout: paiement partiel validé pour la facture 2 (création mouvement caisse)
+INSERT INTO caisse_mouvement (id, date_mouvement, statut_id, libelle_operation, montant_entree, montant_sortie, solde_avant, solde_apres, caisse_id, personnel_id) VALUES
+(5, NOW() - INTERVAL '12 hours', 3, 'Encaissement partiel B2B', 2000000, 0, 4425000, 6425000, 2, 4);
+UPDATE caisse SET solde_actuel = 6425000 WHERE id = 2;
+
+INSERT INTO paiement_vente (id, numero_recu, mode_paiement_id, statut_id, facture_vente_id, caisse_mouvement_id, montant, date_paiement, reference_externe) VALUES
+(3, 'REC-003', 1, 3, 2, 5, 2000000, NOW() - INTERVAL '12 hours', NULL);
 
 -- 3. Stock
 UPDATE stock SET quantite_actuelle = 5 WHERE id = 1;
 INSERT INTO mouvement_stock (id, date_mouvement, type_mouvement, quantite_stock_avant, quantite_entree, quantite_sortie, quantite_stock_apres, article_id, depot_id, personnel_id, reference_document) VALUES
 (10, NOW(), 'VENTE', 10, 0, 5, 5, 1, 1, 2, 'FV-HQ-23050');
+
+-- Ajout: facture vente test non payée pour UI
+INSERT INTO facture_vente (id, numero_facture, date_facture, entreprise_client_id, entreprise_filiale_id, depot_expedition_id, personnel_id, statut_id, montant_ttc, reste_a_payer, remarques) VALUES
+(3, 'FV-HQ-TEST-01', NOW() - INTERVAL '2 days', 6, 2, 2, 4, 2, 500000, 500000, 'Test non payée');
+INSERT INTO facture_vente_details (id, facture_vente_id, article_id, quantite, prix_unitaire) VALUES
+(4, 3, 6, 1, 500000);
+
+-- Paiement draft (vente) pour test UI (facture 3) – création d'un mouvement en attente et paiement lié
+INSERT INTO caisse_mouvement (id, date_mouvement, statut_id, libelle_operation, montant_entree, montant_sortie, solde_avant, solde_apres, caisse_id, personnel_id) VALUES
+(9, NOW(), 2, 'Paiement en attente facture 3', 250000, 0, 6425000, 6425000, 2, 4);
+INSERT INTO paiement_vente (id, numero_recu, mode_paiement_id, statut_id, facture_vente_id, caisse_mouvement_id, montant, date_paiement) VALUES
+(4, 'REC-004', 1, 2, 3, 9, 250000, NOW());
 
 -- 4. Lot
 UPDATE lot_stock SET quantite_restante = 5 WHERE id = 1;
