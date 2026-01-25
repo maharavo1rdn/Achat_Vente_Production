@@ -340,6 +340,7 @@ CREATE TABLE facture_achat (
     statut_id INTEGER NOT NULL,
     montant_ttc NUMERIC(15,2) NOT NULL,
     reste_a_payer NUMERIC(15,2) NOT NULL,
+    remarques TEXT,
     depot_reception_id INTEGER NOT NULL,
     FOREIGN KEY (bon_commande_achat_id) REFERENCES bon_commande_achat(id),
     FOREIGN KEY (entreprise_filiale_id) REFERENCES entreprise(id),
@@ -426,6 +427,7 @@ CREATE TABLE facture_vente (
     statut_id INTEGER NOT NULL,
     montant_ttc NUMERIC(15,2) NOT NULL,
     reste_a_payer NUMERIC(15,2) NOT NULL,
+    remarques TEXT,
     depot_expedition_id INTEGER NOT NULL,
     FOREIGN KEY (bon_commande_vente_id) REFERENCES bon_commande_vente(id),
     FOREIGN KEY (entreprise_client_id) REFERENCES entreprise(id),
@@ -461,6 +463,7 @@ CREATE TABLE caisse (
 CREATE TABLE caisse_mouvement (
     id SERIAL PRIMARY KEY,
     date_mouvement TIMESTAMP DEFAULT NOW(),
+    statut_id INTEGER NOT NULL,
     libelle_operation VARCHAR(200),
     montant_entree NUMERIC(15,2) DEFAULT 0,
     montant_sortie NUMERIC(15,2) DEFAULT 0,
@@ -468,6 +471,7 @@ CREATE TABLE caisse_mouvement (
     solde_apres NUMERIC(15,2) NOT NULL,
     caisse_id INTEGER NOT NULL,
     personnel_id INTEGER NOT NULL,
+    FOREIGN KEY (statut_id) REFERENCES statut(id),
     FOREIGN KEY (caisse_id) REFERENCES caisse(id),
     FOREIGN KEY (personnel_id) REFERENCES personnel(id)
 );
@@ -481,6 +485,7 @@ CREATE TABLE paiement_vente (
     caisse_mouvement_id INTEGER,
     montant NUMERIC(15,2) NOT NULL DEFAULT 0,
     date_paiement DATE DEFAULT CURRENT_DATE,
+    reference_externe VARCHAR(100),
     FOREIGN KEY (statut_id) REFERENCES statut(id),
     FOREIGN KEY (facture_vente_id) REFERENCES facture_vente(id),
     FOREIGN KEY (mode_paiement_id) REFERENCES mode_paiement(id),
@@ -496,6 +501,7 @@ CREATE TABLE paiement_achat (
     caisse_mouvement_id INTEGER,
     montant NUMERIC(15,2) NOT NULL DEFAULT 0,
     date_paiement DATE DEFAULT CURRENT_DATE,
+    reference_externe VARCHAR(100),
     FOREIGN KEY (statut_id) REFERENCES statut(id),
     FOREIGN KEY (facture_achat_id) REFERENCES facture_achat(id),
     FOREIGN KEY (mode_paiement_id) REFERENCES mode_paiement(id),

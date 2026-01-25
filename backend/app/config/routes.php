@@ -10,6 +10,7 @@ use app\controllers\PersonnelController;
 use app\controllers\SiteController;
 use app\controllers\DepotController;
 use app\controllers\DashboardController;
+use app\controllers\ModePaiementController;
 use app\controllers\PaiementVenteController;
 use app\controllers\PaiementAchatController;
 use app\controllers\ProformaDemandeAchatController;
@@ -34,6 +35,7 @@ $Entreprise_Controller = new EntrepriseController();
 $Personnel_Controller = new PersonnelController();
 $Site_Controller = new SiteController();
 $Depot_Controller = new DepotController();
+$ModePaiement_Controller = new ModePaiementController();
 $PaiementVente_Controller = new PaiementVenteController();
 $PaiementAchat_Controller = new PaiementAchatController();
 $ProformaDemandeAchat_Controller = new ProformaDemandeAchatController();
@@ -134,9 +136,13 @@ $router->group('/api/caisse', function () use ($router, $Caisse_Controller) {
     $router->post('', [$Caisse_Controller, 'createCaisse']);
     $router->put('/@id:[0-9]+', [$Caisse_Controller, 'updateCaisse']);
     $router->get('/mouvements', [$Caisse_Controller, 'getAllMouvements']);
+    $router->get('/mouvements/@id:[0-9]+', [$Caisse_Controller, 'getMouvementById']);
+    $router->put('/mouvements/@id:[0-9]+', [$Caisse_Controller, 'updateMouvement']);
+    $router->post('/mouvements/@id:[0-9]+/validate', [$Caisse_Controller, 'validateMouvement']);
     $router->get('/@id:[0-9]+/mouvements', [$Caisse_Controller, 'getMouvementsByCaisse']);
     $router->post('/@id:[0-9]+/entree', [$Caisse_Controller, 'createEntree']);
     $router->post('/@id:[0-9]+/sortie', [$Caisse_Controller, 'createSortie']);
+    $router->post('/@id:[0-9]+/mouvement', [$Caisse_Controller, 'createMouvement']);
     $router->get('/@id:[0-9]+/solde', [$Caisse_Controller, 'getSolde']);
     $router->get('/paiements-vente', [$Caisse_Controller, 'getPaiementsVente']);
     $router->get('/paiements-achat', [$Caisse_Controller, 'getPaiementsAchat']);
@@ -145,8 +151,10 @@ $router->group('/api/caisse', function () use ($router, $Caisse_Controller) {
 
 $router->group('/api/paiements/vente', function () use ($router, $PaiementVente_Controller) {
     $router->get('', [$PaiementVente_CONTROLLER ?? $PaiementVente_CONTROLLER = $PaiementVente_Controller, 'getAll']);
+    $router->get('/filters', [$PaiementVente_CONTROLLER ?? $PaiementVente_CONTROLLER = $PaiementVente_Controller, 'filters']);
     $router->get('/@id:[0-9]+', [$PaiementVente_CONTROLLER ?? $PaiementVente_CONTROLLER = $PaiementVente_Controller, 'getById']);
     $router->post('', [$PaiementVente_CONTROLLER ?? $PaiementVente_CONTROLLER = $PaiementVente_Controller, 'create']);
+    $router->put('/@id:[0-9]+', [$PaiementVente_CONTROLLER ?? $PaiementVente_CONTROLLER = $PaiementVente_Controller, 'update']);
     $router->post('/@id:[0-9]+/apply', [$PaiementVente_CONTROLLER ?? $PaiementVente_CONTROLLER = $PaiementVente_Controller, 'applyPayment']);
     $router->post('/@id:[0-9]+/validate', [$PaiementVente_CONTROLLER ?? $PaiementVente_CONTROLLER = $PaiementVente_Controller, 'validate']);
 
@@ -154,10 +162,22 @@ $router->group('/api/paiements/vente', function () use ($router, $PaiementVente_
 
 $router->group('/api/paiements/achat', function () use ($router, $PaiementAchat_Controller) {
     $router->get('', [$PaiementAchat_CONTROLLER ?? $PaiementAchat_CONTROLLER = $PaiementAchat_Controller, 'getAll']);
+    $router->get('/filters', [$PaiementAchat_CONTROLLER ?? $PaiementAchat_CONTROLLER = $PaiementAchat_Controller, 'filters']);
     $router->get('/@id:[0-9]+', [$PaiementAchat_CONTROLLER ?? $PaiementAchat_CONTROLLER = $PaiementAchat_Controller, 'getById']);
     $router->post('', [$PaiementAchat_CONTROLLER ?? $PaiementAchat_CONTROLLER = $PaiementAchat_Controller, 'create']);
+    $router->put('/@id:[0-9]+', [$PaiementAchat_CONTROLLER ?? $PaiementAchat_CONTROLLER = $PaiementAchat_Controller, 'update']);
     $router->post('/@id:[0-9]+/apply', [$PaiementAchat_CONTROLLER ?? $PaiementAchat_CONTROLLER = $PaiementAchat_Controller, 'applyPayment']);
     $router->post('/@id:[0-9]+/validate', [$PaiementAchat_CONTROLLER ?? $PaiementAchat_CONTROLLER = $PaiementAchat_Controller, 'validate']);
+
+});
+
+// Mode Paiement
+$router->group('/api/mode-paiement', function () use ($router, $ModePaiement_Controller) {
+    $router->get('', [$ModePaiement_Controller, 'getAll']);
+    $router->get('/@id:[0-9]+', [$ModePaiement_Controller, 'getById']);
+    $router->post('', [$ModePaiement_Controller, 'create']);
+    $router->put('/@id:[0-9]+', [$ModePaiement_Controller, 'update']);
+    $router->delete('/@id:[0-9]+', [$ModePaiement_Controller, 'delete']);
 });
 
 $router->group('/api/entreprises', function () use ($router, $Entreprise_Controller) {

@@ -68,7 +68,7 @@ class CaisseController {
         }
     }
 
-    public function getMouvements() {
+    public function getAllMouvements() {
         try {
             $filters = Flight::request()->query;
             $mouvements = Flight::caisseModel()->getMouvements($filters);
@@ -78,10 +78,52 @@ class CaisseController {
         }
     }
 
+    public function getMouvementsByCaisse($caisseId) {
+        try {
+            $mouvements = Flight::caisseModel()->getMouvements(['caisse_id' => $caisseId]);
+            Flight::json($mouvements);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getMouvementById($id) {
+        try {
+            $mouvement = Flight::caisseModel()->getMouvementById($id);
+            if ($mouvement) {
+                Flight::json($mouvement);
+            } else {
+                Flight::json(['error' => 'Mouvement non trouvé'], 404);
+            }
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateMouvement($id) {
+        try {
+            $data = Flight::request()->data;
+            $result = Flight::caisseModel()->updateMouvement($id, $data);
+            Flight::json($result);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function validateMouvement($id) {
+        try {
+            $result = Flight::caisseModel()->finalizeMouvement($id, 3);
+            Flight::json(['success' => true, 'message' => 'Mouvement validé']);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     public function createEntree($caisseId) {
         try {
             $data = Flight::request()->data;
-            $result = Flight::caisseModel()->createEntree($caisseId, $data);
+            $statutId = isset($data['statut_id']) ? $data['statut_id'] : 2;
+            $result = Flight::caisseModel()->createEntree($caisseId, $data, $statutId);
             Flight::json($result, 201);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
@@ -91,7 +133,20 @@ class CaisseController {
     public function createSortie($caisseId) {
         try {
             $data = Flight::request()->data;
-            $result = Flight::caisseModel()->createSortie($caisseId, $data);
+            // Allow caller to specify statut_id (default to EN_ATTENTE = 2)
+            $statutId = isset($data['statut_id']) ? $data['statut_id'] : 2;
+            $result = Flight::caisseModel()->createSortie($caisseId, $data, $statutId);
+            Flight::json($result, 201);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function createMouvement($caisseId) {
+        try {
+            $data = Flight::request()->data;
+            $statutId = isset($data['statut_id']) ? $data['statut_id'] : 2;
+            $result = Flight::caisseModel()->createMouvement($caisseId, $data, $statutId);
             Flight::json($result, 201);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);

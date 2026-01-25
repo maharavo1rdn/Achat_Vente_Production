@@ -127,7 +127,7 @@
                 </td>
               </tr>
               <tr v-else v-for="facture in filteredFactures" :key="facture.id" class="table-row">
-                <td class="font-medium">{{ facture.numero_facture }}</td>
+                <td class="font-medium">{{ facture.numero_facture_fournisseur }}</td>
                 <td class="text-gray-600">{{ formatDate(facture.date_facture) }}</td>
                 <td class="font-medium">{{ facture.fournisseur }}</td>
                 <td class="text-right font-semibold">{{ formatCurrency(facture.montant_ttc) }}</td>
@@ -156,6 +156,9 @@
                     <button @click="printFacture(facture)" class="action-btn" title="Imprimer">
                       <Printer class="w-4 h-4" />
                     </button>
+                    <button @click="editRemarques(facture)" class="action-btn" title="Remarques">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8M8 11h6m-9 8a9 9 0 1118 0 9 9 0 01-18 0z"/></svg>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -164,13 +167,20 @@
         </div>
       </div>
     </div>
+
+    <PaymentForm v-if="showPaymentModal" :facture="currentFacture" type="achat" @close="showPaymentModal = false" @created="onPaymentCreated" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Plus, Eye, CreditCard, Printer, Search } from 'lucide-vue-next'
 import achatService from '@/services/achatService'
+import PaymentForm from '@/components/payment/PaymentForm.vue'
+import paiementAchatService from '@/services/paiementAchatService'
+
+const router = useRouter()
 
 const searchQuery = ref('')
 const selectedFournisseur = ref('')
@@ -180,6 +190,9 @@ const dateFilter = ref('')
 const factures = ref([])
 const loading = ref(false)
 const error = ref(null)
+
+const showPaymentModal = ref(false)
+const currentFacture = ref(null)
 
 const loadFactures = async () => {
   try {
@@ -192,6 +205,26 @@ const loadFactures = async () => {
     console.error('Erreur chargement factures:', err)
   } finally {
     loading.value = false
+  }
+}
+
+const payerFacture = (facture) => {
+  router.push({ name: 'paiement-achat-new', params: { factureId: facture.id } })
+}
+
+const onPaymentCreated = async (id) => {
+  await loadFactures()
+}
+
+const editRemarques = async (facture) => {
+  const newText = window.prompt('Remarques:', facture.remarques || '')
+  if (newText === null) return
+  try {
+    await achatService.facture.update(facture.id, { remarques: newText })
+    await loadFactures()
+  } catch (err) {
+    console.error('Erreur mise à jour remarques:', err)
+    alert('Erreur lors de la mise à jour des remarques')
   }
 }
 
@@ -220,14 +253,14 @@ const totalResteAPayer = computed(() => {
 })
 
 const getStatutLabel = (facture) => {
-  if (facture.reste_a_payer === 0) return 'PAYE'
-  if (facture.reste_a_payer === facture.montant_ttc) return 'IMPAYE'
+  if (parseFloat(facture.reste_a_payer) === 0) return 'PAYE'
+  if (parseFloat(facture.reste_a_payer) === parseFloat(facture.montant_ttc)) return 'IMPAYE'
   return 'PARTIEL'
 }
 
 const getStatutBadgeClass = (facture) => {
-  if (facture.reste_a_payer === 0) return 'badge badge-success'
-  if (facture.reste_a_payer === facture.montant_ttc) return 'badge badge-danger'
+  if (parseFloat(facture.reste_a_payer) === 0) return 'badge badge-success'
+  if (parseFloat(facture.reste_a_payer) === parseFloat(facture.montant_ttc)) return 'badge badge-danger'
   return 'badge badge-warning'
 }
 
@@ -256,21 +289,7 @@ const viewFacture = (facture) => {
   console.log('View facture:', facture)
 }
 
-const payerFacture = async (facture) => {
-  if (!confirm(`Payer ${formatCurrency(facture.reste_a_payer)} pour cette facture ?`)) return
-  
-  const montant = facture.reste_a_payer
-  const caisseId = 1 // À remplacer par une sélection de caisse
-  
-  try {
-    await achatService.facture.payer(facture.id, montant, caisseId)
-    await loadFactures()
-    alert('Paiement enregistré avec succès')
-  } catch (err) {
-    error.value = err.response?.data?.message || 'Erreur lors du paiement'
-    console.error('Erreur paiement:', err)
-  }
-}
+
 
 const printFacture = (facture) => {
   console.log('Print facture:', facture)

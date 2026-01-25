@@ -10,7 +10,8 @@
     <div v-else-if="error" class="error-state">
       <div class="error-icon">
         <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
       </div>
       <p class="error-message">{{ error }}</p>
@@ -68,12 +69,7 @@
             <label class="label">Numéro Facture</label>
             <div class="search-box">
               <Search class="w-4 h-4 text-gray-400" />
-              <input
-                v-model="searchQuery"
-                type="text"
-                class="search-input"
-                placeholder="FV-..."
-              />
+              <input v-model="searchQuery" type="text" class="search-input" placeholder="FV-..." />
             </div>
           </div>
           <div class="filter-item">
@@ -127,7 +123,10 @@
                 </td>
               </tr>
               <tr v-else v-for="facture in filteredFactures" :key="facture.id" class="table-row">
-                <td class="font-medium">{{ facture.numero_facture }}</td>
+                <td class="font-medium">
+                  {{ facture.numero_facture }}
+                  <div v-if="facture.remarques" class="text-xs text-gray-500 mt-1">{{ facture.remarques }}</div>
+                </td>
                 <td class="text-gray-600">{{ formatDate(facture.date_facture) }}</td>
                 <td class="font-medium">{{ facture.client }}</td>
                 <td class="text-right font-semibold">{{ formatCurrency(facture.montant_ttc) }}</td>
@@ -145,16 +144,19 @@
                     <button @click="viewFacture(facture)" class="action-btn" title="Voir">
                       <Eye class="w-4 h-4" />
                     </button>
-                    <button 
-                      v-if="facture.reste_a_payer > 0" 
-                      @click="encaisserFacture(facture)" 
-                      class="action-btn text-green-600" 
-                      title="Encaisser"
-                    >
+                    <button v-if="facture.reste_a_payer > 0" @click="encaisserFacture(facture)"
+                      class="action-btn text-green-600" title="Encaisser">
                       <CreditCard class="w-4 h-4" />
                     </button>
                     <button @click="printFacture(facture)" class="action-btn" title="Imprimer">
                       <Printer class="w-4 h-4" />
+                    </button>
+                    <button @click="editRemarques(facture)" class="action-btn" title="Remarques">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 7h8M8 11h6m-9 8a9 9 0 1118 0 9 9 0 01-18 0z" />
+                      </svg>
                     </button>
                   </div>
                 </td>
@@ -164,13 +166,19 @@
         </div>
       </div>
     </div>
+
+    <PaymentForm v-if="showPaymentModal" :facture="currentFacture" type="vente" @close="showPaymentModal = false"
+      @created="onPaymentCreated" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Plus, Eye, CreditCard, Printer, Search } from 'lucide-vue-next'
 import venteService from '@/services/venteService'
+
+const router = useRouter()
 
 const searchQuery = ref('')
 const selectedClient = ref('')
@@ -197,12 +205,12 @@ const loadFactures = async () => {
 
 const filteredFactures = computed(() => {
   return factures.value.filter(facture => {
-    const matchSearch = !searchQuery.value || 
+    const matchSearch = !searchQuery.value ||
       facture.numero_facture?.toLowerCase().includes(searchQuery.value.toLowerCase())
-    
+
     const matchClient = !selectedClient.value || facture.client === selectedClient.value
     const matchStatut = !selectedStatut.value || getStatutLabel(facture) === selectedStatut.value
-    
+
     return matchSearch && matchClient && matchStatut
   })
 })
@@ -220,14 +228,14 @@ const totalResteAEncaisser = computed(() => {
 })
 
 const getStatutLabel = (facture) => {
-  if (facture.reste_a_payer === 0) return 'PAYE'
-  if (facture.reste_a_payer === facture.montant_ttc) return 'IMPAYE'
+  if (parseFloat(facture.reste_a_payer) === 0) return 'PAYE'
+  if (parseFloat(facture.reste_a_payer) === parseFloat(facture.montant_ttc)) return 'IMPAYE'
   return 'PARTIEL'
 }
 
 const getStatutBadgeClass = (facture) => {
-  if (facture.reste_a_payer === 0) return 'badge badge-success'
-  if (facture.reste_a_payer === facture.montant_ttc) return 'badge badge-danger'
+  if (parseFloat(facture.reste_a_payer) === 0) return 'badge badge-success'
+  if (parseFloat(facture.reste_a_payer) === parseFloat(facture.montant_ttc)) return 'badge badge-danger'
   return 'badge badge-warning'
 }
 
@@ -256,19 +264,27 @@ const viewFacture = (facture) => {
   console.log('View facture:', facture)
 }
 
-const encaisserFacture = async (facture) => {
-  if (!confirm(`Encaisser ${formatCurrency(facture.reste_a_payer)} pour cette facture ?`)) return
-  
-  const montant = facture.reste_a_payer
-  const caisseId = 1 // À remplacer par une sélection de caisse
-  
+import PaymentForm from '@/components/payment/PaymentForm.vue'
+const showPaymentModal = ref(false)
+const currentFacture = ref(null)
+
+const encaisserFacture = (facture) => {
+  router.push({ name: 'paiement-vente-new', params: { factureId: facture.id } })
+}
+
+const onPaymentCreated = async (id) => {
+  await loadFactures()
+}
+
+const editRemarques = async (facture) => {
+  const newText = window.prompt('Remarques:', facture.remarques || '')
+  if (newText === null) return
   try {
-    await venteService.facture.encaisser(facture.id, montant, caisseId)
+    await venteService.facture.update(facture.id, { remarques: newText })
     await loadFactures()
-    alert('Encaissement enregistré avec succès')
   } catch (err) {
-    error.value = err.response?.data?.message || 'Erreur lors de l\'encaissement'
-    console.error('Erreur encaissement:', err)
+    console.error('Erreur mise à jour remarques:', err)
+    alert('Erreur lors de la mise à jour des remarques')
   }
 }
 
@@ -309,7 +325,9 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {
@@ -337,6 +355,7 @@ onMounted(() => {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
