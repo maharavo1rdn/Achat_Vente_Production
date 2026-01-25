@@ -176,9 +176,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Plus, Eye, Check, Printer, Trash2, Search } from 'lucide-vue-next'
 import venteService from '@/services/venteService'
 
+const router = useRouter()
 const searchQuery = ref('')
 const selectedClient = ref('')
 const selectedStatut = ref('')
@@ -249,7 +251,7 @@ const formatDate = (date) => {
 }
 
 const openCreateModal = () => {
-  console.log('Open create modal')
+  router.push('/ventes/devis/nouveau')
 }
 
 const viewDevis = (devis) => {
