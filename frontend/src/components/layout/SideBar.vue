@@ -190,6 +190,19 @@
         </div>
       </div>
 
+      <!-- Statistiques -->
+      <div class="nav-section">
+        <h3 v-if="!isCollapsed" class="nav-section-title">STATISTIQUES</h3>
+        <div class="nav-group">
+          <router-link to="/stats/ventes" class="nav-item" :class="{ 'active': isActive('/stats/ventes') }">
+            <div class="nav-item-icon">
+              <BarChart3 class="w-4 h-4" />
+            </div>
+            <span v-if="!isCollapsed" class="nav-item-label">Statistiques Ventes</span>
+          </router-link>
+        </div>
+      </div>
+
       <!-- Paramètres -->
       <div class="nav-section">
         <h3 v-if="!isCollapsed" class="nav-section-title">PARAMÈTRES</h3>

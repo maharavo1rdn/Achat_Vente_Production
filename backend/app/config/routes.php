@@ -15,6 +15,7 @@ use app\controllers\PaiementVenteController;
 use app\controllers\PaiementAchatController;
 use app\controllers\ProformaDemandeAchatController;
 use app\controllers\ProformaFournisseurController;
+use app\controllers\StatVenteController;
 
 use flight\Engine;
 use flight\net\Router;
@@ -40,6 +41,7 @@ $PaiementVente_Controller = new PaiementVenteController();
 $PaiementAchat_Controller = new PaiementAchatController();
 $ProformaDemandeAchat_Controller = new ProformaDemandeAchatController();
 $ProformaFournisseur_Controller = new ProformaFournisseurController();
+$StatVente_Controller = new StatVenteController();
 
 // Page d'accueil
 $router->get('/', function () {
@@ -244,6 +246,15 @@ $router->group('/api/proforma-fournisseur', function () use ($router, $ProformaF
     $router->delete('/@id:[0-9]+', [$ProformaFournisseur_Controller, 'delete']);
     $router->get('/@id:[0-9]+/details', [$ProformaFournisseur_Controller, 'getDetails']);
     $router->post('/@id:[0-9]+/valider', [$ProformaFournisseur_Controller, 'valider']);
+});
+
+// API statistiques ventes
+$router->group('/api/stats/ventes', function () use ($router, $StatVente_Controller) {
+    $router->get('', [$StatVente_Controller, 'getAllStats']);
+    $router->get('/ca-societe', [$StatVente_Controller, 'getCA_ParSociete']);
+    $router->get('/evolution-ca', [$StatVente_Controller, 'getEvolutionCA']);
+    $router->get('/panier-moyen', [$StatVente_Controller, 'getPanierMoyen']);
+    $router->get('/taux-conversion', [$StatVente_Controller, 'getTauxConversion']);
 });
 
 $router->map('/*', function () {
