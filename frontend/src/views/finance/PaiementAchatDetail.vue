@@ -32,6 +32,10 @@
                 <div class="action-bar flex items-center gap-3">
                     <!-- Actions Mode Lecture -->
                     <template v-if="!editing && !showValidate">
+                        <button @click="exportDetailPdf" class="btn btn-secondary">
+                            <Download class="w-4 h-4" />
+                            <span>Exporter</span>
+                        </button>
                         <button v-if="canEdit" @click="startEdit" class="btn btn-secondary">
                             <Pencil class="w-4 h-4" />
                             <span>Modifier</span>
@@ -119,6 +123,11 @@
                         <div class="detail-group sm:col-span-2">
                             <span class="detail-label">Référence Externe</span>
                             <span class="detail-value">{{ paiement.reference_externe || 'Aucune référence' }}</span>
+                        </div>
+
+                        <div class="detail-group">
+                            <span class="detail-label">Caisse</span>
+                            <span class="detail-value">{{ paiement.caisse_mouvement?.caisse_libelle || paiement.caisse_libelle || '-' }}</span>
                         </div>
                     </div>
 
@@ -297,7 +306,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
     ArrowLeft, Pencil, Save, CheckCircle2, X, Wallet,
-    CreditCard, Calendar, FileText, Check, User
+    CreditCard, Calendar, FileText, Download, Check, User
 } from 'lucide-vue-next'
 
 import paiementAchatService from '@/services/paiementAchatService'
@@ -433,6 +442,14 @@ const doValidate = async () => {
 
 const goBack = () => {
     router.push({ name: 'paiements-achat' })
+}
+
+const exportDetailPdf = () => {
+    const base = import.meta.env.VITE_API_BASE_URL || '/api'
+    const params = new URLSearchParams()
+    if (currentUser.value?.entreprise_id) params.set('entreprise_id', currentUser.value.entreprise_id)
+    if (currentUser.value?.id) params.set('user_id', currentUser.value.id)
+    window.open(`${base}/paiements/achat/${route.params.id}/export${params.toString() ? ('?' + params.toString()) : ''}`, '_blank')
 }
 
 const formatCurrency = (v) => {

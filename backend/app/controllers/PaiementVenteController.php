@@ -6,6 +6,8 @@ use InvalidArgumentException;
 use Exception;
 use PDO;
 use Flight;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class PaiementVenteController
 {
@@ -128,6 +130,88 @@ class PaiementVenteController
             Flight::json(['success' => $ok]);
         } catch (InvalidArgumentException $e) {
             Flight::json(['error' => $e->getMessage()], 400);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function exportList()
+    {
+        try {
+            $filters = Flight::request()->query;
+            $entrepriseId = $filters->entreprise_id ?? null;
+
+            $companyInfo = null;
+            if ($entrepriseId) {
+                $stmtE = Flight::db()->prepare('SELECT id, nom, adresse, telephone FROM entreprise WHERE id = ?');
+                $stmtE->execute([(int)$entrepriseId]);
+                $companyInfo = $stmtE->fetch(PDO::FETCH_ASSOC) ?: null;
+            }
+
+            $paiements = Flight::paiementVenteModel()->getAll($filters);
+
+            $totalAll = 0;
+            $totalValidated = 0;
+            foreach ($paiements as $p) {
+                $totalAll += (float)($p['montant'] ?? 0);
+                if ((int)($p['statut_id'] ?? 0) === 3) $totalValidated += (float)($p['montant'] ?? 0);
+            }
+
+            ob_start();
+            $exportPaiements = $paiements;
+            $exportMeta = [
+                'filters' => $filters,
+                'company' => $companyInfo,
+                'total_all' => $totalAll,
+                'total_validated' => $totalValidated,
+            ];
+            include __DIR__ . '/../views/pdf/paiements_vente_list.php';
+            $html = ob_get_clean();
+
+            $options = new Options();
+            $options->set('isRemoteEnabled', true);
+            $dompdf = new Dompdf($options);
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+            $dompdf->stream('paiements-vente.pdf', ['Attachment' => 1]);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function exportById($id)
+    {
+        try {
+            $filters = Flight::request()->query;
+            $entrepriseId = $filters->entreprise_id ?? null;
+
+            $companyInfo = null;
+            if ($entrepriseId) {
+                $stmtE = Flight::db()->prepare('SELECT id, nom, adresse, telephone FROM entreprise WHERE id = ?');
+                $stmtE->execute([(int)$entrepriseId]);
+                $companyInfo = $stmtE->fetch(PDO::FETCH_ASSOC) ?: null;
+            }
+
+            $paiement = Flight::paiementVenteModel()->getById((int)$id);
+            if (!$paiement) {
+                Flight::json(['error' => 'Paiement non trouvé'], 404);
+                return;
+            }
+
+            ob_start();
+            $exportPaiement = $paiement;
+            $exportMeta = ['company' => $companyInfo];
+            include __DIR__ . '/../views/pdf/paiement_vente_detail.php';
+            $html = ob_get_clean();
+
+            $options = new Options();
+            $options->set('isRemoteEnabled', true);
+            $dompdf = new Dompdf($options);
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+            $dompdf->stream('paiement-vente-' . $id . '.pdf', ['Attachment' => 1]);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }

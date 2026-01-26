@@ -157,6 +157,8 @@ $router->group('/api/paiements/vente', function () use ($router, $PaiementVente_
     $router->put('/@id:[0-9]+', [$PaiementVente_CONTROLLER ?? $PaiementVente_CONTROLLER = $PaiementVente_Controller, 'update']);
     $router->post('/@id:[0-9]+/apply', [$PaiementVente_CONTROLLER ?? $PaiementVente_CONTROLLER = $PaiementVente_Controller, 'applyPayment']);
     $router->post('/@id:[0-9]+/validate', [$PaiementVente_CONTROLLER ?? $PaiementVente_CONTROLLER = $PaiementVente_Controller, 'validate']);
+    $router->get('/export', [$PaiementVente_CONTROLLER ?? $PaiementVente_CONTROLLER = $PaiementVente_Controller, 'exportList']);
+    $router->get('/@id:[0-9]+/export', [$PaiementVente_CONTROLLER ?? $PaiementVente_CONTROLLER = $PaiementVente_Controller, 'exportById']);
 
 });
 
@@ -168,6 +170,8 @@ $router->group('/api/paiements/achat', function () use ($router, $PaiementAchat_
     $router->put('/@id:[0-9]+', [$PaiementAchat_CONTROLLER ?? $PaiementAchat_CONTROLLER = $PaiementAchat_Controller, 'update']);
     $router->post('/@id:[0-9]+/apply', [$PaiementAchat_CONTROLLER ?? $PaiementAchat_CONTROLLER = $PaiementAchat_Controller, 'applyPayment']);
     $router->post('/@id:[0-9]+/validate', [$PaiementAchat_CONTROLLER ?? $PaiementAchat_CONTROLLER = $PaiementAchat_Controller, 'validate']);
+    $router->get('/export', [$PaiementAchat_CONTROLLER ?? $PaiementAchat_CONTROLLER = $PaiementAchat_Controller, 'exportList']);
+    $router->get('/@id:[0-9]+/export', [$PaiementAchat_CONTROLLER ?? $PaiementAchat_CONTROLLER = $PaiementAchat_Controller, 'exportById']);
 
 });
 
