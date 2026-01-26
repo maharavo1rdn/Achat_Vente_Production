@@ -276,7 +276,7 @@ const save = async () => {
     }
 
     await venteService.devis.create(dataToSend)
-    router.push('/ventes/devis')
+    router.push('/ventes/devis/nouveau')
   } catch (error) {
     console.error('Erreur lors de la création du devis:', error)
     alert('Erreur lors de la création du devis')
