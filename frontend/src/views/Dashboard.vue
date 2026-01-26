@@ -28,11 +28,16 @@
           <p class="page-subtitle">Vue d'ensemble de votre activité commerciale</p>
         </div>
         <div class="header-actions">
+          <div class="flex items-center gap-2">
+            <input type="date" v-model="startDate" class="input-date" />
+            <span class="text-gray-400">à</span>
+            <input type="date" v-model="endDate" class="input-date" />
+          </div>
           <button @click="loadDashboardData" class="btn-secondary">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
             </svg>
-            <span>Actualiser</span>
+            <span>Appliquer</span>
           </button>
         </div>
       </div>
@@ -228,6 +233,9 @@ const recentAchats = ref([])
 const loading = ref(false)
 const error = ref(null)
 
+const startDate = ref('')
+const endDate = ref('')
+
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
@@ -245,7 +253,11 @@ const loadDashboardData = async () => {
   loading.value = true
   error.value = null
   try {
-    const statsResponse = await api.get('/dashboard/stats')
+    const params = {}
+    if (startDate.value && endDate.value) {
+      params['periode'] = [startDate.value, endDate.value]
+    }
+    const statsResponse = await api.get('/dashboard/stats', { params })
     const data = statsResponse.data || {}
 
     stats.value = {
@@ -370,6 +382,10 @@ onMounted(() => {
 
 .header-actions {
   @apply flex items-center gap-3;
+}
+
+.input-date {
+  @apply px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400;
 }
 
 /* Stats Grid */

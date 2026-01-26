@@ -6,11 +6,16 @@
         <p class="page-subtitle">Visualisations des indicateurs clés</p>
       </div>
       <div class="header-actions">
+        <div class="flex items-center gap-2">
+          <input type="date" v-model="startDate" class="input-date" />
+          <span class="text-gray-400">à</span>
+          <input type="date" v-model="endDate" class="input-date" />
+        </div>
         <button @click="loadStats" class="btn-secondary">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
           </svg>
-          <span>Actualiser</span>
+          <span>Appliquer</span>
         </button>
       </div>
     </div>
@@ -81,6 +86,8 @@ const error = ref(null)
 const stats = ref({ totalCA: 0, margeBrute: 0, tauxRentabilite: 0 })
 const topClients = ref([])
 const topArticles = ref([])
+const startDate = ref('')
+const endDate = ref('')
 
 const formatCurrency = (amount) => new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA', minimumFractionDigits: 0 }).format(Number(amount) || 0)
 const formatPercent = (value) => `${(Number(value) || 0).toFixed(1)} %`
@@ -89,7 +96,11 @@ const loadStats = async () => {
   loading.value = true
   error.value = null
   try {
-    const { data } = await api.get('/dashboard/stats')
+    const params = {}
+    if (startDate.value && endDate.value) {
+      params['periode'] = [startDate.value, endDate.value]
+    }
+    const { data } = await api.get('/dashboard/stats', { params })
     stats.value = {
       totalCA: data.totalCA ?? data.total_ca ?? 0,
       margeBrute: data.margeBrute ?? data.marge_brute ?? 0,
@@ -181,6 +192,7 @@ const verticalBarOptions = {
 .page-title { @apply text-2xl font-bold text-gray-900; }
 .page-subtitle { @apply text-sm text-gray-500 mt-1; }
 .header-actions { @apply flex items-center gap-3; }
+.input-date { @apply px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400; }
 
 .stats-grid { @apply grid grid-cols-1 md:grid-cols-3 gap-4; }
 .stat-card { @apply bg-white rounded-lg border border-gray-200 p-5; }
