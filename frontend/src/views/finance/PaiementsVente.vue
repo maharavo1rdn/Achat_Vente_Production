@@ -16,7 +16,7 @@
                     <h1 class="page-title">Paiements Clients</h1>
                     <p class="page-subtitle">Suivi des encaissements et règlements reçus</p>
                 </div>
-                <button class="btn btn-secondary">
+                <button @click="exportPdf" class="btn btn-secondary">
                     <Download class="w-4 h-4" />
                     <span>Exporter</span>
                 </button>
@@ -171,7 +171,8 @@
                                     </span>
                                 </td>
                                 <td class="text-gray-600 text-sm">
-                                    {{ p.mode_paiement_libelle || '-' }}
+                                    <div>{{ p.mode_paiement_libelle || '-' }}</div>
+                                    <div v-if="p.caisse_libelle" class="text-xs text-gray-500 mt-1">{{ p.caisse_libelle }}</div>
                                 </td>
                                 <td class="text-right font-mono font-medium text-emerald-700">
                                     + {{ formatCurrency(p.montant) }}
@@ -328,6 +329,21 @@ const loadFilters = async () => {
 
 const confirmValidate = async (p) => {
     openValidateModal(p)
+}
+
+const exportPdf = () => {
+    const base = import.meta.env.VITE_API_BASE_URL || '/api'
+    const params = new URLSearchParams()
+    if (filterDateDebut.value) params.set('date_debut', filterDateDebut.value)
+    if (filterDateFin.value) params.set('date_fin', filterDateFin.value)
+    if (filterStatut.value) params.set('statut_id', filterStatut.value)
+    if (searchQuery.value) params.set('search', searchQuery.value)
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+    if (currentUser?.entreprise_id) params.set('entreprise_id', currentUser.entreprise_id)
+    if (currentUser?.id) params.set('user_id', currentUser.id)
+
+    const url = `${base}/paiements/vente/export${params.toString() ? ('?' + params.toString()) : ''}`
+    window.open(url, '_blank')
 }
 
 onMounted(() => { load(); loadFilters() })

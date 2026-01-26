@@ -16,7 +16,7 @@
                     <h1 class="page-title">Paiements Fournisseurs</h1>
                     <p class="page-subtitle">Historique et suivi des règlements sortants</p>
                 </div>
-                <button class="btn btn-secondary">
+                <button @click="exportPdf" class="btn btn-secondary">
                     <Download class="w-4 h-4" />
                     <span>Exporter</span>
                 </button>
@@ -175,7 +175,8 @@
                                     </span>
                                 </td>
                                 <td class="text-gray-600 text-sm">
-                                    {{ p.mode_paiement_libelle || '-' }}
+                                    <div>{{ p.mode_paiement_libelle || '-' }}</div>
+                                    <div v-if="p.caisse_libelle" class="text-xs text-gray-500 mt-1">{{ p.caisse_libelle }}</div>
                                 </td>
                                 <td class="text-right font-mono font-medium text-gray-900">
                                     {{ formatCurrency(p.montant) }}
@@ -450,6 +451,20 @@ const loadFilters = async () => {
     } catch (err) {
         console.error('Erreur filtres', err)
     }
+}
+
+const exportPdf = () => {
+    const base = import.meta.env.VITE_API_BASE_URL || '/api'
+    const params = new URLSearchParams()
+    if (filterDateDebut.value) params.set('date_debut', filterDateDebut.value)
+    if (filterDateFin.value) params.set('date_fin', filterDateFin.value)
+    if (filterStatut.value) params.set('statut_id', filterStatut.value)
+    if (searchQuery.value) params.set('search', searchQuery.value)
+    if (currentUser.value?.entreprise_id) params.set('entreprise_id', currentUser.value.entreprise_id)
+    if (currentUser.value?.id) params.set('user_id', currentUser.value.id)
+
+    const url = `${base}/paiements/achat/export${params.toString() ? ('?' + params.toString()) : ''}`
+    window.open(url, '_blank')
 }
 
 onMounted(() => { load(); loadFilters() })

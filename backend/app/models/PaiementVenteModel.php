@@ -29,11 +29,19 @@ class PaiementVenteModel
                 pv.statut_id,
                 s.libelle as statut_libelle,
                 fv.numero_facture,
-                mp.libelle AS mode_paiement_libelle
+                fv.montant_ttc as facture_montant_ttc,
+                fv.reste_a_payer as facture_reste_a_payer,
+                ef.nom as client_nom,
+                mp.libelle AS mode_paiement_libelle,
+                c.libelle AS caisse_libelle,
+                c.code_caisse AS caisse_code
             FROM paiement_vente pv
             LEFT JOIN statut s ON pv.statut_id = s.id
             LEFT JOIN facture_vente fv ON pv.facture_vente_id = fv.id
+            LEFT JOIN entreprise ef ON fv.entreprise_client_id = ef.id
             LEFT JOIN mode_paiement mp ON pv.mode_paiement_id = mp.id
+            LEFT JOIN caisse_mouvement cm ON pv.caisse_mouvement_id = cm.id
+            LEFT JOIN caisse c ON cm.caisse_id = c.id
             WHERE 1=1
         ";
 
@@ -77,11 +85,13 @@ class PaiementVenteModel
         if ($id <= 0) throw new InvalidArgumentException("L'ID doit être un entier positif");
 
         $query = "
-            SELECT pv.*, s.libelle as statut_libelle, fv.numero_facture, mp.libelle AS mode_paiement_libelle
+            SELECT pv.*, s.libelle as statut_libelle, fv.numero_facture, mp.libelle AS mode_paiement_libelle, c.libelle AS caisse_libelle, c.code_caisse AS caisse_code
             FROM paiement_vente pv
             LEFT JOIN statut s ON pv.statut_id = s.id
             LEFT JOIN facture_vente fv ON pv.facture_vente_id = fv.id
             LEFT JOIN mode_paiement mp ON pv.mode_paiement_id = mp.id
+            LEFT JOIN caisse_mouvement cm ON pv.caisse_mouvement_id = cm.id
+            LEFT JOIN caisse c ON cm.caisse_id = c.id
             WHERE pv.id = ?
         ";
 

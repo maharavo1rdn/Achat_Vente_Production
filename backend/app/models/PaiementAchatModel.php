@@ -29,11 +29,19 @@ class PaiementAchatModel
                 pa.statut_id,
                 s.libelle as statut_libelle,
                 fa.numero_facture_fournisseur as numero_facture,
-                mp.libelle AS mode_paiement_libelle
+                fa.montant_ttc as facture_montant_ttc,
+                fa.reste_a_payer as facture_reste_a_payer,
+                ef.nom as fournisseur_nom,
+                mp.libelle AS mode_paiement_libelle,
+                c.libelle AS caisse_libelle,
+                c.code_caisse AS caisse_code
             FROM paiement_achat pa
             LEFT JOIN statut s ON pa.statut_id = s.id
             LEFT JOIN facture_achat fa ON pa.facture_achat_id = fa.id
+            LEFT JOIN entreprise ef ON fa.entreprise_fournisseur_id = ef.id
             LEFT JOIN mode_paiement mp ON pa.mode_paiement_id = mp.id
+            LEFT JOIN caisse_mouvement cm ON pa.caisse_mouvement_id = cm.id
+            LEFT JOIN caisse c ON cm.caisse_id = c.id
             WHERE 1=1
         ";
 
@@ -78,11 +86,14 @@ class PaiementAchatModel
         if ($id <= 0) throw new InvalidArgumentException("L'ID doit être un entier positif");
 
         $query = "
-            SELECT pa.*, pa.numero_paiement AS numero_recu, s.libelle as statut_libelle, fa.numero_facture_fournisseur, mp.libelle AS mode_paiement_libelle
+            SELECT pa.*, pa.numero_paiement AS numero_recu, s.libelle as statut_libelle, fa.numero_facture_fournisseur, fa.montant_ttc AS facture_montant_ttc, fa.reste_a_payer AS facture_reste_a_payer, ef.nom AS fournisseur_nom, mp.libelle AS mode_paiement_libelle, c.libelle AS caisse_libelle, c.code_caisse AS caisse_code
             FROM paiement_achat pa
             LEFT JOIN statut s ON pa.statut_id = s.id
             LEFT JOIN facture_achat fa ON pa.facture_achat_id = fa.id
+            LEFT JOIN entreprise ef ON fa.entreprise_fournisseur_id = ef.id
             LEFT JOIN mode_paiement mp ON pa.mode_paiement_id = mp.id
+            LEFT JOIN caisse_mouvement cm ON pa.caisse_mouvement_id = cm.id
+            LEFT JOIN caisse c ON cm.caisse_id = c.id
             WHERE pa.id = ?
         ";
 
