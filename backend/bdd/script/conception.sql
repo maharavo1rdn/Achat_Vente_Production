@@ -371,6 +371,9 @@ CREATE TABLE devis_vente (
     FOREIGN KEY (statut_id)            REFERENCES statut(id)
 );
 
+-- Sequence used to generate unique devis numbers (DVYYYYMMDDHHMMSS + seq)
+CREATE SEQUENCE IF NOT EXISTS devis_num_seq START 1;
+
 CREATE TABLE devis_vente_details (
     id           SERIAL PRIMARY KEY,
     devis_vente_id INTEGER NOT NULL,

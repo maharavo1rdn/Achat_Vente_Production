@@ -106,6 +106,9 @@ $router->group('/api/ventes', function () use ($router, $Vente_Controller) {
         $router->post('/@id:[0-9]+/convert-bc', [$Vente_Controller, 'convertDevisToBonCommande']);
     });
 
+    // Statuts (référentiel)
+    $router->get('/statuts', [new \app\controllers\StatutController(), 'getAll']);
+
     $router->group('/bon-commande', function () use ($router, $Vente_Controller) {
         $router->get('', [$Vente_Controller, 'getAllBonCommande']);
         $router->get('/@id:[0-9]+', [$Vente_Controller, 'getBonCommandeById']);

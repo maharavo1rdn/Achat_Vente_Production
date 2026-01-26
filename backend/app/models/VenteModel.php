@@ -122,6 +122,16 @@ class VenteModel
 
     public function createDevis($data)
     {
+        // Ensure statut default (BROUILLON) if not provided
+        if (empty($data['statut_id'])) {
+            $data['statut_id'] = $this->getStatutIdByCode('BROUILLON');
+        }
+
+        // Generate initial numero_devis if not provided so validation passes
+        if (empty($data['numero_devis'])) {
+            $data['numero_devis'] = $this->generateNumeroDevis(false);
+        }
+
         $this->validateDevisData($data);
 
         error_log("VenteModel::createDevis called with data: " . json_encode($data));
@@ -134,15 +144,46 @@ class VenteModel
         ";
 
         $stmt = $this->db->prepare($query);
-        $stmt->execute([
-            $data['numero_devis'],
-            $data['date_devis'] ?? date('Y-m-d'),
-            $data['entreprise_client_id'],
-            $data['entreprise_filiale_id'],
-            $data['personnel_id'],
-            $data['statut_id'],
-            $data['montant_ttc'] ?? 0
-        ]);
+
+        // Insert with retry on unique violation (very unlikely due to sequence-based generation)
+        $attempt = 0;
+        $maxAttempts = 5;
+        while (true) {
+            // Generate a numero_devis if not provided
+            if (empty($data['numero_devis'])) {
+                $data['numero_devis'] = $this->generateNumeroDevis();
+            }
+
+            try {
+                $stmt->execute([
+                    $data['numero_devis'],
+                    $data['date_devis'] ?? date('Y-m-d'),
+                    $data['entreprise_client_id'],
+                    $data['entreprise_filiale_id'],
+                    $data['personnel_id'],
+                    $data['statut_id'],
+                    $data['montant_ttc'] ?? 0
+                ]);
+                break; // success
+            } catch (\PDOException $ex) {
+                $sqlState = $ex->errorInfo[0] ?? null;
+                $detailMsg = $ex->getMessage();
+                error_log("VenteModel::createDevis PDOException attempt={$attempt}: " . $ex->__toString());
+
+                if ($sqlState === '23505' && stripos($detailMsg, 'numero_devis') !== false) {
+                    $attempt++;
+                    if ($attempt >= $maxAttempts) {
+                        error_log("VenteModel::createDevis: exhausted {$maxAttempts} attempts generating unique numero_devis");
+                        throw $ex;
+                    }
+                    // regenerate and retry
+                    $data['numero_devis'] = $this->generateNumeroDevis();
+                    continue;
+                }
+
+                throw $ex;
+            }
+        }
 
         $newId = $this->db->lastInsertId();
 
@@ -150,7 +191,7 @@ class VenteModel
             $this->createDevisDetails($newId, $data['details']);
         }
 
-        error_log("VenteModel::createDevis created devis with id=$newId");
+        error_log("VenteModel::createDevis created devis with id=$newId (numero_devis={$data['numero_devis']})");
         return (int)$newId;
     }
 
@@ -841,6 +882,35 @@ class VenteModel
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         $numero = str_pad($result['count'] + 1, 4, '0', STR_PAD_LEFT);
         return 'FV' . $date . $numero;
+    }
+
+    private function generateNumeroDevis()
+    {
+        // Use a DB sequence + current date/time to guarantee uniqueness even under concurrency
+        $dateTime = date('YmdHis');
+
+        try {
+            $query = "SELECT nextval('devis_num_seq') as seq";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute();
+            $res = $stmt->fetch(PDO::FETCH_ASSOC);
+            $seq = isset($res['seq']) ? $res['seq'] : mt_rand(0, 999999);
+        } catch (\PDOException $ex) {
+            // If sequence doesn't exist, create it and retry
+            try {
+                $this->db->exec("CREATE SEQUENCE IF NOT EXISTS devis_num_seq START 1");
+                $stmt = $this->db->prepare("SELECT nextval('devis_num_seq') as seq");
+                $stmt->execute();
+                $res = $stmt->fetch(PDO::FETCH_ASSOC);
+                $seq = isset($res['seq']) ? $res['seq'] : mt_rand(0, 999999);
+            } catch (\Exception $e) {
+                // Fallback to random if sequence creation fails for any reason
+                error_log("VenteModel::generateNumeroDevis fallback: " . $e->__toString());
+                $seq = mt_rand(0, 999999);
+            }
+        }
+
+        return 'DV' . $dateTime . str_pad($seq, 6, '0', STR_PAD_LEFT);
     }
 
     private function getStatutIdByCode($code)

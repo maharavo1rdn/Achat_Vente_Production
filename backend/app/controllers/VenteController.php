@@ -36,6 +36,8 @@ class VenteController {
             $result = Flight::venteModel()->createDevis($data);
             Flight::json($result, 201);
         } catch (Exception $e) {
+            // Log full exception for debugging
+            error_log("VenteController::createDevis Exception: " . $e->__toString());
             Flight::json(['error' => $e->getMessage()], 500);
         }
     }

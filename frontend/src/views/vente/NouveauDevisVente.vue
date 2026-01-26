@@ -1,5 +1,10 @@
 <template>
   <div class="page-container">
+    <!-- Simple toast -->
+    <div v-if="toast.show" :class="['fixed top-6 right-6 z-50 px-4 py-3 rounded-md shadow-md text-white', toast.type === 'success' ? 'bg-green-600' : 'bg-red-600']">
+      {{ toast.message }}
+      <button class="ml-3 font-bold" @click="toast.show = false">✕</button>
+    </div>
     <!-- Loading state -->
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
@@ -62,6 +67,14 @@
                 <label class="label">Date du devis *</label>
                 <input v-model="form.date_devis" type="date" class="input" />
               </div>
+
+              <div class="form-group">
+                <label class="label">Statut *</label>
+                <select v-model="form.statut_id" class="select">
+                  <option value="">Sélectionner un statut</option>
+                  <option v-for="s in statuts" :key="s.id" :value="s.id">{{ s.libelle }}</option>
+                </select>
+              </div> 
             </div>
           </div>
         </div>
@@ -157,6 +170,7 @@ import { useRouter } from 'vue-router'
 import venteService from '../../services/venteService'
 import articleService from '../../services/articleService'
 import entrepriseService from '../../services/entrepriseService'
+import statutService from '../../services/statutService'
 
 const router = useRouter()
 
@@ -166,12 +180,14 @@ const saving = ref(false)
 const clients = ref([])
 const filiales = ref([])
 const articles = ref([])
+const statuts = ref([])
 
 // Form data
 const form = ref({
   entreprise_client_id: '',
   entreprise_filiale_id: '',
   personnel_id: '',
+  statut_id: 1,
   date_devis: new Date().toISOString().split('T')[0],
   details: []
 })
@@ -195,21 +211,34 @@ const totalTTC = computed(() => {
   return totalHT.value + totalTVA.value
 })
 
+// Toast state & helper
+const toast = ref({ show: false, message: '', type: 'success' })
+
+const showToast = (message, type = 'success', duration = 4000) => {
+  toast.value.message = message
+  toast.value.type = type
+  toast.value.show = true
+  setTimeout(() => { toast.value.show = false }, duration)
+}
+
 // Methods
 const loadData = async () => {
   loading.value = true
   try {
-    const [clientsRes, filialesRes, articlesRes] = await Promise.all([
+    const [clientsRes, filialesRes, articlesRes, statutsRes] = await Promise.all([
       entrepriseService.getAll({ type_entreprise: 'CLIENT' }),
       entrepriseService.getAll({ type_entreprise: 'INTERNE' }),
-      articleService.getAll()
+      articleService.getAll(),
+      statutService.getAll()
     ])
 
     clients.value = clientsRes.data || []
     filiales.value = filialesRes.data || []
     articles.value = articlesRes.data || []
+    statuts.value = statutsRes.data || []
   } catch (error) {
     console.error('Erreur lors du chargement des données:', error)
+    showToast('Erreur lors du chargement des données', 'error')
   } finally {
     loading.value = false
   }
@@ -255,6 +284,11 @@ const save = async () => {
     return
   }
 
+  if (!form.value.statut_id) {
+    alert('Veuillez sélectionner un statut')
+    return
+  }
+
   if (form.value.details.length === 0) {
     alert('Veuillez ajouter au moins un article')
     return
@@ -275,11 +309,14 @@ const save = async () => {
       montant_ttc: totalTTC.value
     }
 
-    await venteService.devis.create(dataToSend)
+    const res = await venteService.devis.create(dataToSend)
+    // Success toast
+    showToast(res && res.data ? `Devis créé (ID: ${res.data})` : 'Devis créé avec succès')
+    // reset form or navigate as needed
     router.push('/ventes/devis/nouveau')
   } catch (error) {
     console.error('Erreur lors de la création du devis:', error)
-    alert('Erreur lors de la création du devis')
+    showToast('Erreur lors de la création du devis', 'error')
   } finally {
     saving.value = false
   }
@@ -289,6 +326,8 @@ const save = async () => {
 onMounted(() => {
   loadData()
 })
+
+// Template helper: toast markup will be injected at top of template via a small div
 </script>
 
 <style scoped>

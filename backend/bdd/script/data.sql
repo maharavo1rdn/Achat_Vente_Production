@@ -305,4 +305,10 @@ SELECT setval('paiement_vente_details_id_seq',          (SELECT MAX(id) FROM pai
 SELECT setval('bon_commande_vente_id_seq',              (SELECT MAX(id) FROM bon_commande_vente));
 SELECT setval('bon_commande_vente_details_id_seq',      (SELECT MAX(id) FROM bon_commande_vente_details));
 
+-- Reset sequence used for devis numero generation (right 6 digits of numero_devis)
+CREATE SEQUENCE IF NOT EXISTS devis_num_seq START 1;
+SELECT setval('devis_num_seq', (
+    SELECT COALESCE(MAX(CAST(substring(numero_devis from '\\d{6}$') AS INTEGER)), 0) + 1 FROM devis_vente
+), false);
+
 -- Fin du script de donnees
