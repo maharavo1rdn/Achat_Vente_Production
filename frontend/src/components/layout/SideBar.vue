@@ -247,6 +247,7 @@ const achatsMenuItems = [
 
 const ventesMenuItems = [
   { path: '/ventes/devis', label: 'Devis' },
+  { path: '/ventes/liste-commande-vente', label: 'Liste commande vente' },
   { path: '/ventes/bon-commande', label: 'Bons de Commande' },
   { path: '/ventes/factures', label: 'Factures' }
 ]
