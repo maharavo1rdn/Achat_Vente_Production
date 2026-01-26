@@ -15,6 +15,8 @@ use app\controllers\PaiementVenteController;
 use app\controllers\PaiementAchatController;
 use app\controllers\ProformaDemandeAchatController;
 use app\controllers\ProformaFournisseurController;
+use app\controllers\StatAchatController;
+use app\controllers\StatVenteController;
 
 use flight\Engine;
 use flight\net\Router;
@@ -40,6 +42,8 @@ $PaiementVente_Controller = new PaiementVenteController();
 $PaiementAchat_Controller = new PaiementAchatController();
 $ProformaDemandeAchat_Controller = new ProformaDemandeAchatController();
 $ProformaFournisseur_Controller = new ProformaFournisseurController();
+$StatAchat_Controller = new StatAchatController();
+$StatVente_Controller = new StatVenteController();
 
 // Page d'accueil
 $router->get('/', function () {
@@ -244,6 +248,14 @@ $router->group('/api/proforma-fournisseur', function () use ($router, $ProformaF
     $router->delete('/@id:[0-9]+', [$ProformaFournisseur_Controller, 'delete']);
     $router->get('/@id:[0-9]+/details', [$ProformaFournisseur_Controller, 'getDetails']);
     $router->post('/@id:[0-9]+/valider', [$ProformaFournisseur_Controller, 'valider']);
+});
+
+// API statistiques achats
+$router->group('/api/stats/achats', function () use ($router, $StatAchat_Controller) {
+    $router->get('', [$StatAchat_Controller, 'getAllStats']);
+    $router->get('/depenses-fournisseur', [$StatAchat_Controller, 'getDepensesParFournisseur']);
+    $router->get('/delai-livraison', [$StatAchat_Controller, 'getDelaiMoyenLivraison']);
+    $router->get('/taux-service', [$StatAchat_Controller, 'getTauxServiceFournisseur']);
 });
 
 $router->map('/*', function () {

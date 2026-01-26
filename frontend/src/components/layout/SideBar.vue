@@ -190,6 +190,41 @@
         </div>
       </div>
 
+      <!-- Statistiques -->
+      <div class="nav-section">
+        <h3 v-if="!isCollapsed" class="nav-section-title">STATISTIQUES</h3>
+        <div class="nav-group">
+          <button
+            @click="toggleMenu('stats')"
+            class="nav-item nav-item-parent"
+            :class="{ 'active': isStatsActive, 'expanded': openMenus.stats }"
+          >
+            <div class="nav-item-icon">
+              <BarChart3 class="w-4 h-4" />
+            </div>
+            <span v-if="!isCollapsed" class="nav-item-label">Statistiques</span>
+            <ChevronDown
+              v-if="!isCollapsed"
+              class="nav-chevron"
+              :class="{ 'rotated': openMenus.stats }"
+            />
+          </button>
+          
+          <Transition name="dropdown">
+            <div v-if="openMenus.stats && !isCollapsed" class="nav-submenu">
+              <router-link to="/analytics" class="nav-subitem" :class="{ 'active': isActive('/analytics') }">
+                <div class="nav-subitem-dot"></div>
+                <span>Analytique Générale</span>
+              </router-link>
+              <router-link to="/stats/achats" class="nav-subitem" :class="{ 'active': isActive('/stats/achats') }">
+                <div class="nav-subitem-dot"></div>
+                <span>Statistiques Achats</span>
+              </router-link>
+            </div>
+          </Transition>
+        </div>
+      </div>
+
       <!-- Paramètres -->
       <div class="nav-section">
         <h3 v-if="!isCollapsed" class="nav-section-title">PARAMÈTRES</h3>
@@ -267,7 +302,8 @@ import {
   User,
   LogOut,
   ChevronDown,
-  ChevronLeft
+  ChevronLeft,
+  BarChart3
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -277,6 +313,7 @@ const openMenus = ref({
   achats: false,
   ventes: false,
   finance: false,
+  stats: false,
   settings: false
 })
 
@@ -297,6 +334,7 @@ const isStockActive = computed(() => route.path.startsWith('/articles') || route
 const isAchatsActive = computed(() => route.path.startsWith('/achats'))
 const isVentesActive = computed(() => route.path.startsWith('/ventes'))
 const isFinanceActive = computed(() => route.path.startsWith('/caisse') || route.path.startsWith('/paiements') || route.path.startsWith('/mouvements-caisse'))
+const isStatsActive = computed(() => route.path.startsWith('/analytics') || route.path.startsWith('/stats'))
 const isSettingsActive = computed(() => route.path.startsWith('/entreprises') || route.path.startsWith('/personnel') || route.path.startsWith('/parametres'))
 
 watch(() => route.path, (newPath) => {
@@ -311,6 +349,9 @@ watch(() => route.path, (newPath) => {
   }
   if (newPath.startsWith('/caisse') || newPath.startsWith('/paiements') || newPath.startsWith('/mouvements-caisse')) {
     openMenus.value.finance = true
+  }
+  if (newPath.startsWith('/analytics') || newPath.startsWith('/stats')) {
+    openMenus.value.stats = true
   }
   if (newPath.startsWith('/entreprises') || newPath.startsWith('/personnel') || newPath.startsWith('/parametres')) {
     openMenus.value.settings = true
