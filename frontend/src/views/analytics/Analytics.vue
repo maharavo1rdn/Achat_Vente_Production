@@ -55,13 +55,13 @@
 
         <!-- Top 5 Clients: Horizontal Bar -->
         <div class="card p-4 lg:col-span-1">
-          <h2 class="card-title">Top 5 Clients</h2>
+          <h2 class="card-title">Top 5 Clients (par nombre)</h2>
           <Bar :data="topClientsData" :options="horizontalBarOptions" class="h-64" />
         </div>
 
         <!-- Top 5 Articles: Column Bar -->
         <div class="card p-4 lg:col-span-1">
-          <h2 class="card-title">Top 5 Articles</h2>
+          <h2 class="card-title">Top 5 Articles (par quantités)</h2>
           <Bar :data="topArticlesData" :options="verticalBarOptions" class="h-64" />
         </div>
       </div>
@@ -133,11 +133,11 @@ const gaugeOptions = {
 // Top Clients: horizontal bar by total
 const topClientsData = computed(() => {
   const labels = topClients.value.map(c => c.nom || c.name || 'Client')
-  const values = topClients.value.map(c => Number(c.total ?? c.montant ?? 0))
+  const values = topClients.value.map(c => Number(c.factures ?? c.nb_achats ?? 0))
   return {
     labels,
     datasets: [{
-      label: 'CA encaissé',
+      label: "Nombre d'achats",
       data: values,
       backgroundColor: '#3b82f6'
     }]
@@ -156,11 +156,11 @@ const horizontalBarOptions = {
 // Top Articles: vertical bar by montant
 const topArticlesData = computed(() => {
   const labels = topArticles.value.map(a => a.designation || a.nom || a.reference || 'Article')
-  const values = topArticles.value.map(a => Number(a.montant ?? a.total ?? 0))
+  const values = topArticles.value.map(a => Number(a.quantite ?? a.qty ?? 0))
   return {
     labels,
     datasets: [{
-      label: 'Montant vendu',
+      label: 'Quantité vendue',
       data: values,
       backgroundColor: '#f59e0b'
     }]

@@ -77,7 +77,7 @@ class StatistiqueModel {
             WHERE pv.statut_id = 3
             {$where}
             GROUP BY ec.id, ec.nom, ec.type_entreprise
-            ORDER BY total DESC
+            ORDER BY factures DESC, total DESC
             LIMIT 5
         ";
 
@@ -116,7 +116,7 @@ class StatistiqueModel {
             WHERE 1=1
             {$where}
             GROUP BY a.id, a.reference, a.designation
-            ORDER BY montant DESC, quantite DESC
+            ORDER BY quantite DESC, montant DESC
             LIMIT 5
         ";
 
