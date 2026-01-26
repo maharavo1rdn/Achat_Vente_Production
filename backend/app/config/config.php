@@ -74,7 +74,7 @@ return [
 		'port' => 5432,
 		'dbname' => 'achat_vente_db',
 		'user' => 'postgres',
-		'password' => 'p@ssw0rd'
+		'password' => 'postgres'
 
 		// If you prefer SQLite, use the following instead
 		// 'file_path' => __DIR__ . $ds . '..' . $ds . 'database.sqlite'
