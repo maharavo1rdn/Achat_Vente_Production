@@ -236,9 +236,8 @@ const formatDate = (date) => {
 }
 
 const openCreateModal = () => {
-  // navigate to BC creation or open a modal
-  // router.push('/ventes/bon-commande')
-  console.log('Ouvrir création BC')
+  // navigate to BC creation page
+  router.push('/ventes/bon-commande/nouveau')
 }
 
 import { useRouter } from 'vue-router'

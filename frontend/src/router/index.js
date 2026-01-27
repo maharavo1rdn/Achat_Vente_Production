@@ -48,6 +48,7 @@ const router = createRouter({
     { path: "/ventes/liste-commande-vente", name: "liste-commande-vente", component: ListeCommandeVente },
     { path: "/ventes/liste-commande-vente/:id", name: "liste-commande-vente-detail", component: ListeCommandeVenteDetails },
     { path: "/ventes/bon-commande", name: "bon-commande-vente", component: BonCommandeVente },
+    { path: "/ventes/bon-commande/nouveau", name: "nouveau-bon-commande-vente", component: () => import('../views/vente/NouveauBonCommandeVente.vue') },
     { path: "/ventes/factures", name: "facture-vente", component: FactureVente },
     
     { path: "/caisse", name: "caisse", component: Caisse },

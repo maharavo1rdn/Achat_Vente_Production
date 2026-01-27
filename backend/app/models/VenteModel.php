@@ -34,6 +34,7 @@ class VenteModel
                 efi.nom as filiale_nom,
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom,
+                s.code as statut,
                 s.libelle as statut_libelle
             FROM devis_vente dv
             INNER JOIN entreprise ec ON dv.entreprise_client_id = ec.id
@@ -96,6 +97,7 @@ class VenteModel
                 efi.nom as filiale_nom,
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom,
+                s.code as statut,
                 s.libelle as statut_libelle
             FROM devis_vente dv
             INNER JOIN entreprise ec ON dv.entreprise_client_id = ec.id
@@ -276,6 +278,12 @@ class VenteModel
             throw new InvalidArgumentException("Devis non trouvé");
         }
 
+        // Ensure the devis is accepted before conversion
+        $acceptedStatutId = $this->getStatutIdByCode('VALIDE');
+        if ((int)$devis['statut_id'] !== (int)$acceptedStatutId) {
+            throw new InvalidArgumentException("Le devis doit être en statut 'Accepté' pour pouvoir être converti en bon de commande");
+        }
+
         $numeroBc = $this->generateNumeroBonCommande();
 
         $bcData = [
@@ -317,6 +325,7 @@ class VenteModel
                 efi.nom as filiale_nom,
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom,
+                s.code as statut,
                 s.libelle as statut_libelle,
                 dv.numero_devis
             FROM bon_commande_vente bcv
@@ -402,6 +411,18 @@ class VenteModel
         $this->validateBonCommandeData($data);
 
         error_log("VenteModel::createBonCommande called with data: " . json_encode($data));
+
+        // If a devis is linked, ensure it exists and is in ACCEPTED status
+        if (!empty($data['devis_vente_id'])) {
+            $linkedDevis = $this->getDevisById($data['devis_vente_id']);
+            if (!$linkedDevis) {
+                throw new InvalidArgumentException("Le devis lié est introuvable");
+            }
+            $acceptedStatutId = $this->getStatutIdByCode('ACCEPTE');
+            if ((int)$linkedDevis['statut_id'] !== (int)$acceptedStatutId) {
+                throw new InvalidArgumentException("Le devis lié doit être en statut 'Accepté' pour être associé à un bon de commande");
+            }
+        }
 
         $query = "
             INSERT INTO bon_commande_vente (
