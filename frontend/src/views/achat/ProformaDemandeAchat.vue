@@ -14,10 +14,16 @@
           <h1 class="page-title">Demandes d'Achat</h1>
           <p class="page-subtitle">Gestion des demandes d'achat (proforma)</p>
         </div>
-        <button @click="createDemande" class="btn-primary">
-          <Plus class="w-4 h-4" />
-          <span>Nouvelle Demande</span>
-        </button>
+        <div class="flex items-center gap-2">
+          <button @click="exportPdf" class="btn btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Exporter</span>
+          </button>
+          <button @click="createDemande" class="btn-primary">
+            <Plus class="w-4 h-4" />
+            <span>Nouvelle Demande</span>
+          </button>
+        </div>
       </div>
 
       <!-- Stats Cards -->
@@ -98,7 +104,10 @@
       <div class="card fade-in" style="animation-delay: 0.25s">
         <div class="card-header-simple">
           <h2 class="card-title">Liste des Demandes</h2>
-          <span class="text-xs text-gray-500">{{ filteredDemandes.length }} demande(s)</span>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-500">{{ filteredDemandes.length }} demande(s)</span>
+            <button @click="exportPdf" class="btn btn-secondary text-xs">Exporter PDF</button>
+          </div>
         </div>
         <div class="table-wrapper">
           <table class="table">
@@ -291,6 +300,20 @@ const resetFilters = () => {
   filterDateDebut.value = ''
   filterDateFin.value = ''
   loadDemandes()
+}
+
+// Export PDF (liste)
+const exportPdf = () => {
+  const base = import.meta.env.VITE_API_BASE_URL || '/api'
+  const params = new URLSearchParams()
+  if (filterDateDebut.value) params.set('date_debut', filterDateDebut.value)
+  if (filterDateFin.value) params.set('date_fin', filterDateFin.value)
+  if (filterStatut.value) params.set('statut_id', filterStatut.value)
+  if (searchQuery.value) params.set('search', searchQuery.value)
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  if (user?.entreprise_id) params.set('entreprise_id', user.entreprise_id)
+  const url = `${base}/proforma-demande-achat/export${params.toString() ? ('?' + params.toString()) : ''}`
+  window.open(url, '_blank')
 }
 
 const getStatutClass = (statutCode) => {

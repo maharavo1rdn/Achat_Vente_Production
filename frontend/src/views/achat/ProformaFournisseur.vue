@@ -28,10 +28,16 @@
           <h1 class="page-title">Proforma Fournisseur</h1>
           <p class="page-subtitle">Gestion des devis fournisseurs</p>
         </div>
-        <button @click="openCreateModal" class="btn-primary">
-          <Plus class="w-4 h-4" />
-          <span>Nouveau Proforma</span>
-        </button>
+        <div class="flex items-center gap-2">
+          <button @click="exportPdf" class="btn btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Exporter</span>
+          </button>
+          <button @click="openCreateModal" class="btn-primary">
+            <Plus class="w-4 h-4" />
+            <span>Nouveau Proforma</span>
+          </button>
+        </div>
       </div>
 
       <!-- Stats Cards -->
@@ -302,6 +308,20 @@ const resetFilters = () => {
   selectedStatut.value = ''
   dateFilter.value = ''
   loadProformas()
+}
+
+// Export PDF (liste proformas)
+const exportPdf = () => {
+  const base = import.meta.env.VITE_API_BASE_URL || '/api'
+  const params = new URLSearchParams()
+  if (searchQuery.value) params.set('search', searchQuery.value)
+  if (selectedFournisseur.value) params.set('fournisseur_id', selectedFournisseur.value)
+  if (selectedStatut.value) params.set('statut_id', selectedStatut.value)
+  if (dateFilter.value) params.set('date_debut', dateFilter.value)
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  if (user?.entreprise_id) params.set('entreprise_id', user.entreprise_id)
+  const url = `${base}/proforma-fournisseur/export${params.toString() ? ('?' + params.toString()) : ''}`
+  window.open(url, '_blank')
 }
 const deleteProforma = async (id) => {
   if (!confirm('Êtes-vous sûr de vouloir supprimer ce proforma ?')) return

@@ -4,6 +4,9 @@ namespace app\controllers;
 
 use Exception;
 use Flight;
+use PDO;
+use Dompdf\Dompdf;
+use Dompdf\Options; 
 
 class ProformaDemandeAchatController
 {
@@ -42,6 +45,92 @@ class ProformaDemandeAchatController
         }
     }
 
+    // PDF export - liste
+    public function exportList()
+    {
+        try {
+            $filters = Flight::request()->query;
+            $entrepriseId = $filters->entreprise_id ?? null;
+
+            $companyInfo = null;
+            if ($entrepriseId) {
+                $stmtE = Flight::db()->prepare('SELECT id, nom, adresse, telephone FROM entreprise WHERE id = ?');
+                $stmtE->execute([(int)$entrepriseId]);
+                $companyInfo = $stmtE->fetch(PDO::FETCH_ASSOC) ?: null;
+            }
+
+            $demandes = Flight::proformaDemandeAchatModel()->getAll($filters);
+
+            $totalAll = 0;
+            $totalValidated = 0;
+            foreach ($demandes as $d) {
+                $totalAll += (float)($d['montant_ttc'] ?? 0);
+                if ((int)($d['statut_id'] ?? 0) === 3) $totalValidated += (float)($d['montant_ttc'] ?? 0);
+            }
+
+            ob_start();
+            $exportDemandes = $demandes;
+            $exportMeta = [
+                'filters' => $filters,
+                'company' => $companyInfo,
+                'total_all' => $totalAll,
+                'total_validated' => $totalValidated,
+            ];
+            include __DIR__ . '/../views/pdf/proforma_demande_achat_list.php';
+            $html = ob_get_clean();
+
+            $options = new Options();
+            $options->set('isRemoteEnabled', true);
+            $dompdf = new Dompdf($options);
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+            $dompdf->stream('demandes-achat.pdf', ['Attachment' => 1]);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    // PDF export - détail
+    public function exportById($id)
+    {
+        try {
+            $filters = Flight::request()->query;
+            $entrepriseId = $filters->entreprise_id ?? null;
+
+            $companyInfo = null;
+            if ($entrepriseId) {
+                $stmtE = Flight::db()->prepare('SELECT id, nom, adresse, telephone FROM entreprise WHERE id = ?');
+                $stmtE->execute([(int)$entrepriseId]);
+                $companyInfo = $stmtE->fetch(PDO::FETCH_ASSOC) ?: null;
+            }
+
+            $demande = Flight::proformaDemandeAchatModel()->getById((int)$id);
+            if (!$demande) {
+                Flight::json(['error' => 'Demande non trouvée'], 404);
+                return;
+            }
+            $details = Flight::proformaDemandeAchatModel()->getDetails($id);
+
+            ob_start();
+            $exportDemande = $demande;
+            $exportDemande['details'] = $details;
+            $exportMeta = ['company' => $companyInfo];
+            include __DIR__ . '/../views/pdf/proforma_demande_achat_detail.php';
+            $html = ob_get_clean();
+
+            $options = new Options();
+            $options->set('isRemoteEnabled', true);
+            $dompdf = new Dompdf($options);
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+            $dompdf->stream('demande-achat-' . $id . '.pdf', ['Attachment' => 1]);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     public function create()
     {
         try {
@@ -49,6 +138,21 @@ class ProformaDemandeAchatController
 
             if (isset($data['details']) && is_string($data['details'])) {
                 $data['details'] = json_decode($data['details'], true);
+            }
+
+            // Allow force_create flag to bypass stock check
+            $force = isset($data['force_create']) ? filter_var($data['force_create'], FILTER_VALIDATE_BOOLEAN) : false;
+
+            if (!$force) {
+                $depotId = $data['depot_cible_id'] ?? null;
+                if ($depotId) {
+                    $availability = Flight::proformaDemandeAchatModel()->checkStockAvailability($depotId, $data['details'] ?? []);
+                    if (!$availability['all_clear']) {
+                        // Return a warning payload to the client with availability details
+                        Flight::json(['warning' => true, 'availability' => $availability], 200);
+                        return;
+                    }
+                }
             }
 
             $newId = Flight::proformaDemandeAchatModel()->create($data);
