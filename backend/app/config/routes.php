@@ -237,6 +237,9 @@ $router->group('/api/proforma-demande-achat', function () use ($router, $Proform
     $router->post('/@id:[0-9]+/valider', [$ProformaDemandeAchat_Controller, 'valider']);
     $router->post('/@id:[0-9]+/annuler', [$ProformaDemandeAchat_Controller, 'annuler']);
     $router->post('/@id:[0-9]+/generer-proforma', [$ProformaDemandeAchat_Controller, 'genererProforma']);
+    // Exports PDF
+    $router->get('/export', [$ProformaDemandeAchat_Controller, 'exportList']);
+    $router->get('/@id:[0-9]+/export', [$ProformaDemandeAchat_Controller, 'exportById']);
 });
 
 // API dédiée aux proformas fournisseur (nouveau controller + modèle)
@@ -248,6 +251,9 @@ $router->group('/api/proforma-fournisseur', function () use ($router, $ProformaF
     $router->delete('/@id:[0-9]+', [$ProformaFournisseur_Controller, 'delete']);
     $router->get('/@id:[0-9]+/details', [$ProformaFournisseur_Controller, 'getDetails']);
     $router->post('/@id:[0-9]+/valider', [$ProformaFournisseur_Controller, 'valider']);
+    // Exports PDF
+    $router->get('/export', [$ProformaFournisseur_Controller, 'exportList']);
+    $router->get('/@id:[0-9]+/export', [$ProformaFournisseur_Controller, 'exportById']);
 });
 
 $router->map('/*', function () {

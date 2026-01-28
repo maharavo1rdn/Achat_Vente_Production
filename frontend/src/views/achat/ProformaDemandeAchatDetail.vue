@@ -53,7 +53,15 @@
               <FilePlus class="w-4 h-4" />
               <span>Générer Proforma Fournisseur</span>
             </button>
-          </template> 
+          </template>
+
+          <!-- Export PDF (toujours visible quand pas en édition) -->
+          <template v-if="!isEditing">
+            <button @click="exportDetailPdf" class="btn btn-secondary">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Exporter</span>
+            </button>
+          </template>
 
           <template v-if="isEditing">
             <button @click="cancelEdit" class="btn btn-ghost text-slate-500 hover:text-slate-800">
@@ -69,46 +77,50 @@
       </div>
     </header>
 
-      <!-- Modal stylée: sélection fournisseur -->
-      <div v-if="showSupplierSelector" class="fixed inset-0 z-50 flex items-center justify-center">
-        <div @click="showSupplierSelector = false" class="absolute inset-0 bg-black/40"></div>
-        <div class="bg-white rounded-xl p-6 z-10 w-[min(720px,95%)] shadow-2xl">
-          <div class="flex items-start justify-between mb-4">
-            <div>
-              <h3 class="text-lg font-bold">Sélectionner un fournisseur</h3>
-              <p class="text-sm text-slate-500">Choisissez le fournisseur à utiliser pour générer la proforma.</p>
-            </div>
-            <button @click="showSupplierSelector = false" class="text-slate-400 hover:text-slate-700">
-              ✕
-            </button>
+    <!-- Modal stylée: sélection fournisseur -->
+    <div v-if="showSupplierSelector" class="fixed inset-0 z-50 flex items-center justify-center">
+      <div @click="showSupplierSelector = false" class="absolute inset-0 bg-black/40"></div>
+      <div class="bg-white rounded-xl p-6 z-10 w-[min(720px,95%)] shadow-2xl">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h3 class="text-lg font-bold">Sélectionner un fournisseur</h3>
+            <p class="text-sm text-slate-500">Choisissez le fournisseur à utiliser pour générer la proforma.</p>
           </div>
+          <button @click="showSupplierSelector = false" class="text-slate-400 hover:text-slate-700">
+            ✕
+          </button>
+        </div>
 
-          <div class="mb-4">
-            <input v-model="supplierSearch" type="text" placeholder="Rechercher un fournisseur..." class="modern-input w-full" />
-          </div>
+        <div class="mb-4">
+          <input v-model="supplierSearch" type="text" placeholder="Rechercher un fournisseur..."
+            class="modern-input w-full" />
+        </div>
 
-          <div class="max-h-60 overflow-auto mb-4 border rounded-md p-2">
-            <ul class="space-y-2">
-              <li v-for="f in filteredFournisseurs" :key="f.id" class="flex items-center justify-between p-2 rounded hover:bg-slate-50">
-                <div class="flex items-center gap-3">
-                  <input type="radio" :value="f.id" v-model="selectedFournisseurId" class="accent-indigo-600" />
-                  <div>
-                    <div class="font-medium">{{ f.nom }}</div>
-                    <div class="text-xs text-slate-400">{{ f.email || '-' }} • {{ f.telephone || '-' }}</div>
-                  </div>
+        <div class="max-h-60 overflow-auto mb-4 border rounded-md p-2">
+          <ul class="space-y-2">
+            <li v-for="f in filteredFournisseurs" :key="f.id"
+              class="flex items-center justify-between p-2 rounded hover:bg-slate-50">
+              <div class="flex items-center gap-3">
+                <input type="radio" :value="f.id" v-model="selectedFournisseurId" class="accent-indigo-600" />
+                <div>
+                  <div class="font-medium">{{ f.nom }}</div>
+                  <div class="text-xs text-slate-400">{{ f.email || '-' }} • {{ f.telephone || '-' }}</div>
                 </div>
-                <div class="text-xs text-slate-500">{{ f.type_entreprise }}</div>
-              </li>
-              <li v-if="!filteredFournisseurs.length" class="text-center text-slate-400 py-6">Aucun fournisseur trouvé.</li>
-            </ul>
-          </div>
+              </div>
+              <div class="text-xs text-slate-500">{{ f.type_entreprise }}</div>
+            </li>
+            <li v-if="!filteredFournisseurs.length" class="text-center text-slate-400 py-6">Aucun fournisseur trouvé.
+            </li>
+          </ul>
+        </div>
 
-          <div class="flex justify-end gap-3">
-            <button @click="showSupplierSelector = false" class="btn btn-ghost">Annuler</button>
-            <button @click="confirmGenerateProforma" class="btn btn-primary" :disabled="!selectedFournisseurId">Générer</button>
-          </div>
+        <div class="flex justify-end gap-3">
+          <button @click="showSupplierSelector = false" class="btn btn-ghost">Annuler</button>
+          <button @click="confirmGenerateProforma" class="btn btn-primary"
+            :disabled="!selectedFournisseurId">Générer</button>
         </div>
       </div>
+    </div>
     <main class="max-w-7xl mx-auto pb-12 space-y-8">
 
       <!-- Loading Skeleton -->
@@ -249,6 +261,44 @@
             </button>
           </div>
 
+          <!-- Avertissement stock: affiché si backend signale des articles encore en stock -->
+          <div v-if="showStockWarning && stockWarning"
+            class="p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded my-4">
+            <div class="flex items-start justify-between">
+              <div>
+                <h4 class="font-bold text-yellow-800">Avertissement : Articles encore en stock</h4>
+                <p class="text-sm text-yellow-700">{{ stockWarning.count }} article(s) demandés sont encore disponibles
+                  dans
+                  le dépôt sélectionné. Voulez-vous poursuivre ?</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button @click="cancelSubmit" class="btn btn-ghost">Annuler</button>
+                <button @click="submitAnyway" class="btn btn-primary">Soumettre quand même</button>
+              </div>
+            </div>
+
+            <div class="mt-3 overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-left text-xs text-yellow-700 uppercase">
+                    <th class="px-2 py-1">Article</th>
+                    <th class="px-2 py-1">Demandé</th>
+                    <th class="px-2 py-1">Disponible</th>
+                    <th class="px-2 py-1">Unité</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="a in stockWarning.in_stock" :key="a.article_id" class="border-t border-yellow-100">
+                    <td class="px-2 py-2">{{ a.reference }} - {{ a.designation }}</td>
+                    <td class="px-2 py-2">{{ a.requested_qty }}</td>
+                    <td class="px-2 py-2">{{ a.available_qty }}</td>
+                    <td class="px-2 py-2">{{ a.unite || '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="flex-grow overflow-hidden flex flex-col">
             <div class="table-container flex-grow bg-white">
               <table class="w-full text-left border-collapse">
@@ -344,7 +394,8 @@
                   <div class="text-3xl font-bold text-indigo-900 tracking-tight">
                     {{ formatCurrency(totalEstime) }}
                   </div>
-                  <p class="text-xs text-gray-500 mt-1">Montant enregistré : <span class="font-medium">{{ formatCurrency(demande.montant_ttc) }}</span></p>
+                  <p class="text-xs text-gray-500 mt-1">Montant enregistré : <span class="font-medium">{{
+                    formatCurrency(demande.montant_ttc) }}</span></p>
                 </div>
               </div>
             </div>
@@ -362,7 +413,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeft, Save, X, Plus, Trash2, Check, Pencil, FilePlus,
   Info, MapPin, Package, ShoppingCart
-} from 'lucide-vue-next' 
+} from 'lucide-vue-next'
 
 // Services import (simulated for component structure)
 import proformaDemandeAchatService from '@/services/proformaDemandeAchatService'
@@ -398,6 +449,8 @@ const demande = ref({
 
 const loading = ref(false)
 const saving = ref(false)
+const stockWarning = ref(null)
+const showStockWarning = ref(false)
 
 // Dropdowns data
 const personnels = ref([])
@@ -604,6 +657,13 @@ const saveDemande = async () => {
 
     if (isNew.value) {
       const response = await proformaDemandeAchatService.create(payload)
+      // Backend returns a warning payload when some requested articles are still available in the depot
+      if (response.data && response.data.warning) {
+        stockWarning.value = response.data.availability
+        showStockWarning.value = true
+        saving.value = false
+        return
+      }
       router.push({ name: 'proforma-demande-achat-detail', params: { id: response.data.id } })
       editMode.value = false
     } else {
@@ -619,11 +679,38 @@ const saveDemande = async () => {
   }
 }
 
+const submitAnyway = async () => {
+  saving.value = true
+  try {
+    const payload = Object.assign({}, demande.value, { details: filledDetails.value, force_create: true })
+    const response = await proformaDemandeAchatService.create(payload)
+    if (response.data && response.data.id) {
+      showStockWarning.value = false
+      stockWarning.value = null
+      router.push({ name: 'proforma-demande-achat-detail', params: { id: response.data.id } })
+      editMode.value = false
+    }
+  } catch (error) {
+    console.error('Erreur lors soumission forcée', error)
+    alert(error.response?.data?.error || 'Erreur lors de la soumission')
+  } finally {
+    saving.value = false
+  }
+}
+
+const cancelSubmit = () => {
+  showStockWarning.value = false
+  stockWarning.value = null
+}
+
+
 const validateForm = () => {
   if (!demande.value.personnel_demandeur_id) return alertAndReturn('Le demandeur est obligatoire')
   if (!demande.value.entreprise_id) return alertAndReturn('L\'entreprise est obligatoire')
   const hasAtLeastOneValidDetail = demande.value.details.some(d => d.article_id && d.quantite_demandee && d.quantite_demandee > 0)
   if (!hasAtLeastOneValidDetail) return alertAndReturn('Au moins un article est requis')
+  stockWarning.value = null
+  showStockWarning.value = false
   return true
 }
 
@@ -639,6 +726,17 @@ const cancelEdit = () => {
     editMode.value = false
     loadDemande()
   }
+}
+
+// Export PDF (fiche détail)
+const exportDetailPdf = () => {
+  const base = import.meta.env.VITE_API_BASE_URL || '/api'
+  const params = new URLSearchParams()
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  if (user?.entreprise_id) params.set('entreprise_id', user.entreprise_id)
+  if (user?.id) params.set('user_id', user.id)
+  const url = `${base}/proforma-demande-achat/${route.params.id}/export${params.toString() ? ('?' + params.toString()) : ''}`
+  window.open(url, '_blank')
 }
 
 const validerDemande = async () => {
@@ -672,7 +770,7 @@ const confirmGenerateProforma = async () => {
     console.error('Erreur génération proforma :', error)
     alert(error.response?.data?.error || 'Erreur lors de la génération')
   }
-} 
+}
 
 const annulerDemande = async () => {
   if (!confirm('Confirmer l\'annulation de cette demande ?')) return
@@ -894,26 +992,28 @@ input[type="radio"] {
   appearance: none;
   width: 1rem;
   height: 1rem;
-  border: 1px solid #e6e9ef; /* slate-200 */
+  border: 1px solid #e6e9ef;
+  /* slate-200 */
   border-radius: 9999px;
   background: #ffffff;
   display: inline-block;
   vertical-align: middle;
   position: relative;
-  box-shadow: inset 0 0 0 0 rgba(0,0,0,0.0);
+  box-shadow: inset 0 0 0 0 rgba(0, 0, 0, 0.0);
 }
 
 input[type="radio"]:hover {
-  box-shadow: 0 0 0 4px rgba(79,70,229,0.06);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.06);
 }
 
 input[type="radio"]:focus-visible {
-  outline: 2px solid rgba(79,70,229,0.14);
+  outline: 2px solid rgba(79, 70, 229, 0.14);
   outline-offset: 2px;
 }
 
 input[type="radio"]:checked {
-  background: #4f46e5; /* indigo-600 */
+  background: #4f46e5;
+  /* indigo-600 */
   border-color: #4f46e5;
 }
 

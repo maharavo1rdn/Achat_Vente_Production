@@ -169,7 +169,6 @@ class ProformaDemandeAchatModel
 
             $this->db->commit();
             return $demandeId;
-
         } catch (Exception $e) {
             $this->db->rollBack();
             throw $e;
@@ -235,7 +234,6 @@ class ProformaDemandeAchatModel
 
             $this->db->commit();
             return $stmt->rowCount() > 0;
-
         } catch (Exception $e) {
             $this->db->rollBack();
             throw $e;
@@ -245,7 +243,7 @@ class ProformaDemandeAchatModel
     public function delete($id)
     {
         if ($id <= 0) throw new InvalidArgumentException("L'ID doit être un entier positif");
-        
+
         $stmt = $this->db->prepare("DELETE FROM proforma_demande_achat WHERE id = ?");
         $stmt->execute([$id]);
         return $stmt->rowCount() > 0;
@@ -325,6 +323,81 @@ class ProformaDemandeAchatModel
             $total += $q * $p;
         }
         return round($total, 2);
+    }
+
+    public function checkStockAvailability($depotId, $details)
+    {
+        if (empty($depotId) || !is_numeric($depotId)) {
+            throw new InvalidArgumentException('depot_cible_id invalide');
+        }
+
+        if (!is_array($details) || count($details) === 0) {
+            return ['in_stock' => [], 'count' => 0, 'all_clear' => true];
+        }
+
+        $articleIds = [];
+        foreach ($details as $d) {
+            if (isset($d['article_id']) && (int)$d['article_id'] > 0) {
+                $articleIds[] = (int)$d['article_id'];
+            }
+        }
+
+        if (count($articleIds) === 0) {
+            return ['in_stock' => [], 'count' => 0, 'all_clear' => true];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($articleIds), '?'));
+        $params = array_merge([$depotId], $articleIds);
+
+        $query = "
+            SELECT s.article_id, s.quantite_actuelle, a.reference, a.designation, u.libelle as unite
+            FROM stock s
+            LEFT JOIN article a ON a.id = s.article_id
+            LEFT JOIN unite u ON a.unite_id = u.id
+            WHERE s.depot_id = ? AND s.article_id IN ($placeholders)
+        ";
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+        $stocks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $stockMap = [];
+        foreach ($stocks as $s) {
+            $stockMap[(int)$s['article_id']] = $s;
+        }
+
+        $inStock = [];
+        foreach ($details as $d) {
+            $aid = isset($d['article_id']) ? (int)$d['article_id'] : null;
+            $reqQty = isset($d['quantite_demandee']) ? (float)$d['quantite_demandee'] : 0;
+            $avail = 0;
+            $ref = null;
+            $designation = null;
+            $unite = null;
+            if ($aid !== null && isset($stockMap[$aid])) {
+                $avail = (float)$stockMap[$aid]['quantite_actuelle'];
+                $ref = $stockMap[$aid]['reference'] ?? null;
+                $designation = $stockMap[$aid]['designation'] ?? null;
+                $unite = $stockMap[$aid]['unite'] ?? null;
+            }
+
+            if ($avail > 0) {
+                $inStock[] = [
+                    'article_id' => $aid,
+                    'reference' => $ref,
+                    'designation' => $designation,
+                    'requested_qty' => $reqQty,
+                    'available_qty' => $avail,
+                    'unite' => $unite
+                ];
+            }
+        }
+
+        return [
+            'in_stock' => $inStock,
+            'count' => count($inStock),
+            'all_clear' => count($inStock) === 0
+        ];
     }
 
     private function generateNumeroDA()

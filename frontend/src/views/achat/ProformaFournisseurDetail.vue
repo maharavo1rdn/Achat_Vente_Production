@@ -34,14 +34,18 @@
         <!-- Right: Actions Bar -->
         <div class="action-bar" v-if="!loading">
           <!-- Mode Lecture -->
-          <template v-if="!isEditing && proforma.statut_id == 1">
-            <button @click="enableEditMode" class="btn btn-secondary">
+          <template v-if="!isEditing">
+            <button v-if="proforma.statut_id == 1" @click="enableEditMode" class="btn btn-secondary">
               <Pencil class="w-4 h-4" />
               <span>Modifier</span>
             </button>
             <button v-if="canValidate" @click="validerProforma" class="btn btn-success">
               <Check class="w-4 h-4" />
               <span>Valider</span>
+            </button>
+            <button @click="exportDetailPdf" class="btn btn-secondary">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Exporter</span>
             </button>
           </template>
 
@@ -438,6 +442,17 @@ const cancelEdit = () => {
     editMode.value = false
     loadProforma()
   }
+}
+
+// Export PDF (fiche proforma fournisseur)
+const exportDetailPdf = () => {
+  const base = import.meta.env.VITE_API_BASE_URL || '/api'
+  const params = new URLSearchParams()
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  if (user?.entreprise_id) params.set('entreprise_id', user.entreprise_id)
+  if (user?.id) params.set('user_id', user.id)
+  const url = `${base}/proforma-fournisseur/${route.params.id}/export${params.toString() ? ('?' + params.toString()) : ''}`
+  window.open(url, '_blank')
 }
 
 const saveProforma = async () => {
