@@ -43,7 +43,7 @@ $PaiementAchat_Controller = new PaiementAchatController();
 $ProformaDemandeAchat_Controller = new ProformaDemandeAchatController();
 $ProformaFournisseur_Controller = new ProformaFournisseurController();
 $StatAchat_Controller = new StatAchatController();
-$StatVente_Controller = new StatVenteController();
+// $StatVente_Controller = new StatVenteController();
 
 // Page d'accueil
 $router->get('/', function () {
