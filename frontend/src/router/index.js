@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from "vue-router"
 import Dashboard from "../views/Dashboard.vue"
 
 import Articles from "../views/stock/Articles.vue"
+import MouvementStock from "../views/stock/MouvementStock.vue"
 import ArticleDetail from "../views/stock/ArticleDetail.vue"
 import Stock from "../views/stock/Stock.vue"
 
@@ -45,6 +46,7 @@ const router = createRouter({
     { path: "/articles", name: "articles", component: Articles },
     { path: "/articles/:id", name: "article-detail", component: ArticleDetail },
     { path: "/stock", name: "stock", component: Stock },
+    { path: "/mouvement_stock", name: "mouvement-stock", component: MouvementStock },
     { path: "/entreprises", name: "entreprises", component: Entreprises },
     { path: "/parametres/mode-paiements", name: "mode-paiements", component: () => import('@/views/parametres/ModePaiements.vue') },
     { path: "/entreprises/:id", name: "entreprise-detail", component: EntrepriseDetail },

@@ -307,11 +307,13 @@ class ProformaDemandeAchatController
                 'statut_id' => 1, // Brouillon
                 'montant_ttc' => $total,
                 'details' => $pfDetails,
-                'proforma_demande_achat_id' => $id
+                'proforma_demande_achat_id' => $id,
+                'depot_cible_id' => (int)$demande['depot_cible_id']
             ];
 
             $newId = Flight::proformaFournisseurModel()->create($payload);
             Flight::json(['success' => true, 'proforma_id' => (int)$newId], 201);
+            exit();
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }

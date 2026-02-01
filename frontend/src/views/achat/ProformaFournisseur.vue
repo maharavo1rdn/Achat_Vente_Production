@@ -153,7 +153,7 @@
                     <button @click="viewProforma(proforma)" class="action-btn" title="Voir">
                       <Eye class="w-4 h-4" />
                     </button>
-                    <button v-if="proforma.statut === 'VALIDE'" @click="convertToBonCommande(proforma)"
+                    <button v-if="proforma.statut === 'Validé / Confirmé'" @click="convertToBonCommande(proforma)"
                       class="action-btn text-green-600" title="Convertir en BC">
                       <Check class="w-4 h-4" />
                     </button>
@@ -232,6 +232,7 @@ const loadProformas = async () => {
 
     const response = await proformaFournisseurService.getAll(params)
     proformas.value = response.data || []
+    // alert(JSON.stringify(proformas.value));
   } catch (err) {
     error.value = err.response?.data?.message || 'Erreur lors du chargement des proformas filtrées'
     console.error('Erreur chargement proformas filtrées:', err)

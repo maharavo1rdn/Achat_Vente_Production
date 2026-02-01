@@ -143,7 +143,7 @@
                       <FileText class="w-4 h-4" />
                     </button>
                     <button 
-                      v-if="bc.statut === 'LIVRE'"
+                      v-if="bc.statut_id === 3"
                       @click="convertToFacture(bc)" 
                       class="action-btn text-green-600" 
                       title="Créer facture"
@@ -184,6 +184,7 @@ const loadBonCommandes = async () => {
     error.value = null
     const response = await achatService.bonCommande.getAll()
     bonCommandes.value = response.data || []
+    // alert(JSON.stringify(response.data));
   } catch (err) {
     error.value = err.response?.data?.message || 'Erreur lors du chargement des bons de commande'
     console.error('Erreur chargement BC:', err)

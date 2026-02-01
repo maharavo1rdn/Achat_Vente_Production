@@ -45,7 +45,8 @@ class AchatModel
             'entreprise_filiale_id' => $proforma['entreprise_filiale_id'],
             'personnel_id' => $proforma['personnel_id'],
             'statut_id' => $this->getStatutIdByCode('VALIDE'),
-            'montant_ttc' => $proforma['montant_ttc']
+            'montant_ttc' => $proforma['montant_ttc'],
+            'depot_livraison_id' => $proforma['depot_cible_id']
         ];
 
         $bcId = $this->createBonCommande($bcData);
@@ -64,6 +65,8 @@ class AchatModel
         error_log("AchatModel::convertProformaToBonCommande created BC with id=$bcId");
         return $bcId;
     }
+
+    
 
     // =================== BON DE COMMANDE ACHAT ===================
 
@@ -175,8 +178,8 @@ class AchatModel
         $query = "
             INSERT INTO bon_commande_achat (
                 numero_bc, date_commande, proforma_fournisseur_id, entreprise_fournisseur_id,
-                entreprise_filiale_id, personnel_id, statut_id, montant_ttc
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                entreprise_filiale_id, personnel_id, statut_id, montant_ttc,depot_livraison_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,?)
         ";
 
         $stmt = $this->db->prepare($query);
@@ -188,7 +191,8 @@ class AchatModel
             $data['entreprise_filiale_id'],
             $data['personnel_id'],
             $data['statut_id'],
-            $data['montant_ttc'] ?? 0
+            $data['montant_ttc'] ?? 0,
+            $data['depot_livraison_id'] ?? 1
         ]);
 
         $newId = $this->db->lastInsertId();
@@ -298,11 +302,17 @@ class AchatModel
         ];
 
         $factureId = $this->createFacture($factureData);
-        $this->copyBonCommandeDetailsToFacture($bcId, $factureId);
+        $fac=$this->getFactureById($factureId);
+        $this->copyBonCommandeDetailsToFacture($bcId, $factureId,$fac['numero_facture_fournisseur'],$bc['personnel_id'],$bc['depot_livraison_id']);
+
+        
+
 
         error_log("AchatModel::convertBonCommandeToFacture created facture with id=$factureId");
         return $factureId;
     }
+
+    
 
     // =================== FACTURES ACHAT ===================
 
@@ -410,8 +420,8 @@ class AchatModel
             INSERT INTO facture_achat (
                 numero_facture_fournisseur, date_facture, bon_commande_achat_id,
                 entreprise_fournisseur_id, entreprise_filiale_id, statut_id,
-                montant_ttc, reste_a_payer, remarques
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                montant_ttc, reste_a_payer, remarques,depot_reception_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,1)
         ";
 
         $stmt = $this->db->prepare($query);
@@ -436,6 +446,8 @@ class AchatModel
         error_log("AchatModel::createFacture created facture with id=$newId");
         return (int)$newId;
     }
+
+    
 
     public function updateFacture($id, $data)
     {
@@ -587,14 +599,43 @@ class AchatModel
         }
     }
 
-    private function copyBonCommandeDetailsToFacture($bcId, $factureId)
+    private function copyBonCommandeDetailsToFacture($bcId, $factureId,$numeroFactureFournisseur,$personnelId,$depotId)
     {
         $details = $this->getBonCommandeDetails($bcId);
         foreach ($details as $detail) {
             $query = "INSERT INTO facture_achat_details (facture_achat_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
             $stmt = $this->db->prepare($query);
             $stmt->execute([$factureId, $detail['article_id'], $detail['quantite'], $detail['prix_unitaire']]);
+            $this->createMouvementAchatFromLigne($detail['article_id'],$personnelId, $detail['quantite'], $numeroFactureFournisseur,$depotId);
         }
+    }
+
+    private function createMouvementAchatFromLigne($article,$personnelId, $quantite, $numeroFacture,$depot)
+    {
+        error_log("AchatModel::createMouvementAchatFromLigne called for article=$article, personnelId=$personnelId, quantite=$quantite, numeroFacture=$numeroFacture");
+        
+        // Données pour le mouvement de stock
+        $mouvementData = [
+            'type_mouvement' => 'ACHAT',
+            'article_id' => $article,
+            'personnel_id' => $personnelId,
+            'quantite_entree' => $quantite,
+            'reference_document' => $numeroFacture 
+        ];
+
+        // Ajouter depot_id si spécifié dans la ligne
+        if (isset($depot)) {
+            $mouvementData['depot_id'] = $depot;
+        }
+
+        // Créer le mouvement de stock via StockModel
+        // Note: Assurez-vous que StockModel est disponible via Flight::stockModel()
+        error_log("Checking if StockModel is available...");
+        $stockModel = Flight::stockModel();
+        error_log("StockModel object: " . get_class($stockModel));
+        $stockModel = Flight::stockModel()->createMouvement($mouvementData);
+        error_log("AchatModel::createMouvementAchatFromLigne calling StockModel::createMouvement with data: " . json_encode($mouvementData));
+        return $stockModel;
     }
 
     private function generateNumeroBonCommande()

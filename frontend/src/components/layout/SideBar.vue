@@ -100,6 +100,10 @@
                 <div class="nav-subitem-dot"></div>
                 <span>Stock</span>
               </router-link>
+              <router-link to="/mouvement_stock" class="nav-subitem" :class="{ 'active': isActive('/mouvement_stock') }">
+                <div class="nav-subitem-dot"></div>
+                <span>Mouvements Stock</span>
+              </router-link>
             </div>
           </Transition>
         </div>
@@ -335,6 +339,7 @@ const ventesMenuItems = [
 ]
 
 const isStockActive = computed(() => route.path.startsWith('/articles') || route.path.startsWith('/stock'))
+const isMouvementStockActive = computed(() => route.path.startsWith('/mouvement_stock'))
 const isAchatsActive = computed(() => route.path.startsWith('/achats'))
 const isVentesActive = computed(() => route.path.startsWith('/ventes'))
 const isFinanceActive = computed(() => route.path.startsWith('/caisse') || route.path.startsWith('/paiements') || route.path.startsWith('/mouvements-caisse'))
@@ -343,6 +348,9 @@ const isSettingsActive = computed(() => route.path.startsWith('/entreprises') ||
 
 watch(() => route.path, (newPath) => {
   if (newPath.startsWith('/articles') || newPath.startsWith('/stock')) {
+    openMenus.value.stock = true
+  }
+  if (newPath.startsWith('/mouvement_stock')) {
     openMenus.value.stock = true
   }
   if (newPath.startsWith('/achats')) {

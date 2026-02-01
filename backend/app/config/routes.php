@@ -17,6 +17,7 @@ use app\controllers\ProformaDemandeAchatController;
 use app\controllers\ProformaFournisseurController;
 use app\controllers\StatAchatController;
 use app\controllers\StatVenteController;
+use app\controllers\MouvementStockController;
 
 use flight\Engine;
 use flight\net\Router;
@@ -44,7 +45,7 @@ $ProformaDemandeAchat_Controller = new ProformaDemandeAchatController();
 $ProformaFournisseur_Controller = new ProformaFournisseurController();
 $StatAchat_Controller = new StatAchatController();
 $StatVente_Controller = new StatVenteController();
-
+$mouvementStockController = new MouvementStockController();
 // Page d'accueil
 $router->get('/', function () {
     Flight::json(['message' => 'API ERP Achat-Vente', 'version' => '1.0']);
@@ -275,6 +276,75 @@ $router->group('/api/stats/ventes', function () use ($router, $StatVente_Control
     $router->get('/evolution-ca', [$StatVente_Controller, 'getEvolutionCA']);
     $router->get('/panier-moyen', [$StatVente_Controller, 'getPanierMoyen']);
     $router->get('/taux-conversion', [$StatVente_Controller, 'getTauxConversion']);
+});
+
+
+$router->group('/api/mouvements-stock', function() use ($mouvementStockController) {
+    
+    // Situation globale du stock
+    Flight::route('GET /situation-globale', [$mouvementStockController, 'getSituationGlobale']);
+    
+    // Situation par dépôt
+    Flight::route('GET /situation-depot', [$mouvementStockController, 'getSituationParDepot']);
+    
+    // Dernières sorties
+    Flight::route('GET /dernieres-sorties', [$mouvementStockController, 'getDernieresSorties']);
+    
+    // Dernières transactions (tous types)
+    Flight::route('GET /dernieres-transactions', [$mouvementStockController, 'getDernieresTransactions']);
+    
+    // Calcul FIFO pour sortie
+    Flight::route('GET /fifo/@articleId', [$mouvementStockController, 'getDepotFIFOPourSortie']);
+    
+    // Créer une sortie avec FIFO
+    Flight::route('POST /sortie-fifo', [$mouvementStockController, 'creerSortieAvecFIFO']);
+    
+    // Liste des mouvements détaillés (avec filtres) - ROUTE GET PRINCIPALE
+    Flight::route('GET /', [$mouvementStockController, 'getMouvementsDetailles']);
+    
+    // Alias pour la route GET principale (sans le / à la fin)
+    Flight::route('GET', [$mouvementStockController, 'getMouvementsDetailles']);
+    
+    // Statistiques des mouvements
+    Flight::route('GET /statistiques', [$mouvementStockController, 'getStatistiquesMouvements']);
+    
+    // Mouvements par article
+    Flight::route('GET /article/@articleId', [$mouvementStockController, 'getMouvementsParArticle']);
+    
+    // Mouvements par dépôt
+    Flight::route('GET /depot/@depotId', [$mouvementStockController, 'getMouvementsParDepot']);
+    
+    // Mouvements par type
+    Flight::route('GET /type/@type', [$mouvementStockController, 'getMouvementsParType']);
+    
+    // Mouvements par période (avec dates)
+    Flight::route('GET /periode', [$mouvementStockController, 'getMouvementsParPeriode']);
+    
+    // Créer un mouvement simple
+    Flight::route('POST /', [$mouvementStockController, 'createMouvement']);
+    
+    // Alias pour la route POST principale
+    Flight::route('POST', [$mouvementStockController, 'createMouvement']);
+    
+    // Recherche de mouvements
+    Flight::route('GET /search', [$mouvementStockController, 'searchMouvements']);
+    
+    // Stock actuel par dépôt
+    Flight::route('GET /stock-actuel/@articleId/@depotId', [$mouvementStockController, 'getStockActuelParDepot']);
+});
+
+// Route de test pour vérifier que les routes fonctionnent
+Flight::route('GET /api/test-mouvements', function() {
+    Flight::json([
+        'status' => 'OK',
+        'message' => 'Routes mouvements-stock sont disponibles',
+        'routes' => [
+            'GET /api/mouvements-stock' => 'Liste des mouvements détaillés',
+            'GET /api/mouvements-stock/situation-globale' => 'Situation globale',
+            'GET /api/mouvements-stock/dernieres-transactions' => 'Dernières transactions',
+            'GET /api/mouvements-stock/statistiques' => 'Statistiques'
+        ]
+    ]);
 });
 
 $router->map('/*', function () {

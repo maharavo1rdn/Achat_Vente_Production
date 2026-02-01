@@ -10,6 +10,7 @@ class AchatController {
         try {
             $result = Flight::achatModel()->convertProformaToBonCommande($id);
             Flight::json($result, 201);
+            exit();
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -70,8 +71,10 @@ class AchatController {
 
     public function convertBonCommandeToFacture($id) {
         try {
+            error_log("Entering convertBonCommandeToFacture with ID: $id");
             $result = Flight::achatModel()->convertBonCommandeToFacture($id);
             Flight::json($result, 201);
+            exit();
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }

@@ -79,24 +79,21 @@ class StockModel
             SELECT
                 s.id,
                 s.article_id,
-                s.entreprise_id,
+                s.depot_id,
                 s.quantite_actuelle,
                 s.date_maj,
                 a.reference,
                 a.designation,
-                e.nom as entreprise_nom
+                e.nom as depot_nom
             FROM stock s
             INNER JOIN article a ON s.article_id = a.id
-            INNER JOIN entreprise e ON s.entreprise_id = e.id
+            INNER JOIN depot e ON s.depot_id = e.id
             WHERE s.article_id = ?
         ";
 
         $params = [$articleId];
 
-        if ($entrepriseId !== null) {
-            $query .= " AND s.entreprise_id = ?";
-            $params[] = $entrepriseId;
-        }
+       
 
         $stmt = $this->db->prepare($query);
         $stmt->execute($params);
@@ -127,17 +124,17 @@ class StockModel
                 ms.quantite_stock_apres,
                 ms.prix_unitaire_mouvement,
                 ms.article_id,
-                ms.entreprise_id,
                 ms.personnel_id,
+                ms.depot_id,
                 ms.reference_document,
                 a.reference as article_reference,
                 a.designation as article_designation,
-                e.nom as entreprise_nom,
+                d.nom as depot_nom,
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom
             FROM mouvement_stock ms
             INNER JOIN article a ON ms.article_id = a.id
-            INNER JOIN entreprise e ON ms.entreprise_id = e.id
+            INNER JOIN depot d ON ms.depot_id = d.id
             INNER JOIN personnel p ON ms.personnel_id = p.id
             WHERE 1=1
         ";
@@ -148,12 +145,10 @@ class StockModel
             $query .= " AND ms.article_id = ?";
             $params[] = $filters['article_id'];
         }
-
-        if (isset($filters['entreprise_id'])) {
-            $query .= " AND ms.entreprise_id = ?";
-            $params[] = $filters['entreprise_id'];
+        if(isset($filters['depot_id'])) {
+            $query .= " AND ms.depot_id = ?";
+            $params[] = $filters['depot_id'];
         }
-
         if (isset($filters['type_mouvement'])) {
             $query .= " AND ms.type_mouvement = ?";
             $params[] = $filters['type_mouvement'];
@@ -171,6 +166,7 @@ class StockModel
 
         $query .= " ORDER BY ms.date_mouvement DESC";
 
+        error_log("query:". $query . " params: " . json_encode($params));
         $stmt = $this->db->prepare($query);
         $stmt->execute($params);
 
@@ -187,7 +183,7 @@ class StockModel
         error_log("StockModel::createMouvement called with data: " . json_encode($data));
 
         // Récupérer le stock actuel
-        $stockActuel = $this->getStockByArticle($data['article_id'], $data['entreprise_id']);
+        $stockActuel = $this->getStockByArticle($data['article_id'], $data['depot_id']);
         $quantiteAvant = $stockActuel ? $stockActuel['quantite_actuelle'] : 0;
 
         // Calculer la quantité après mouvement
@@ -196,9 +192,9 @@ class StockModel
         $query = "
             INSERT INTO mouvement_stock (
                 type_mouvement, quantite_stock_avant, quantite_entree, quantite_sortie,
-                quantite_stock_apres, prix_unitaire_mouvement, article_id, entreprise_id,
-                personnel_id, reference_document
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                quantite_stock_apres, prix_unitaire_mouvement, article_id, 
+                personnel_id, reference_document,depot_id,date_mouvement
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,NOW())
         ";
 
         $stmt = $this->db->prepare($query);
@@ -210,15 +206,15 @@ class StockModel
             $quantiteApres,
             $data['prix_unitaire_mouvement'] ?? null,
             $data['article_id'],
-            $data['entreprise_id'],
             $data['personnel_id'],
-            $data['reference_document'] ?? null
+            $data['reference_document'] ?? null,
+            $data['depot_id'] ?? 1
         ]);
 
         $mouvementId = $this->db->lastInsertId();
 
         // Mettre à jour le stock
-        $this->updateStockQuantite($data['article_id'], $data['entreprise_id'], $quantiteApres);
+        $this->updateStockQuantite($data['article_id'], $data['depot_id'], $quantiteApres);
 
         error_log("StockModel::createMouvement created mouvement with id=$mouvementId");
         return (int)$mouvementId;
@@ -295,23 +291,23 @@ class StockModel
         return $results;
     }
 
-    private function updateStockQuantite($articleId, $entrepriseId, $nouvelleQuantite)
+    private function updateStockQuantite($articleId, $depotId, $nouvelleQuantite)
     {
-        error_log("StockModel::updateStockQuantite called with articleId=$articleId, entrepriseId=$entrepriseId, nouvelleQuantite=$nouvelleQuantite");
+        error_log("StockModel::updateStockQuantite called with articleId=$articleId, entrepriseId=$depotId, nouvelleQuantite=$nouvelleQuantite");
 
         // Vérifier si l'entrée stock existe
-        $stockExistant = $this->getStockByArticle($articleId, $entrepriseId);
+        $stockExistant = $this->getStockByArticle($articleId, $depotId);
 
         if ($stockExistant) {
             // Mettre à jour
-            $query = "UPDATE stock SET quantite_actuelle = ?, date_maj = NOW() WHERE article_id = ? AND entreprise_id = ?";
+            $query = "UPDATE stock SET quantite_actuelle = ?, date_maj = NOW() WHERE article_id = ? AND depot_id = ?";
             $stmt = $this->db->prepare($query);
-            $stmt->execute([$nouvelleQuantite, $articleId, $entrepriseId]);
+            $stmt->execute([$nouvelleQuantite, $articleId, $depotId]);
         } else {
             // Créer nouvelle entrée
-            $query = "INSERT INTO stock (article_id, entreprise_id, quantite_actuelle) VALUES (?, ?, ?)";
+            $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle) VALUES (?, ?, ?)";
             $stmt = $this->db->prepare($query);
-            $stmt->execute([$articleId, $entrepriseId, $nouvelleQuantite]);
+            $stmt->execute([$articleId, $depotId, $nouvelleQuantite]);
         }
 
         error_log("StockModel::updateStockQuantite stock updated");
@@ -332,8 +328,8 @@ class StockModel
             throw new InvalidArgumentException("L'article est obligatoire");
         }
 
-        if (!isset($data['entreprise_id']) || $data['entreprise_id'] <= 0) {
-            throw new InvalidArgumentException("L'entreprise est obligatoire");
+        if (!isset($data['depot_id']) || $data['depot_id'] <= 0) {
+            throw new InvalidArgumentException("Le dépôt est obligatoire");
         }
 
         if (!isset($data['personnel_id']) || $data['personnel_id'] <= 0) {
