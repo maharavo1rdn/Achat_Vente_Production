@@ -170,12 +170,12 @@
               class="activity-item"
             >
               <div class="activity-info">
-                <p class="activity-title">{{ vente.numero }}</p>
-                <p class="activity-subtitle">{{ vente.client }}</p>
+                <p class="activity-title">{{ vente.numero_facture }}</p>
+                <p class="activity-subtitle">{{ vente.client_nom }}</p>
               </div>
               <div class="activity-meta">
-                <p class="activity-amount">{{ formatCurrency(vente.montant) }}</p>
-                <span class="badge badge-success">{{ vente.statut }}</span>
+                <p class="activity-amount">{{ formatCurrency(vente.montant_ttc) }}</p>
+                <span class="badge badge-success">{{ vente.statut_libelle }}</span>
               </div>
             </div>
           </div>
@@ -200,12 +200,12 @@
               class="activity-item"
             >
               <div class="activity-info">
-                <p class="activity-title">{{ achat.numero }}</p>
-                <p class="activity-subtitle">{{ achat.fournisseur }}</p>
+                <p class="activity-title">{{ achat.numero_facture_fournisseur }}</p>
+                <p class="activity-subtitle">{{ achat.fournisseur_nom }}</p>
               </div>
               <div class="activity-meta">
-                <p class="activity-amount">{{ formatCurrency(achat.montant) }}</p>
-                <span class="badge badge-warning">{{ achat.statut }}</span>
+                <p class="activity-amount">{{ formatCurrency(achat.montant_ttc) }}</p>
+                <span class="badge badge-warning">{{ achat.statut_libelle }}</span>
               </div>
             </div>
           </div>
@@ -259,7 +259,7 @@ const loadDashboardData = async () => {
     }
     const statsResponse = await api.get('/dashboard/stats', { params })
     const data = statsResponse.data || {}
-
+    // alert(JSON.stringify(data));
     stats.value = {
       totalCA: data.totalCA ?? data.total_ca ?? 0,
       margeBrute: data.margeBrute ?? data.marge_brute ?? 0,
@@ -270,9 +270,11 @@ const loadDashboardData = async () => {
 
     const ventesResponse = await api.get('/dashboard/recent-ventes')
     recentVentes.value = ventesResponse.data || []
+    // alert(JSON.stringify(recentVentes.value));
 
     const achatsResponse = await api.get('/dashboard/recent-achats')
     recentAchats.value = achatsResponse.data || []
+    // alert(JSON.stringify(recentAchats.value));
 
   } catch (err) {
     error.value = 'Erreur lors du chargement des données'

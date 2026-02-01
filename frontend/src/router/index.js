@@ -33,9 +33,9 @@ import EntrepriseDetail from "../views/parametres/EntrepriseDetail.vue"
 import SiteDetail from "../views/parametres/SiteDetail.vue"
 import Personnel from "../views/parametres/Personnel.vue"
 import StatsAchats from "../views/StatsAchats.vue"
+import StatsVentes from "../views/StatsVentes.vue"
 import Analytics from "../views/Analytics.vue"
 import Login from "../views/Login.vue"
-import Analytics from "../views/analytics/Analytics.vue"
 
 const router = createRouter({
   history: createWebHistory(),
@@ -79,6 +79,7 @@ const router = createRouter({
     { path: "/paiements/vente/new/:factureId", name: "paiement-vente-new", component: () => import('@/views/finance/PaymentCreate.vue'), props: (r) => ({ type: 'vente', factureId: Number(r.params.factureId) }) },
     { path: "/paiements/achat/new/:factureId", name: "paiement-achat-new", component: () => import('@/views/finance/PaymentCreate.vue'), props: (r) => ({ type: 'achat', factureId: Number(r.params.factureId) }) },
     { path: "/stats/ventes", name: "stats-ventes", component: StatsVentes },
+    { path: "/stats/achats", name: "stats-achats", component: StatsAchats },
     { path: "/login", name: "login", component: Login, meta: { hideSidebar: true } },
   ],
 })
