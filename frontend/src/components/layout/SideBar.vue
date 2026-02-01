@@ -32,6 +32,12 @@
           </div>
           <span v-if="!isCollapsed" class="nav-item-label">Tableau de bord</span>
         </router-link>
+        <router-link to="/analytics" class="nav-item" :class="{ 'active': isActive('/analytics') }">
+          <div class="nav-item-icon">
+            <BarChart3 class="w-4 h-4" />
+          </div>
+          <span v-if="!isCollapsed" class="nav-item-label">Analytique</span>
+        </router-link>
       </div>
 
       <!-- Produits & Stock -->
@@ -280,7 +286,8 @@ import {
   User,
   LogOut,
   ChevronDown,
-  ChevronLeft
+  ChevronLeft,
+  BarChart3
 } from 'lucide-vue-next'
 
 const route = useRoute()

@@ -28,11 +28,16 @@
           <p class="page-subtitle">Vue d'ensemble de votre activité commerciale</p>
         </div>
         <div class="header-actions">
+          <div class="flex items-center gap-2">
+            <input type="date" v-model="startDate" class="input-date" />
+            <span class="text-gray-400">à</span>
+            <input type="date" v-model="endDate" class="input-date" />
+          </div>
           <button @click="loadDashboardData" class="btn-secondary">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
             </svg>
-            <span>Actualiser</span>
+            <span>Appliquer</span>
           </button>
         </div>
       </div>
@@ -42,48 +47,104 @@
         <div class="stat-card">
           <div class="stat-header">
             <div class="stat-icon bg-blue-100 text-blue-600">
-              <Package class="w-5 h-5" />
+              <TrendingUp class="w-5 h-5" />
             </div>
           </div>
           <div class="stat-content">
-            <p class="stat-label">Articles en stock</p>
-            <h3 class="stat-value">{{ stats.totalArticles }}</h3>
+            <p class="stat-label">Chiffre d'affaires total</p>
+            <h3 class="stat-value">{{ formatCurrency(stats.totalCA) }}</h3>
           </div>
         </div>
 
         <div class="stat-card">
           <div class="stat-header">
             <div class="stat-icon bg-green-100 text-green-600">
-              <TrendingUp class="w-5 h-5" />
+              <Wallet class="w-5 h-5" />
             </div>
           </div>
           <div class="stat-content">
-            <p class="stat-label">Factures de vente</p>
-            <h3 class="stat-value">{{ stats.totalFacturesVente }}</h3>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-header">
-            <div class="stat-icon bg-orange-100 text-orange-600">
-              <ShoppingCart class="w-5 h-5" />
-            </div>
-          </div>
-          <div class="stat-content">
-            <p class="stat-label">Factures d'achat</p>
-            <h3 class="stat-value">{{ stats.totalFacturesAchat }}</h3>
+            <p class="stat-label">Marge brute</p>
+            <h3 class="stat-value">{{ formatCurrency(stats.margeBrute) }}</h3>
           </div>
         </div>
 
         <div class="stat-card">
           <div class="stat-header">
             <div class="stat-icon bg-purple-100 text-purple-600">
-              <Wallet class="w-5 h-5" />
+              <TrendingUp class="w-5 h-5" />
             </div>
           </div>
           <div class="stat-content">
-            <p class="stat-label">Solde caisse</p>
-            <h3 class="stat-value">{{ formatCurrency(stats.soldeCaisse) }}</h3>
+            <p class="stat-label">Taux de rentabilité</p>
+            <h3 class="stat-value">{{ formatPercent(stats.tauxRentabilite) }}</h3>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <div class="stat-icon bg-orange-100 text-orange-600">
+              <Package class="w-5 h-5" />
+            </div>
+          </div>
+          <div class="stat-content">
+            <p class="stat-label">Meilleur client</p>
+            <h3 class="stat-value">{{ topClients[0]?.nom || topClients[0]?.name || 'N/A' }}</h3>
+            <p class="stat-subvalue" v-if="topClients[0]">{{ formatCurrency(topClients[0].montant || topClients[0].total || 0) }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top lists -->
+      <div class="activities-grid fade-in" style="animation-delay: 0.25s">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Top 5 clients</h2>
+          </div>
+          <div class="activity-list">
+            <div v-if="topClients.length === 0" class="empty-state-small">
+              <p>Aucun client</p>
+            </div>
+            <div
+              v-else
+              v-for="(client, index) in topClients"
+              :key="client.id || client.nom || index"
+              class="activity-item"
+            >
+              <div class="activity-info">
+                <p class="activity-title">#{{ index + 1 }} - {{ client.nom || client.name || 'Client' }}</p>
+                <p class="activity-subtitle">{{ client.reference || client.code || 'Référence inconnue' }}</p>
+              </div>
+              <div class="activity-meta">
+                <p class="activity-amount">{{ formatCurrency(client.montant || client.total || 0) }}</p>
+                <span class="badge badge-success">{{ client.part || client.pourcentage ? formatPercent(client.part || client.pourcentage) : 'CA' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Top 5 articles</h2>
+          </div>
+          <div class="activity-list">
+            <div v-if="topArticles.length === 0" class="empty-state-small">
+              <p>Aucun article</p>
+            </div>
+            <div
+              v-else
+              v-for="(article, index) in topArticles"
+              :key="article.id || article.reference || index"
+              class="activity-item"
+            >
+              <div class="activity-info">
+                <p class="activity-title">#{{ index + 1 }} - {{ article.designation || article.nom || 'Article' }}</p>
+                <p class="activity-subtitle">{{ article.reference || article.code || 'Référence inconnue' }}</p>
+              </div>
+              <div class="activity-meta">
+                <p class="activity-amount">{{ formatCurrency(article.montant || article.total || 0) }}</p>
+                <span class="badge badge-warning">{{ article.quantite || article.qty || 0 }} u.</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -156,20 +217,24 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Package, TrendingUp, ShoppingCart, Wallet } from 'lucide-vue-next'
+import { Package, TrendingUp, Wallet } from 'lucide-vue-next'
 import api from '@/services/api/api'
 
 const stats = ref({
-  totalArticles: 0,
-  totalFacturesVente: 0,
-  totalFacturesAchat: 0,
-  soldeCaisse: 0
+  totalCA: 0,
+  margeBrute: 0,
+  tauxRentabilite: 0
 })
 
+const topClients = ref([])
+const topArticles = ref([])
 const recentVentes = ref([])
 const recentAchats = ref([])
 const loading = ref(false)
 const error = ref(null)
+
+const startDate = ref('')
+const endDate = ref('')
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('fr-MG', {
@@ -179,12 +244,29 @@ const formatCurrency = (amount) => {
   }).format(amount)
 }
 
+const formatPercent = (value) => {
+  const numeric = Number(value) || 0
+  return `${numeric.toFixed(1)} %`
+}
+
 const loadDashboardData = async () => {
   loading.value = true
   error.value = null
   try {
-    const statsResponse = await api.get('/dashboard/stats')
-    stats.value = statsResponse.data || stats.value
+    const params = {}
+    if (startDate.value && endDate.value) {
+      params['periode'] = [startDate.value, endDate.value]
+    }
+    const statsResponse = await api.get('/dashboard/stats', { params })
+    const data = statsResponse.data || {}
+
+    stats.value = {
+      totalCA: data.totalCA ?? data.total_ca ?? 0,
+      margeBrute: data.margeBrute ?? data.marge_brute ?? 0,
+      tauxRentabilite: data.tauxRentabilite ?? data.taux_rentabilite ?? 0
+    }
+    topClients.value = data.topClients ?? data.top_clients ?? []
+    topArticles.value = data.topArticles ?? data.top_articles ?? []
 
     const ventesResponse = await api.get('/dashboard/recent-ventes')
     recentVentes.value = ventesResponse.data || []
@@ -197,11 +279,12 @@ const loadDashboardData = async () => {
     console.error('Erreur chargement dashboard:', err)
     
     stats.value = {
-      totalArticles: 0,
-      totalFacturesVente: 0,
-      totalFacturesAchat: 0,
-      soldeCaisse: 0
+      totalCA: 0,
+      margeBrute: 0,
+      tauxRentabilite: 0
     }
+    topClients.value = []
+    topArticles.value = []
     recentVentes.value = []
     recentAchats.value = []
   } finally {
@@ -299,6 +382,10 @@ onMounted(() => {
 
 .header-actions {
   @apply flex items-center gap-3;
+}
+
+.input-date {
+  @apply px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400;
 }
 
 /* Stats Grid */

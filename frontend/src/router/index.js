@@ -34,11 +34,13 @@ import SiteDetail from "../views/parametres/SiteDetail.vue"
 import Personnel from "../views/parametres/Personnel.vue"
 import StatsVentes from "../views/StatsVentes.vue"
 import Login from "../views/Login.vue"
+import Analytics from "../views/analytics/Analytics.vue"
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/", name: "dashboard", component: Dashboard },
+    { path: "/analytics", name: "analytics", component: Analytics },
     { path: "/articles", name: "articles", component: Articles },
     { path: "/articles/:id", name: "article-detail", component: ArticleDetail },
     { path: "/stock", name: "stock", component: Stock },

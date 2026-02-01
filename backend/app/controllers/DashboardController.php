@@ -4,12 +4,21 @@ namespace app\controllers;
 
 use Exception;
 use Flight;
+use app\models\StatistiqueModel;
 
 class DashboardController {
 
     public function getStatistics() {
         try {
-            $stats = Flight::dashboardModel()->getStatistics();
+            $periode = Flight::request()->query->periode ?? null;
+            $statModel = new StatistiqueModel(Flight::db());
+            $stats = [
+                'totalCA' => $statModel->getCA_Total($periode),
+                'margeBrute' => $statModel->getMargeBrute_Total($periode),
+                'topClients' => $statModel->getTop5_Clients($periode),
+                'topArticles' => $statModel->getTop5_Articles($periode),
+                'tauxRentabilite' => $statModel->getTaux_Rentabilite($periode)
+            ];
             Flight::json($stats);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);

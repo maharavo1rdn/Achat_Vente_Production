@@ -173,7 +173,7 @@ Ce document définit les tâches de développement pour le système ERP basé su
         * `getTop5_Articles(periode)` : Top 5 articles vendus (quantité et CA)
         * `getTaux_Rentabilite()` : Rentabilité par société/filiale
     * **Base :** Tables `facture_vente`, `facture_achat`, `entreprise`, `article`
-    * **Intégration :** Page `DashboardDirection.vue` (Widgets avec graphiques)
+    * **Intégration :** Page `Dashboard.vue` (Widgets avec graphiques)
 
 ### 6.2. Statistiques Achats(Ambinintsoa)
 * **Stat-Achats-Fournisseurs**
