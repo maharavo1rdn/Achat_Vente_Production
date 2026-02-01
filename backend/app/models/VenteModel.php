@@ -203,6 +203,12 @@ class VenteModel
             throw new InvalidArgumentException("L'ID doit être un entier positif");
         }
 
+        // Si statut_code est fourni, le convertir en statut_id
+        if (isset($data['statut_code']) && !isset($data['statut_id'])) {
+            $data['statut_id'] = $this->getStatutIdByCode($data['statut_code']);
+            unset($data['statut_code']);
+        }
+
         $this->validateDevisData($data, false);
 
         error_log("VenteModel::updateDevis called with id=$id, data: " . json_encode($data));
@@ -241,6 +247,33 @@ class VenteModel
         }
 
         error_log("VenteModel::updateDevis no devis updated with id=$id");
+        return false;
+    }
+
+    public function updateDevisStatut($id, $statutCode)
+    {
+        if ($id <= 0) {
+            throw new InvalidArgumentException("L'ID doit être un entier positif");
+        }
+
+        if (empty($statutCode)) {
+            throw new InvalidArgumentException("Le code statut est obligatoire");
+        }
+
+        $statutId = $this->getStatutIdByCode($statutCode);
+
+        error_log("VenteModel::updateDevisStatut called with id=$id, statut_code=$statutCode, statut_id=$statutId");
+
+        $query = "UPDATE devis_vente SET statut_id = ? WHERE id = ?";
+        $stmt = $this->db->prepare($query);
+        $result = $stmt->execute([$statutId, $id]);
+
+        if ($result && $stmt->rowCount() > 0) {
+            error_log("VenteModel::updateDevisStatut updated devis statut with id=$id");
+            return true;
+        }
+
+        error_log("VenteModel::updateDevisStatut no devis updated with id=$id");
         return false;
     }
 
@@ -529,6 +562,11 @@ class VenteModel
             throw new InvalidArgumentException("L'ID de bon de commande doit être un entier positif");
         }
 
+        // Vérifier si une facture existe déjà pour ce bon de commande
+        if ($this->factureExistsForBonCommande($bcId)) {
+            throw new InvalidArgumentException("Une facture existe déjà pour ce bon de commande");
+        }
+
         error_log("VenteModel::convertBonCommandeToFacture called with bcId=$bcId");
 
         $bc = $this->getBonCommandeById($bcId);
@@ -545,16 +583,101 @@ class VenteModel
             'entreprise_client_id' => $bc['entreprise_client_id'],
             'entreprise_filiale_id' => $bc['entreprise_filiale_id'],
             'personnel_id' => $bc['personnel_id'],
-            'statut_id' => $this->getStatutIdByCode('PAYE'),
+            'statut_id' => $this->getStatutIdByCode('IMPAYE'),
             'montant_ttc' => $bc['montant_ttc'],
-            'reste_a_payer' => $bc['montant_ttc']
+            'reste_a_payer' => $bc['montant_ttc'],
+            'depot_expedition_id' => $bc['depot_expedition_id'] ?? $this->getDefaultDepotId()
         ];
 
-        $factureId = $this->createFacture($factureData);
+        $factureId = $this->createFactureFromBC($factureData);
         $this->copyBonCommandeDetailsToFacture($bcId, $factureId);
 
         error_log("VenteModel::convertBonCommandeToFacture created facture with id=$factureId");
         return $factureId;
+    }
+
+    public function convertBonCommandeToFactureWithCustomData($bcId, $customData = [])
+    {
+        if ($bcId <= 0) {
+            throw new InvalidArgumentException("L'ID de bon de commande doit être un entier positif");
+        }
+
+        // Vérifier si une facture existe déjà pour ce bon de commande
+        if ($this->factureExistsForBonCommande($bcId)) {
+            throw new InvalidArgumentException("Une facture existe déjà pour ce bon de commande");
+        }
+
+        error_log("VenteModel::convertBonCommandeToFactureWithCustomData called with bcId=$bcId, customData: " . json_encode($customData));
+
+        $bc = $this->getBonCommandeById($bcId);
+        if (!$bc) {
+            throw new InvalidArgumentException("Bon de commande non trouvé");
+        }
+
+        $numeroFacture = $this->generateNumeroFacture();
+
+        $factureData = [
+            'numero_facture' => $numeroFacture,
+            'date_facture' => $customData['date_facture'] ?? date('Y-m-d'),
+            'bon_commande_vente_id' => $bcId,
+            'entreprise_client_id' => $bc['entreprise_client_id'],
+            'entreprise_filiale_id' => $bc['entreprise_filiale_id'],
+            'personnel_id' => $bc['personnel_id'],
+            'statut_id' => $this->getStatutIdByCode('IMPAYE'),
+            'montant_ttc' => $customData['montant_ttc'] ?? $bc['montant_ttc'],
+            'reste_a_payer' => $customData['reste_a_payer'] ?? $bc['montant_ttc'],
+            'depot_expedition_id' => $bc['depot_expedition_id'] ?? $this->getDefaultDepotId()
+        ];
+
+        $factureId = $this->createFactureFromBC($factureData);
+        $this->copyBonCommandeDetailsToFacture($bcId, $factureId);
+
+        error_log("VenteModel::convertBonCommandeToFactureWithCustomData created facture with id=$factureId");
+        return $factureId;
+    }
+
+    private function createFactureFromBC($data)
+    {
+        error_log("VenteModel::createFactureFromBC called with data: " . json_encode($data));
+
+        $query = "
+            INSERT INTO facture_vente (
+                numero_facture, date_facture, bon_commande_vente_id,
+                entreprise_client_id, entreprise_filiale_id, personnel_id,
+                statut_id, montant_ttc, reste_a_payer, depot_expedition_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ";
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([
+            $data['numero_facture'],
+            $data['date_facture'],
+            $data['bon_commande_vente_id'],
+            $data['entreprise_client_id'],
+            $data['entreprise_filiale_id'],
+            $data['personnel_id'],
+            $data['statut_id'],
+            $data['montant_ttc'],
+            $data['reste_a_payer'],
+            $data['depot_expedition_id']
+        ]);
+
+        $newId = $this->db->lastInsertId();
+        error_log("VenteModel::createFactureFromBC created facture with id=$newId");
+        return (int)$newId;
+    }
+
+    /**
+     * Vérifier si une facture existe déjà pour un bon de commande donné
+     */
+    public function factureExistsForBonCommande($bcId)
+    {
+        $sql = "SELECT COUNT(*) as count FROM facture_vente WHERE bon_commande_vente_id = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$bcId]);
+        
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return intval($result['count']) > 0;
     }
 
     // =================== FACTURES VENTE ===================
@@ -661,6 +784,16 @@ class VenteModel
 
     public function createFacture($data)
     {
+        // Générer un numéro de facture si non fourni
+        if (empty($data['numero_facture'])) {
+            $data['numero_facture'] = $this->generateNumeroFacture();
+        }
+
+        // Définir un statut par défaut si non fourni
+        if (empty($data['statut_id'])) {
+            $data['statut_id'] = $this->getStatutIdByCode('IMPAYE');
+        }
+
         $this->validateFactureData($data);
 
         error_log("VenteModel::createFacture called with data: " . json_encode($data));
@@ -832,10 +965,21 @@ class VenteModel
 
     private function createFactureDetails($factureId, $details)
     {
-        foreach ($details as $detail) {
-            $query = "INSERT INTO facture_vente_details (facture_vente_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([$factureId, $detail['article_id'], $detail['quantite'], $detail['prix_unitaire']]);
+        error_log("VenteModel::createFactureDetails called with factureId=$factureId, details: " . json_encode($details));
+        
+        foreach ($details as $index => $detail) {
+            try {
+                error_log("VenteModel::createFactureDetails processing detail $index: " . json_encode($detail));
+                
+                $query = "INSERT INTO facture_vente_details (facture_vente_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
+                $stmt = $this->db->prepare($query);
+                $stmt->execute([$factureId, $detail['article_id'], $detail['quantite'], $detail['prix_unitaire']]);
+                
+                error_log("VenteModel::createFactureDetails detail $index inserted successfully");
+            } catch (Exception $e) {
+                error_log("VenteModel::createFactureDetails error at detail $index: " . $e->getMessage());
+                throw $e;
+            }
         }
     }
 
@@ -941,6 +1085,15 @@ class VenteModel
         $stmt->execute([$code]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return $result ? $result['id'] : 1;
+    }
+
+    private function getDefaultDepotId()
+    {
+        $query = "SELECT id FROM depot ORDER BY id LIMIT 1";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result ? $result['id'] : 1; // Retourne 1 si aucun dépôt trouvé
     }
 
     private function validateDevisData($data, $isCreation = true)

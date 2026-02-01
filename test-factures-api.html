@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Factures</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Test API Factures</h1>
+    
+    <button onclick="testGetFactures()">1. Récupérer les factures</button>
+    <button onclick="testGetBonCommandes()">2. Récupérer les bons de commande</button>
+    
+    <pre id="result"></pre>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        
+        function log(message) {
+            document.getElementById('result').innerText += new Date().toLocaleTimeString() + ': ' + JSON.stringify(message, null, 2) + '\n\n';
+        }
+        
+        async function testGetFactures() {
+            try {
+                log('Test récupération des factures...');
+                const response = await axios.get(`${API_BASE}/ventes/factures`);
+                log('Factures récupérées:');
+                log(response.data);
+            } catch (error) {
+                log('Erreur récupération factures:');
+                log(error.response?.data || error.message);
+            }
+        }
+        
+        async function testGetBonCommandes() {
+            try {
+                log('Test récupération des bons de commande...');
+                const response = await axios.get(`${API_BASE}/ventes/bon-commande`);
+                log('Bons de commande récupérés:');
+                log(response.data);
+            } catch (error) {
+                log('Erreur récupération bons de commande:');
+                log(error.response?.data || error.message);
+            }
+        }
+    </script>
+</body>
+</html>

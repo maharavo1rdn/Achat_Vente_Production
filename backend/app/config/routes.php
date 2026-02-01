@@ -102,6 +102,7 @@ $router->group('/api/ventes', function () use ($router, $Vente_Controller) {
         $router->get('/@id:[0-9]+', [$Vente_Controller, 'getDevisById']);
         $router->post('', [$Vente_Controller, 'createDevis']);
         $router->put('/@id:[0-9]+', [$Vente_Controller, 'updateDevis']);
+        $router->patch('/@id:[0-9]+/statut', [$Vente_Controller, 'updateDevisStatut']);
         $router->delete('/@id:[0-9]+', [$Vente_Controller, 'deleteDevis']);
         $router->post('/@id:[0-9]+/convert-bc', [$Vente_Controller, 'convertDevisToBonCommande']);
     });
@@ -116,6 +117,8 @@ $router->group('/api/ventes', function () use ($router, $Vente_Controller) {
         $router->put('/@id:[0-9]+', [$Vente_Controller, 'updateBonCommande']);
         $router->delete('/@id:[0-9]+', [$Vente_Controller, 'deleteBonCommande']);
         $router->post('/@id:[0-9]+/convert-facture', [$Vente_Controller, 'convertBonCommandeToFacture']);
+        $router->post('/@id:[0-9]+/convert-facture-custom', [$Vente_Controller, 'convertBonCommandeToFactureWithCustomData']);
+        $router->get('/@id:[0-9]+/is-factured', [$Vente_Controller, 'checkIfBonCommandeIsFactured']);
     });
 
     $router->group('/factures', function () use ($router, $Vente_Controller) {
@@ -124,7 +127,7 @@ $router->group('/api/ventes', function () use ($router, $Vente_Controller) {
         $router->post('', [$Vente_Controller, 'createFacture']);
         $router->put('/@id:[0-9]+', [$Vente_Controller, 'updateFacture']);
         $router->delete('/@id:[0-9]+', [$Vente_Controller, 'deleteFacture']);
-        $router->post('/@id:[0-9]+/encaisser', [$Vente_Controller, 'encaisserFacture']);
+        $router->post('/@id:[0-9]+/encaisser', [$Vente_Controller, 'payerFacture']);
     });
 });
 

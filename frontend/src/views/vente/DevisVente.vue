@@ -80,8 +80,13 @@
             <label class="label">Client</label>
             <select v-model="selectedClient" class="select">
               <option value="">Tous les clients</option>
-              <option value="1">Client A</option>
-              <option value="2">Client B</option>
+              <option 
+                v-for="client in uniqueClients" 
+                :key="client" 
+                :value="client"
+              >
+                {{ client }}
+              </option>
             </select>
           </div>
           <div class="filter-item">
@@ -130,14 +135,29 @@
               <tr v-else v-for="devis in filteredDevis" :key="devis.id" class="table-row">
                 <td class="font-medium">{{ devis.numero_devis }}</td>
                 <td class="text-gray-600">{{ formatDate(devis.date_devis) }}</td>
-                <td class="font-medium">{{ devis.client }}</td>
-                <td class="text-gray-600">{{ devis.filiale }}</td>
+                <td class="font-medium">{{ devis.client_nom }}</td>
+                <td class="text-gray-600">{{ devis.filiale_nom }}</td>
                 <td class="text-right font-semibold">{{ formatCurrency(devis.montant_ttc) }}</td>
-                <td class="text-xs text-gray-500">{{ devis.personnel }}</td>
+                <td class="text-xs text-gray-500">{{ devis.personnel_nom }} {{ devis.personnel_prenom }}</td>
                 <td class="text-center">
-                  <span :class="getStatutBadgeClass(devis.statut)">
-                    {{ devis.statut }}
-                  </span>
+                  <select 
+                    :value="devis.statut" 
+                    @change="updateStatut(devis, $event.target.value)"
+                    :class="getStatutSelectClass(devis.statut)"
+                    :disabled="updatingStatut[devis.id]"
+                    class="statut-select"
+                  >
+                    <option 
+                      v-for="statut in statutsList" 
+                      :key="statut.code" 
+                      :value="statut.code"
+                    >
+                      {{ statut.libelle }}
+                    </option>
+                  </select>
+                  <div v-if="updatingStatut[devis.id]" class="updating-indicator">
+                    Mise à jour...
+                  </div>
                 </td>
                 <td>
                   <div class="table-actions">
@@ -179,6 +199,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Eye, Check, Printer, Trash2, Search } from 'lucide-vue-next'
 import venteService from '@/services/venteService'
+import statutService from '@/services/statutService'
 
 const router = useRouter()
 const searchQuery = ref('')
@@ -189,6 +210,8 @@ const dateFilter = ref('')
 const devisList = ref([])
 const loading = ref(false)
 const error = ref(null)
+const statutsList = ref([])
+const updatingStatut = ref({})
 
 const loadDevis = async () => {
   try {
@@ -204,12 +227,21 @@ const loadDevis = async () => {
   }
 }
 
+const loadStatuts = async () => {
+  try {
+    const response = await statutService.getAll()
+    statutsList.value = response.data || []
+  } catch (err) {
+    console.error('Erreur chargement statuts:', err)
+  }
+}
+
 const filteredDevis = computed(() => {
   return devisList.value.filter(devis => {
     const matchSearch = !searchQuery.value || 
       devis.numero_devis?.toLowerCase().includes(searchQuery.value.toLowerCase())
     
-    const matchClient = !selectedClient.value || devis.client === selectedClient.value
+    const matchClient = !selectedClient.value || devis.client_nom === selectedClient.value
     const matchStatut = !selectedStatut.value || devis.statut === selectedStatut.value
     
     return matchSearch && matchClient && matchStatut
@@ -228,6 +260,11 @@ const montantTotal = computed(() => {
   return devisList.value.reduce((sum, d) => sum + (d.montant_ttc || 0), 0)
 })
 
+const uniqueClients = computed(() => {
+  const clients = [...new Set(devisList.value.map(d => d.client_nom).filter(Boolean))]
+  return clients.sort()
+})
+
 const getStatutBadgeClass = (statut) => {
   switch(statut) {
     case 'BROUILLON': return 'badge badge-secondary'
@@ -235,6 +272,42 @@ const getStatutBadgeClass = (statut) => {
     case 'ACCEPTE': return 'badge badge-success'
     case 'REFUSE': return 'badge badge-danger'
     default: return 'badge badge-secondary'
+  }
+}
+
+const getStatutSelectClass = (statut) => {
+  switch(statut) {
+    case 'BROUILLON': return 'text-gray-700 bg-gray-50 border-gray-300'
+    case 'ENVOYE': return 'text-blue-700 bg-blue-50 border-blue-300'
+    case 'ACCEPTE': return 'text-green-700 bg-green-50 border-green-300'
+    case 'REFUSE': return 'text-red-700 bg-red-50 border-red-300'
+    default: return 'text-gray-700 bg-gray-50 border-gray-300'
+  }
+}
+
+const updateStatut = async (devis, newStatut) => {
+  if (devis.statut === newStatut) return
+  
+  updatingStatut.value[devis.id] = true
+  
+  try {
+    await venteService.devis.updateStatut(devis.id, newStatut)
+    
+    // Mettre à jour localement
+    const index = devisList.value.findIndex(d => d.id === devis.id)
+    if (index !== -1) {
+      devisList.value[index].statut = newStatut
+    }
+    
+    console.log(`Statut du devis ${devis.numero_devis} mis à jour : ${newStatut}`)
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Erreur lors de la mise à jour du statut'
+    console.error('Erreur mise à jour statut:', err)
+    
+    // Recharger les devis en cas d'erreur pour restaurer l'état correct
+    await loadDevis()
+  } finally {
+    delete updatingStatut.value[devis.id]
   }
 }
 
@@ -290,6 +363,7 @@ const deleteDevis = async (id) => {
 
 onMounted(() => {
   loadDevis()
+  loadStatuts()
 })
 </script>
 
@@ -489,5 +563,22 @@ onMounted(() => {
 
 .badge-secondary {
   @apply bg-gray-100 text-gray-700;
+}
+
+.statut-select {
+  @apply px-3 py-1.5 rounded-lg text-xs font-medium border outline-none transition-all;
+  @apply focus:ring-2 focus:ring-offset-1;
+}
+
+.statut-select:focus {
+  @apply ring-gray-400;
+}
+
+.updating-indicator {
+  @apply text-xs text-gray-500 mt-1 italic;
+}
+
+.statut-select:disabled {
+  @apply opacity-50 cursor-not-allowed;
 }
 </style>

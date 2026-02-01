@@ -28,7 +28,7 @@
           <p class="page-subtitle">Liste des bons de commande de vente</p>
         </div>
         <button @click="openCreateModal" class="btn-primary">
-          <span>Nouveau BC</span>
+          <span>Nouveau Devis</span>
         </button>
       </div>
 
@@ -125,28 +125,34 @@
               <tr v-else v-for="bc in filteredBonCommandes" :key="bc.id" class="table-row">
                 <td class="font-medium">{{ bc.numero_bc }}</td>
                 <td class="text-gray-600">{{ formatDate(bc.date_commande) }}</td>
-                <td class="font-medium">{{ bc.client_nom || bc.client }}</td>
-                <td class="text-gray-600">{{ bc.filiale_nom || bc.filiale }}</td>
+                <td class="font-medium">{{ bc.client_nom }}</td>
+                <td class="text-gray-600">{{ bc.filiale_nom }}</td>
                 <td class="text-right font-semibold">{{ formatCurrency(bc.montant_ttc) }}</td>
                 <td class="text-center">
                   <span :class="getStatutBadgeClass(bc.statut)">
                     {{ bc.statut }}
                   </span>
                 </td>
-                <td class="text-xs text-gray-500">{{ bc.devis_origine || '-' }}</td>
+                <td class="text-xs text-gray-500">{{ bc.numero_devis || '-' }}</td>
                 <td>
                   <div class="table-actions">
                     <button @click="viewBC(bc)" class="action-btn" title="Voir">
                       Voir
                     </button>
                     <button 
-                      v-if="bc.statut === 'LIVRE'"
+                      v-if="bc.statut === 'VALIDE' && !facturedBonCommandes.has(bc.id)"
                       @click="convertToFacture(bc)" 
                       class="action-btn text-green-600" 
                       title="Créer facture"
                     >
                       Facturer
                     </button>
+                    <span 
+                      v-else-if="facturedBonCommandes.has(bc.id)"
+                      class="text-xs text-gray-500 font-medium px-2 py-1"
+                    >
+                      Facturé
+                    </span>
                     <button @click="printBC(bc)" class="action-btn" title="Imprimer">
                       Imprimer
                     </button>
@@ -158,11 +164,124 @@
         </div>
       </div>
     </div>
+
+    <!-- Notification Toast -->
+    <div 
+      v-if="showNotification" 
+      :class="[
+        'notification-toast',
+        notificationType === 'success' ? 'notification-success' : 'notification-error'
+      ]"
+    >
+      <div class="notification-content">
+        <div class="notification-icon">
+          <svg v-if="notificationType === 'success'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </div>
+        <p class="notification-text">{{ notificationMessage }}</p>
+        <button @click="closeNotification" class="notification-close">
+          <X class="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal Création Facture -->
+    <div v-if="showFactureModal" class="modal-overlay" @click="showFactureModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">Créer une facture</h3>
+          <button @click="showFactureModal = false" class="modal-close">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <div v-if="selectedBC" class="mb-6">
+            <div class="bg-gray-50 rounded-lg p-4">
+              <h4 class="font-medium text-gray-900 mb-2">Bon de commande sélectionné</h4>
+              <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span class="text-gray-600">Numéro BC:</span>
+                  <span class="font-medium ml-2">{{ selectedBC.numero_bc }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-600">Client:</span>
+                  <span class="font-medium ml-2">{{ selectedBC.client_nom }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-600">Date commande:</span>
+                  <span class="font-medium ml-2">{{ formatDate(selectedBC.date_commande) }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-600">Montant BC:</span>
+                  <span class="font-medium ml-2">{{ formatCurrency(selectedBC.montant_ttc) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <form @submit.prevent="confirmCreateFacture" class="space-y-4">
+            <div class="form-group">
+              <label for="date_facture" class="label">Date de facturation</label>
+              <input 
+                id="date_facture"
+                v-model="factureForm.date_facture" 
+                type="date" 
+                class="input"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="montant_ttc" class="label">Montant TTC (MGA)</label>
+              <input 
+                id="montant_ttc"
+                v-model.number="factureForm.montant_ttc" 
+                type="number" 
+                step="0.01"
+                class="input"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="reste_a_payer" class="label">Reste à payer (MGA)</label>
+              <input 
+                id="reste_a_payer"
+                v-model.number="factureForm.reste_a_payer" 
+                type="number" 
+                step="0.01"
+                class="input"
+                required
+              />
+              <p class="text-sm text-gray-500 mt-1">
+                Montant restant à payer par le client
+              </p>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" @click="showFactureModal = false" class="btn-secondary">
+                Annuler
+              </button>
+              <button type="submit" :disabled="loadingFactureCreation" class="btn-primary">
+                <span v-if="loadingFactureCreation">Création...</span>
+                <span v-else>Créer la facture</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { X } from 'lucide-vue-next'
 import venteService from '@/services/venteService'
 import entrepriseService from '@/services/entrepriseService'
 
@@ -176,12 +295,30 @@ const loading = ref(false)
 const error = ref(null)
 const clients = ref([])
 
+// Modal création facture
+const showFactureModal = ref(false)
+const selectedBC = ref(null)
+const loadingFactureCreation = ref(false)
+const facturedBonCommandes = ref(new Set())
+const showNotification = ref(false)
+const notificationMessage = ref('')
+const notificationType = ref('success') // 'success', 'error', 'warning'
+const factureForm = ref({
+  date_facture: new Date().toISOString().split('T')[0],
+  montant_ttc: 0,
+  reste_a_payer: 0
+})
+
 const loadBonCommandes = async () => {
   try {
     loading.value = true
     error.value = null
     const response = await venteService.bonCommande.getAll()
     bonCommandes.value = response.data || []
+    
+    // Vérifier quels BCs ont déjà été facturés
+    await checkFacturedStatus(bonCommandes.value)
+    
   } catch (err) {
     error.value = err.response?.data?.message || 'Erreur lors du chargement des bons de commande'
     console.error('Erreur chargement BC:', err)
@@ -199,11 +336,28 @@ const loadClients = async () => {
   }
 }
 
+const checkFacturedStatus = async (bonCommandesList) => {
+  const facturedSet = new Set()
+  
+  for (const bc of bonCommandesList) {
+    try {
+      const response = await venteService.bonCommande.checkIfFactured(bc.id)
+      if (response.isFactured) {
+        facturedSet.add(bc.id)
+      }
+    } catch (err) {
+      console.error(`Erreur vérification facturation BC ${bc.id}:`, err)
+    }
+  }
+  
+  facturedBonCommandes.value = facturedSet
+}
+
 const filteredBonCommandes = computed(() => {
   return bonCommandes.value.filter(bc => {
     const matchSearch = !searchQuery.value || 
       (bc.numero_bc && bc.numero_bc.toLowerCase().includes(searchQuery.value.toLowerCase()))
-    const matchClient = !selectedClient.value || bc.client_id === selectedClient.value
+    const matchClient = !selectedClient.value || bc.entreprise_client_id === parseInt(selectedClient.value)
     const matchStatut = !selectedStatut.value || bc.statut === selectedStatut.value
     const matchDate = !dateFilter.value || (bc.date_commande && bc.date_commande.startsWith(dateFilter.value))
 
@@ -236,31 +390,89 @@ const formatDate = (date) => {
 }
 
 const openCreateModal = () => {
-  // navigate to BC creation page
-  router.push('/ventes/bon-commande/nouveau')
+  // Navigate to devis creation instead since BC are created from validated devis
+  router.push('/ventes/devis/nouveau')
 }
 
-import { useRouter } from 'vue-router'
 const router = useRouter()
 
 const viewBC = (bc) => {
   router.push({ name: 'liste-commande-vente-detail', params: { id: bc.id } })
 }
 
-const convertToFacture = async (bc) => {
-  if (!confirm('Convertir ce bon de commande en facture ?')) return
+const convertToFacture = (bc) => {
+  selectedBC.value = bc
+  // Pré-remplir le formulaire avec les données du BC
+  factureForm.value = {
+    date_facture: new Date().toISOString().split('T')[0],
+    montant_ttc: bc.montant_ttc || 0,
+    reste_a_payer: bc.montant_ttc || 0
+  }
+  showFactureModal.value = true
+}
+
+const confirmCreateFacture = async () => {
+  if (!selectedBC.value) return
+  
   try {
-    await venteService.bonCommande.convertToFacture(bc.id)
+    loadingFactureCreation.value = true
+    
+    // Utiliser la nouvelle méthode de conversion avec données personnalisées
+    const customData = {
+      date_facture: factureForm.value.date_facture,
+      montant_ttc: factureForm.value.montant_ttc,
+      reste_a_payer: factureForm.value.reste_a_payer
+    }
+    
+    await venteService.bonCommande.convertToFactureWithCustomData(selectedBC.value.id, customData)
     await loadBonCommandes()
-    alert('Bon de commande converti en facture avec succès')
+    
+    showFactureModal.value = false
+    selectedBC.value = null
+    
+    // Afficher notification de succès
+    showSuccessNotification('Facture créée avec succès')
+    
   } catch (err) {
-    error.value = err.response?.data?.message || 'Erreur lors de la conversion'
-    console.error('Erreur conversion:', err)
+    const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Erreur lors de la création de la facture'
+    
+    // Afficher notification d'erreur
+    if (err.response?.status === 400) {
+      showErrorNotification(errorMessage)
+    } else {
+      showErrorNotification('Erreur technique lors de la création de la facture')
+    }
+    
+    console.error('Erreur création facture:', err)
+  } finally {
+    loadingFactureCreation.value = false
   }
 }
 
 const printBC = (bc) => {
   console.log('Imprimer BC', bc)
+}
+
+const showSuccessNotification = (message) => {
+  notificationMessage.value = message
+  notificationType.value = 'success'
+  showNotification.value = true
+  setTimeout(() => {
+    showNotification.value = false
+  }, 5000)
+}
+
+const showErrorNotification = (message) => {
+  notificationMessage.value = message
+  notificationType.value = 'error'
+  showNotification.value = true
+  setTimeout(() => {
+    showNotification.value = false
+  }, 8000)
+}
+
+const closeNotification = () => {
+  showNotification.value = false
 }
 
 onMounted(() => {
@@ -443,4 +655,103 @@ onMounted(() => {
 .badge-secondary {
   @apply bg-gray-100 text-gray-800;
 }
-</style>
+.modal-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+}
+
+.modal-content {
+  @apply bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden;
+}
+
+.modal-header {
+  @apply flex items-center justify-between p-6 border-b border-gray-200;
+}
+
+.modal-title {
+  @apply text-lg font-semibold text-gray-900;
+}
+
+.modal-close {
+  @apply p-1 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100;
+}
+
+.modal-body {
+  @apply p-6 overflow-y-auto max-h-96;
+}
+
+.form-group {
+  @apply space-y-2;
+}
+
+.form-actions {
+  @apply flex items-center justify-end gap-3 pt-4 border-t border-gray-200;
+}
+
+.btn-secondary {
+  @apply px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors;
+}
+
+.btn-primary {
+  @apply px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors;
+}
+
+.btn-primary:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+/* Notification Toast */
+.notification-toast {
+  @apply fixed top-4 right-4 z-50 max-w-md w-full transform transition-all duration-300 ease-in-out;
+  animation: slideInRight 0.3s ease-out;
+}
+
+.notification-success {
+  @apply bg-green-50 border border-green-200 rounded-lg shadow-lg;
+}
+
+.notification-error {
+  @apply bg-red-50 border border-red-200 rounded-lg shadow-lg;
+}
+
+.notification-content {
+  @apply flex items-start p-4 space-x-3;
+}
+
+.notification-icon {
+  @apply flex-shrink-0;
+}
+
+.notification-success .notification-icon {
+  @apply text-green-500;
+}
+
+.notification-error .notification-icon {
+  @apply text-red-500;
+}
+
+.notification-text {
+  @apply flex-1 text-sm font-medium;
+}
+
+.notification-success .notification-text {
+  @apply text-green-800;
+}
+
+.notification-error .notification-text {
+  @apply text-red-800;
+}
+
+.notification-close {
+  @apply flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors duration-200;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}</style>
