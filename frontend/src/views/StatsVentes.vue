@@ -3,7 +3,7 @@
     <!-- Loading state -->
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
-      <p class="loading-text">Chargement des statistiques achats...</p>
+      <p class="loading-text">Chargement des statistiques ventes...</p>
     </div>
 
     <!-- Error state -->
@@ -24,8 +24,8 @@
       <!-- Header -->
       <div class="page-header fade-in" style="animation-delay: 0.1s">
         <div>
-          <h1 class="page-title">📊 Statistiques Achats</h1>
-          <p class="page-subtitle">Analyse détaillée de vos dépenses et fournisseurs</p>
+          <h1 class="page-title">📊 Statistiques Ventes</h1>
+          <p class="page-subtitle">Analyse détaillée de vos ventes et clients</p>
         </div>
         <div class="header-actions">
           <div class="flex items-center gap-2">
@@ -46,31 +46,31 @@
       <div class="stats-grid fade-in" style="animation-delay: 0.2s">
         <div class="stat-card">
           <div class="stat-header">
-            <div class="stat-icon bg-blue-100 text-blue-600">
+            <div class="stat-icon bg-green-100 text-green-600">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
             </div>
           </div>
           <div class="stat-content">
-            <p class="stat-label">Dépenses Totales</p>
-            <h3 class="stat-value">{{ formatCurrency(totalDepenses) }}</h3>
-            <p class="stat-subvalue">Montant total payé</p>
+            <p class="stat-label">CA Total</p>
+            <h3 class="stat-value">{{ formatCurrency(caTotal) }}</h3>
+            <p class="stat-subvalue">Toutes sociétés</p>
           </div>
         </div>
 
         <div class="stat-card">
           <div class="stat-header">
-            <div class="stat-icon bg-green-100 text-green-600">
+            <div class="stat-icon bg-blue-100 text-blue-600">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
               </svg>
             </div>
           </div>
           <div class="stat-content">
-            <p class="stat-label">Fournisseur Principal</p>
-            <h3 class="stat-value text-lg">{{ topFournisseur.nom }}</h3>
-            <p class="stat-subvalue">{{ formatCurrency(topFournisseur.total_paye) }} dépensé</p>
+            <p class="stat-label">Factures</p>
+            <h3 class="stat-value">{{ totalFactures }}</h3>
+            <p class="stat-subvalue">Nombre total</p>
           </div>
         </div>
 
@@ -78,14 +78,14 @@
           <div class="stat-header">
             <div class="stat-icon bg-purple-100 text-purple-600">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
               </svg>
             </div>
           </div>
           <div class="stat-content">
-            <p class="stat-label">Meilleur Taux Service</p>
-            <h3 class="stat-value">{{ meilleurTauxService.taux }}%</h3>
-            <p class="stat-subvalue">{{ meilleurTauxService.nom }}</p>
+            <p class="stat-label">Panier Moyen</p>
+            <h3 class="stat-value">{{ formatCurrency(panierMoyenGlobal) }}</h3>
+            <p class="stat-subvalue">Moyenne par facture</p>
           </div>
         </div>
 
@@ -93,30 +93,30 @@
           <div class="stat-header">
             <div class="stat-icon bg-orange-100 text-orange-600">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
               </svg>
             </div>
           </div>
           <div class="stat-content">
-            <p class="stat-label">Délai Livraison Moyen</p>
-            <h3 class="stat-value">{{ delaiMoyenGlobal.toFixed(1) }} jours</h3>
-            <p class="stat-subvalue">Moyenne tous fournisseurs</p>
+            <p class="stat-label">Taux Conversion</p>
+            <h3 class="stat-value">{{ tauxConversionMoyen.toFixed(1) }}%</h3>
+            <p class="stat-subvalue">Devis → Facture</p>
           </div>
         </div>
       </div>
 
       <!-- Charts Grid -->
       <div class="activities-grid fade-in" style="animation-delay: 0.25s">
-        <!-- Répartition Dépenses -->
+        <!-- CA par Société -->
         <div class="card">
           <div class="card-header">
-            <h2 class="card-title">📈 Répartition des Dépenses</h2>
+            <h2 class="card-title">🏢 CA par Société</h2>
           </div>
           <div class="chart-container">
-            <Doughnut
-              v-if="depenseData.labels.length > 0"
-              :data="depenseData"
-              :options="chartOptions"
+            <Bar
+              v-if="caSocieteData.labels.length > 0"
+              :data="caSocieteData"
+              :options="barChartOptions"
             />
             <div v-else class="empty-state-small">
               <p>Aucune donnée disponible</p>
@@ -124,16 +124,16 @@
           </div>
         </div>
 
-        <!-- Délai Moyen Livraison -->
+        <!-- Évolution CA -->
         <div class="card">
           <div class="card-header">
-            <h2 class="card-title">📅 Délai Moyen de Livraison</h2>
+            <h2 class="card-title">📅 Évolution CA (12 mois)</h2>
           </div>
           <div class="chart-container">
-            <Bar
-              v-if="delaiData.labels.length > 0"
-              :data="delaiData"
-              :options="delaiChartOptions"
+            <Line
+              v-if="evolutionCAData.labels.length > 0"
+              :data="evolutionCAData"
+              :options="lineChartOptions"
             />
             <div v-else class="empty-state-small">
               <p>Aucune donnée disponible</p>
@@ -144,16 +144,16 @@
 
       <!-- Second Charts Row -->
       <div class="activities-grid fade-in" style="animation-delay: 0.3s">
-        <!-- Taux de Service -->
+        <!-- Panier Moyen -->
         <div class="card">
           <div class="card-header">
-            <h2 class="card-title">✅ Taux de Service</h2>
+            <h2 class="card-title">🛒 Top 10 Paniers Moyens</h2>
           </div>
           <div class="chart-container">
             <Bar
-              v-if="tauxData.labels.length > 0"
-              :data="tauxData"
-              :options="tauxChartOptions"
+              v-if="panierMoyenData.labels.length > 0"
+              :data="panierMoyenData"
+              :options="panierChartOptions"
             />
             <div v-else class="empty-state-small">
               <p>Aucune donnée disponible</p>
@@ -161,16 +161,16 @@
           </div>
         </div>
 
-        <!-- Budget par Fournisseur -->
+        <!-- Taux Conversion -->
         <div class="card">
           <div class="card-header">
-            <h2 class="card-title">💳 Budget vs Payé</h2>
+            <h2 class="card-title">📊 Taux Conversion</h2>
           </div>
           <div class="chart-container">
             <Bar
-              v-if="budgetData.labels.length > 0"
-              :data="budgetData"
-              :options="budgetChartOptions"
+              v-if="tauxConversionData.labels.length > 0"
+              :data="tauxConversionData"
+              :options="tauxConversionChartOptions"
             />
             <div v-else class="empty-state-small">
               <p>Aucune donnée disponible</p>
@@ -181,88 +181,86 @@
 
       <!-- Detailed Tables -->
       <div class="activities-grid fade-in" style="animation-delay: 0.35s">
-        <!-- Dépenses Fournisseurs -->
+        <!-- CA par Société -->
         <div class="card">
           <div class="card-header">
-            <h2 class="card-title">📋 Dépenses par Fournisseur</h2>
+            <h2 class="card-title">🏢 CA Détaillé par Société</h2>
           </div>
           <div class="table-container">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th class="table-header">Fournisseur</th>
-                  <th class="table-header text-right">Dépensé</th>
-                  <th class="table-header text-right">À Payer</th>
+                  <th class="table-header">Société</th>
                   <th class="table-header text-right">Factures</th>
+                  <th class="table-header text-right">CA Total</th>
+                  <th class="table-header text-right">CA Moyen</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
-                  v-for="item in depensesFournisseurs"
-                  :key="item.id"
+                  v-for="item in caSociete"
+                  :key="item.id || item.societe"
                   class="table-row"
                 >
-                  <td class="table-cell font-medium">{{ item.nom }}</td>
-                  <td class="table-cell text-right text-blue-600 font-semibold">
-                    {{ formatCurrency(item.total_paye) }}
-                  </td>
-                  <td class="table-cell text-right text-red-600">
-                    {{ formatCurrency(item.reste_a_payer) }}
-                  </td>
+                  <td class="table-cell font-medium">{{ item.societe }}</td>
                   <td class="table-cell text-right">{{ item.nombre_factures }}</td>
+                  <td class="table-cell text-right text-green-600 font-semibold">
+                    {{ formatCurrency(item.chiffre_affaires) }}
+                  </td>
+                  <td class="table-cell text-right">
+                    {{ formatCurrency(item.ca_moyen_facture) }}
+                  </td>
                 </tr>
               </tbody>
             </table>
-            <div v-if="depensesFournisseurs.length === 0" class="empty-state-small">
+            <div v-if="caSociete.length === 0" class="empty-state-small">
               <p>Aucune donnée disponible</p>
             </div>
           </div>
         </div>
 
-        <!-- Taux Service -->
+        <!-- Taux Conversion -->
         <div class="card">
           <div class="card-header">
-            <h2 class="card-title">📊 Taux de Service</h2>
+            <h2 class="card-title">📈 Taux Conversion Détaillé</h2>
           </div>
           <div class="table-container">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th class="table-header">Fournisseur</th>
-                  <th class="table-header text-right">BC</th>
-                  <th class="table-header text-right">FA Reçues</th>
+                  <th class="table-header">Client</th>
+                  <th class="table-header text-right">Devis</th>
+                  <th class="table-header text-right">Factures</th>
                   <th class="table-header text-right">Taux</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
-                  v-for="item in tauxServiceData"
-                  :key="item.id"
+                  v-for="item in tauxConversion"
+                  :key="item.id || item.client"
                   class="table-row"
                 >
-                  <td class="table-cell font-medium">{{ item.nom }}</td>
-                  <td class="table-cell text-right">{{ item.nombre_bc }}</td>
-                  <td class="table-cell text-right">
-                    {{ item.nombre_factures_recues }}
-                  </td>
+                  <td class="table-cell font-medium">{{ item.client }}</td>
+                  <td class="table-cell text-right">{{ item.nombre_devis }}</td>
+                  <td class="table-cell text-right">{{ item.nombre_factures }}</td>
                   <td class="table-cell text-right">
                     <span
                       :class="[
                         'badge',
-                        item.taux_service_percent >= 90
+                        item.taux_conversion >= 70
                           ? 'badge-success'
-                          : item.taux_service_percent >= 70
+                          : item.taux_conversion >= 40
                             ? 'badge-warning'
                             : 'badge-error'
                       ]"
                     >
-                      {{ item.taux_service_percent.toFixed(1) }}%
+                      {{ item.taux_conversion.toFixed(1) }}%
                     </span>
                   </td>
                 </tr>
               </tbody>
             </table>
-            <div v-if="tauxServiceData.length === 0" class="empty-state-small">
+            <div v-if="tauxConversion.length === 0" class="empty-state-small">
               <p>Aucune donnée disponible</p>
             </div>
           </div>
@@ -274,7 +272,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Bar, Doughnut } from 'vue-chartjs'
+import { Bar, Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -284,8 +282,7 @@ import {
   BarElement,
   Title,
   Tooltip,
-  Legend,
-  ArcElement
+  Legend
 } from 'chart.js'
 import api from '@/services/api/api'
 
@@ -297,8 +294,7 @@ ChartJS.register(
   BarElement,
   Title,
   Tooltip,
-  Legend,
-  ArcElement
+  Legend
 )
 
 // State
@@ -308,9 +304,10 @@ const startDate = ref('')
 const endDate = ref('')
 
 // Data
-const depensesFournisseurs = ref([])
-const delaiMoyenData = ref([])
-const tauxServiceData = ref([])
+const caSociete = ref([])
+const evolutionCA = ref([])
+const panierMoyen = ref([])
+const tauxConversion = ref([])
 
 // Initialize dates
 const initializeDates = () => {
@@ -330,81 +327,76 @@ const formatCurrency = (value) => {
 }
 
 // Computed KPIs
-const totalDepenses = computed(() => {
-  return depensesFournisseurs.value.reduce((sum, item) => sum + (item.total_paye || 0), 0)
+const caTotal = computed(() => {
+  return caSociete.value.reduce((sum, item) => sum + (item.chiffre_affaires || 0), 0)
 })
 
-const topFournisseur = computed(() => {
-  if (depensesFournisseurs.value.length === 0) {
-    return { nom: '-', total_paye: 0 }
-  }
-  return depensesFournisseurs.value.reduce((max, item) =>
-    (item.total_paye || 0) > (max.total_paye || 0) ? item : max
-  )
+const totalFactures = computed(() => {
+  return caSociete.value.reduce((sum, item) => sum + (item.nombre_factures || 0), 0)
 })
 
-const meilleurTauxService = computed(() => {
-  if (tauxServiceData.value.length === 0) {
-    return { nom: '-', taux: 0 }
-  }
-  const best = tauxServiceData.value.reduce((max, item) =>
-    (item.taux_service_percent || 0) > (max.taux_service_percent || 0) ? item : max
-  )
-  return { nom: best.nom, taux: best.taux_service_percent.toFixed(1) }
+const panierMoyenGlobal = computed(() => {
+  return totalFactures.value > 0 ? caTotal.value / totalFactures.value : 0
 })
 
-const delaiMoyenGlobal = computed(() => {
-  if (delaiMoyenData.value.length === 0) return 0
-  const sum = delaiMoyenData.value.reduce((acc, item) => acc + (parseFloat(item.delai_moyen_jours) || 0), 0)
-  return sum / delaiMoyenData.value.length
+const tauxConversionMoyen = computed(() => {
+  if (tauxConversion.value.length === 0) return 0
+  const sum = tauxConversion.value.reduce((acc, item) => acc + (item.taux_conversion || 0), 0)
+  return sum / tauxConversion.value.length
 })
 
 // Chart Data
-const depenseData = computed(() => ({
-  labels: depensesFournisseurs.value.slice(0, 8).map((item) => item.nom),
+const caSocieteData = computed(() => ({
+  labels: caSociete.value.map((item) => item.societe),
   datasets: [
     {
-      label: 'Montant Dépensé',
-      data: depensesFournisseurs.value.slice(0, 8).map((item) => item.total_paye),
-      backgroundColor: [
-        '#3B82F6',
-        '#10B981',
-        '#F59E0B',
-        '#EF4444',
-        '#8B5CF6',
-        '#EC4899',
-        '#14B8A6',
-        '#F97316'
-      ],
-      borderColor: '#ffffff',
-      borderWidth: 2
-    }
-  ]
-}))
-
-const delaiData = computed(() => ({
-  labels: delaiMoyenData.value.slice(0, 10).map((item) => item.nom),
-  datasets: [
-    {
-      label: 'Délai Moyen (jours)',
-      data: delaiMoyenData.value.slice(0, 10).map((item) => parseFloat(item.delai_moyen_jours) || 0),
-      backgroundColor: '#60A5FA',
-      borderColor: '#3B82F6',
+      label: 'Chiffre d\'Affaires',
+      data: caSociete.value.map((item) => item.chiffre_affaires),
+      backgroundColor: '#10B981',
+      borderColor: '#059669',
       borderWidth: 1
     }
   ]
 }))
 
-const tauxData = computed(() => ({
-  labels: tauxServiceData.value.slice(0, 10).map((item) => item.nom),
+const evolutionCAData = computed(() => ({
+  labels: evolutionCA.value.map((item) => item.mois_libelle || item.mois),
   datasets: [
     {
-      label: 'Taux de Service (%)',
-      data: tauxServiceData.value.slice(0, 10).map((item) => parseFloat(item.taux_service_percent) || 0),
+      label: 'CA Mensuel',
+      data: evolutionCA.value.map((item) => item.chiffre_affaires),
+      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      borderColor: '#3B82F6',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.4
+    }
+  ]
+}))
+
+const panierMoyenData = computed(() => ({
+  labels: panierMoyen.value.slice(0, 10).map((item) => item.client),
+  datasets: [
+    {
+      label: 'Panier Moyen',
+      data: panierMoyen.value.slice(0, 10).map((item) => item.panier_moyen),
+      backgroundColor: '#8B5CF6',
+      borderColor: '#7C3AED',
+      borderWidth: 1
+    }
+  ]
+}))
+
+const tauxConversionData = computed(() => ({
+  labels: tauxConversion.value.slice(0, 10).map((item) => item.client),
+  datasets: [
+    {
+      label: 'Taux de Conversion (%)',
+      data: tauxConversion.value.slice(0, 10).map((item) => item.taux_conversion),
       backgroundColor: (context) => {
         const value = context.raw || 0
-        if (value >= 90) return '#10B981'
-        if (value >= 70) return '#F59E0B'
+        if (value >= 70) return '#10B981'
+        if (value >= 40) return '#F59E0B'
         return '#EF4444'
       },
       borderColor: '#ffffff',
@@ -413,42 +405,54 @@ const tauxData = computed(() => ({
   ]
 }))
 
-const budgetData = computed(() => ({
-  labels: depensesFournisseurs.value.slice(0, 8).map((item) => item.nom),
-  datasets: [
-    {
-      label: 'Montant Total',
-      data: depensesFournisseurs.value.slice(0, 8).map((item) => item.total_facture || 0),
-      backgroundColor: '#8B5CF6',
-      borderColor: '#6D28D9',
-      borderWidth: 1
-    },
-    {
-      label: 'Montant Payé',
-      data: depensesFournisseurs.value.slice(0, 8).map((item) => item.total_paye || 0),
-      backgroundColor: '#06B6D4',
-      borderColor: '#0891B2',
-      borderWidth: 1
-    }
-  ]
-}))
-
 // Chart Options
-const chartOptions = {
+const barChartOptions = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
     legend: {
-      position: 'bottom',
-      labels: {
-        boxWidth: 12,
-        padding: 20
+      display: false
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      grid: {
+        display: false
+      }
+    },
+    x: {
+      grid: {
+        display: false
       }
     }
   }
 }
 
-const delaiChartOptions = {
+const lineChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      grid: {
+        display: false
+      }
+    },
+    x: {
+      grid: {
+        display: false
+      }
+    }
+  }
+}
+
+const panierChartOptions = {
   responsive: true,
   maintainAspectRatio: false,
   indexAxis: 'y',
@@ -472,7 +476,7 @@ const delaiChartOptions = {
   }
 }
 
-const tauxChartOptions = {
+const tauxConversionChartOptions = {
   responsive: true,
   maintainAspectRatio: false,
   indexAxis: 'y',
@@ -497,30 +501,6 @@ const tauxChartOptions = {
   }
 }
 
-const budgetChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  indexAxis: 'y',
-  plugins: {
-    legend: {
-      position: 'bottom'
-    }
-  },
-  scales: {
-    x: {
-      beginAtZero: true,
-      grid: {
-        display: false
-      }
-    },
-    y: {
-      grid: {
-        display: false
-      }
-    }
-  }
-}
-
 // Fetch data
 const fetchData = async () => {
   loading.value = true
@@ -529,13 +509,15 @@ const fetchData = async () => {
     const params = new URLSearchParams()
     if (startDate.value) params.append('start_date', startDate.value)
     if (endDate.value) params.append('end_date', endDate.value)
+    params.append('nb_mois', '12')
 
-    const response = await api.get(`/stats/achats?${params.toString()}`)
+    const response = await api.get(`/stats/ventes?${params.toString()}`)
 
     if (response.data.success) {
-      depensesFournisseurs.value = response.data.data.depenses_par_fournisseur || []
-      delaiMoyenData.value = response.data.data.delai_moyen_livraison || []
-      tauxServiceData.value = response.data.data.taux_service_fournisseur || []
+      caSociete.value = response.data.data.ca_par_societe || []
+      evolutionCA.value = response.data.data.evolution_ca || []
+      panierMoyen.value = response.data.data.panier_moyen || []
+      tauxConversion.value = response.data.data.taux_conversion || []
     } else {
       error.value = response.data.message || 'Erreur lors du chargement des données'
     }
