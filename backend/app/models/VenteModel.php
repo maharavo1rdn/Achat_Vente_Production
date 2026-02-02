@@ -1086,23 +1086,51 @@ class VenteModel
 
     private function generateNumeroBonCommande()
     {
-        $date = date('Ym');
-        $query = "SELECT COUNT(*) as count FROM bon_commande_vente WHERE numero_bc LIKE ?";
+        $date = date('Ymd');
+        
+        // Trouver le numéro le plus élevé pour la date actuelle
+        $query = "SELECT numero_bc FROM bon_commande_vente 
+                  WHERE numero_bc LIKE ? 
+                  ORDER BY numero_bc DESC 
+                  LIMIT 1";
         $stmt = $this->db->prepare($query);
         $stmt->execute([$date . '%']);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $numero = str_pad($result['count'] + 1, 4, '0', STR_PAD_LEFT);
+        
+        if ($result) {
+            // Extraire le dernier numéro et l'incrémenter
+            $lastNumero = substr($result['numero_bc'], -4);
+            $numero = str_pad((int)$lastNumero + 1, 4, '0', STR_PAD_LEFT);
+        } else {
+            // Premier BC du jour
+            $numero = '0001';
+        }
+        
         return $date . $numero;
     }
 
     private function generateNumeroFacture()
     {
-        $date = date('Ym');
-        $query = "SELECT COUNT(*) as count FROM facture_vente WHERE numero_facture LIKE ?";
+        $date = date('Ymd');
+        
+        // Trouver le numéro le plus élevé pour la date actuelle
+        $query = "SELECT numero_facture FROM facture_vente 
+                  WHERE numero_facture LIKE ? 
+                  ORDER BY numero_facture DESC 
+                  LIMIT 1";
         $stmt = $this->db->prepare($query);
-        $stmt->execute([$date . '%']);
+        $stmt->execute(['FV' . $date . '%']);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $numero = str_pad($result['count'] + 1, 4, '0', STR_PAD_LEFT);
+        
+        if ($result) {
+            // Extraire le dernier numéro et l'incrémenter
+            $lastNumero = substr($result['numero_facture'], -4);
+            $numero = str_pad((int)$lastNumero + 1, 4, '0', STR_PAD_LEFT);
+        } else {
+            // Première facture du jour
+            $numero = '0001';
+        }
+        
         return 'FV' . $date . $numero;
     }
 
