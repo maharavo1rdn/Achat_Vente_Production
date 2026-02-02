@@ -445,16 +445,35 @@ class VenteModel
 
         error_log("VenteModel::createBonCommande called with data: " . json_encode($data));
 
+        // Generate numero_bc if not provided
+        if (empty($data['numero_bc'])) {
+            $data['numero_bc'] = $this->generateNumeroBonCommande();
+        }
+
+        // Use personnel_id = 1 as default if not provided
+        if (empty($data['personnel_id'])) {
+            $data['personnel_id'] = 1;
+        }
+
+        // Map date_bc to date_commande if needed
+        $dateCommande = $data['date_commande'] ?? $data['date_bc'] ?? date('Y-m-d');
+
         // If a devis is linked, ensure it exists and is in ACCEPTED status
-        if (!empty($data['devis_vente_id'])) {
-            $linkedDevis = $this->getDevisById($data['devis_vente_id']);
+        if (!empty($data['devis_vente_id']) || !empty($data['devis_id'])) {
+            $devisId = $data['devis_vente_id'] ?? $data['devis_id'];
+            $linkedDevis = $this->getDevisById($devisId);
             if (!$linkedDevis) {
                 throw new InvalidArgumentException("Le devis lié est introuvable");
             }
+            // Accept both VALIDE and ACCEPTE status for BC creation
             $acceptedStatutId = $this->getStatutIdByCode('ACCEPTE');
-            if ((int)$linkedDevis['statut_id'] !== (int)$acceptedStatutId) {
-                throw new InvalidArgumentException("Le devis lié doit être en statut 'Accepté' pour être associé à un bon de commande");
+            $valideStatutId = $this->getStatutIdByCode('VALIDE');
+            $currentStatutId = (int)$linkedDevis['statut_id'];
+            
+            if ($currentStatutId !== (int)$acceptedStatutId && $currentStatutId !== (int)$valideStatutId) {
+                throw new InvalidArgumentException("Le devis lié doit être en statut 'Validé' ou 'Accepté' pour être associé à un bon de commande");
             }
+            $data['devis_vente_id'] = $devisId;
         }
 
         $query = "
@@ -467,7 +486,7 @@ class VenteModel
         $stmt = $this->db->prepare($query);
         $stmt->execute([
             $data['numero_bc'],
-            $data['date_commande'] ?? date('Y-m-d'),
+            $dateCommande,
             $data['devis_vente_id'] ?? null,
             $data['entreprise_client_id'],
             $data['entreprise_filiale_id'],
@@ -1126,10 +1145,9 @@ class VenteModel
 
     private function validateBonCommandeData($data, $isCreation = true)
     {
-        if ($isCreation || isset($data['numero_bc'])) {
-            if (empty($data['numero_bc'])) {
-                throw new InvalidArgumentException("Le numéro BC est obligatoire");
-            }
+        // numero_bc sera généré automatiquement si non fourni
+        if (isset($data['numero_bc']) && empty($data['numero_bc'])) {
+            throw new InvalidArgumentException("Le numéro BC ne peut pas être vide s'il est fourni");
         }
 
         if (($isCreation || isset($data['entreprise_client_id'])) && (!isset($data['entreprise_client_id']) || $data['entreprise_client_id'] <= 0)) {
@@ -1140,8 +1158,9 @@ class VenteModel
             throw new InvalidArgumentException("La filiale est obligatoire");
         }
 
-        if (($isCreation || isset($data['personnel_id'])) && (!isset($data['personnel_id']) || $data['personnel_id'] <= 0)) {
-            throw new InvalidArgumentException("Le personnel est obligatoire");
+        // personnel_id sera assigné automatiquement si non fourni
+        if (isset($data['personnel_id']) && $data['personnel_id'] <= 0) {
+            throw new InvalidArgumentException("L'ID personnel doit être positif s'il est fourni");
         }
 
         if (($isCreation || isset($data['statut_id'])) && (!isset($data['statut_id']) || $data['statut_id'] <= 0)) {

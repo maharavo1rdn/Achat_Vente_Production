@@ -17,6 +17,7 @@ import ProformaDemandeAchatDetail from "../views/achat/ProformaDemandeAchatDetai
 
 import DevisVente from "../views/vente/DevisVente.vue"
 import NouveauDevisVente from "../views/vente/NouveauDevisVente.vue"
+import NouveauBonCommandeVente from "../views/vente/NouveauBonCommandeVente.vue"
 import FactureVente from "../views/vente/FactureVente.vue"
 import ListeCommandeVente from "../views/vente/ListeCommandeVente.vue"
 import ListeCommandeVenteDetails from "../views/vente/ListeCommandeVenteDetails.vue"
@@ -74,6 +75,7 @@ const router = createRouter({
     { path: "/ventes/liste-commande-vente", name: "liste-commande-vente", component: ListeCommandeVente },
     { path: "/ventes/liste-commande-vente/:id", name: "liste-commande-vente-detail", component: ListeCommandeVenteDetails },
     { path: "/ventes/bon-commande", name: "bon-commande-vente", component: ListeCommandeVente },
+    { path: "/ventes/bon-commande/nouveau", name: "nouveau-bon-commande-vente", component: NouveauBonCommandeVente },
     { path: "/ventes/factures", name: "facture-vente", component: FactureVente },
     
     { path: "/caisse", name: "caisse", component: Caisse },

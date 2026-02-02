@@ -114,9 +114,11 @@ class VenteController {
     public function createBonCommande() {
         try {
             $data = Flight::request()->data;
+            error_log("VenteController::createBonCommande received data: " . json_encode($data));
             $result = Flight::venteModel()->createBonCommande($data);
             Flight::json($result, 201);
         } catch (Exception $e) {
+            error_log("VenteController::createBonCommande Exception: " . $e->__toString());
             Flight::json(['error' => $e->getMessage()], 500);
         }
     }

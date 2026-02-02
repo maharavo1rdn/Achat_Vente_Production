@@ -228,10 +228,8 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { Plus, Eye, CreditCard, Printer, Search, X } from 'lucide-vue-next'
-import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Eye, CreditCard, Printer, Search } from 'lucide-vue-next'
+import { Plus, Eye, CreditCard, Printer, Search, X } from 'lucide-vue-next'
 import venteService from '@/services/venteService'
 
 const router = useRouter()
@@ -270,8 +268,6 @@ const filteredFactures = computed(() => {
       facture.numero_facture?.toLowerCase().includes(searchQuery.value.toLowerCase())
     
     const matchClient = !selectedClient.value || facture.client_nom === selectedClient.value
-
-    const matchClient = !selectedClient.value || facture.client === selectedClient.value
     const matchStatut = !selectedStatut.value || getStatutLabel(facture) === selectedStatut.value
 
     return matchSearch && matchClient && matchStatut

@@ -28,7 +28,7 @@
           <p class="page-subtitle">Liste des bons de commande de vente</p>
         </div>
         <button @click="openCreateModal" class="btn-primary">
-          <span>Nouveau Devis</span>
+          <span>Nouveau BC</span>
         </button>
       </div>
 
@@ -390,8 +390,8 @@ const formatDate = (date) => {
 }
 
 const openCreateModal = () => {
-  // Navigate to devis creation instead since BC are created from validated devis
-  router.push('/ventes/devis/nouveau')
+  // Navigate to BC creation
+  router.push('/ventes/bon-commande/nouveau')
 }
 
 const router = useRouter()

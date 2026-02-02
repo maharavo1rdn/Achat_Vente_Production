@@ -314,39 +314,26 @@ class StockModel
         return $results;
     }
 
-    public function updateStockQuantite($articleId, $depotId, $nouvelleQuantite,$prixUnitaire=null)
+    private function updateStockQuantite($articleId, $depotId, $nouvelleQuantite, $prixUnitaire=null)
     {
-        error_log("StockModel::updateStockQuantite called with articleId=$articleId, entrepriseId=$depotId, nouvelleQuantite=$nouvelleQuantite");
+        error_log("StockModel::updateStockQuantite called with articleId=$articleId, depotId=$depotId, nouvelleQuantite=$nouvelleQuantite");
 
-        $query = "SELECT * FROM v_stock_valorise WHERE 1=1";
-        $params = [];
+        // Vérifier si l'entrée stock existe
+        $stockExistant = $this->getStockByArticle($articleId, $depotId);
 
-        if (!empty($filters['filiale'])) {
-            $query .= " AND filiale = ?";
-            $params[] = $filters['filiale'];
-        }
-        if (!empty($filters['site'])) {
-            $query .= " AND site = ?";
-            $params[] = $filters['site'];
-        }
-        if (!empty($filters['depot'])) {
-            $query .= " AND depot = ?";
-            $params[] = $filters['depot'];
-        }
-        if (!empty($filters['reference'])) {
-            $query .= " AND reference ILIKE ?";
-            $params[] = '%' . $filters['reference'] . '%';
+        if ($stockExistant) {
+            // Mettre à jour
+            $query = "UPDATE stock SET quantite_actuelle = ?, date_maj = NOW() WHERE article_id = ? AND depot_id = ?";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$nouvelleQuantite, $articleId, $depotId]);
+        } else {
+            // Créer nouvelle entrée
+            $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle, cmup_actuel, valeur_stock_total, methode_valorisation_stock_id) VALUES (?, ?, ?, ?, ?, 2)";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$articleId, $depotId, $nouvelleQuantite, $prixUnitaire, $prixUnitaire * $nouvelleQuantite]);
         }
 
-        $query .= " ORDER BY filiale, depot, designation";
-
-        $stmt = $this->db->prepare($query);
-        $stmt->execute($params);
-
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        error_log("StockModel::getStockValorise retrieved " . count($results) . " rows");
-
-        return $results;
+        error_log("StockModel::updateStockQuantite stock updated");
     }
 
     /**
@@ -381,28 +368,6 @@ class StockModel
         error_log("StockModel::getStructureOrganisation retrieved " . count($results) . " rows");
 
         return $results;
-    }
-
-    private function updateStockQuantite($articleId, $depotId, $nouvelleQuantite)
-    {
-        error_log("StockModel::updateStockQuantite called with articleId=$articleId, depotId=$depotId, nouvelleQuantite=$nouvelleQuantite");
-
-        // Vérifier si l'entrée stock existe
-        $stockExistant = $this->getStockByArticle($articleId, $depotId);
-
-        if ($stockExistant) {
-            // Mettre à jour
-            $query = "UPDATE stock SET quantite_actuelle = ?, date_maj = NOW() WHERE article_id = ? AND depot_id = ?";
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([$nouvelleQuantite, $articleId, $depotId]);
-        } else {
-            // Créer nouvelle entrée
-            $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle,cmup_actuel,valeur_stock_total,methode_valorisation_stock_id) VALUES (?, ?,?,?, ? , 2)";
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([$articleId, $depotId, $nouvelleQuantite,$prixUnitaire*$nouvelleQuantite,$prixUnitaire*$nouvelleQuantite]);
-        }
-
-        error_log("StockModel::updateStockQuantite stock updated");
     }
 
     public function getDepotInfo($depotId)
