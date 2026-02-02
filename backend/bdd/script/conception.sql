@@ -532,16 +532,14 @@ CREATE INDEX idx_da_date           ON proforma_demande_achat(date_demande);
 
 
 
-achat_vente_db=#
-achat_vente_db=# -- Recalculer la valeur_stock_total pour les depots FIFO et LIFO
-achat_vente_db=# -- en sommant les valeurs des lots
-achat_vente_db=# UPDATE stock s
-achat_vente_db-# SET valeur_stock_total = (
-achat_vente_db(#     SELECT COALESCE(SUM(ls.quantite_restante * ls.prix_unitaire_achat), 0)
-achat_vente_db(#     FROM lot_stock ls
-achat_vente_db(#     WHERE ls.article_id = s.article_id
-achat_vente_db(#       AND ls.depot_id = s.depot_id
-achat_vente_db(#       AND ls.statut = 'ACTIF'
-achat_vente_db(# )
-achat_vente_db-# WHERE s.methode_valorisation_stock_id IN (2, 3);  -- FIFO et LIFO
-UPDATE 2
+
+ -- Recalculer la valeur_stock_total pour les depots FIFO et LIFO
+ -- en sommant les valeurs des lots
+ UPDATE stock s
+ SET valeur_stock_total = (
+     SELECT COALESCE(SUM(ls.quantite_restante * ls.prix_unitaire_achat), 0)
+     FROM lot_stock ls
+     WHERE ls.article_id = s.article_id
+       AND ls.depot_id = s.depot_id
+       AND ls.statut = 'ACTIF'
+ ) WHERE s.methode_valorisation_stock_id IN (2, 3);  -- FIFO et LIFO
