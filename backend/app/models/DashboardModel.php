@@ -19,7 +19,14 @@ class DashboardModel
 
         $stats = [];
 
-        $stats['total_articles'] = $this->getTotalArticles();
+        // Noms de clés attendus par Dashboard.vue (camelCase)
+        $stats['totalArticles'] = $this->getTotalArticles();
+        $stats['totalFacturesVente'] = $this->getTotalFacturesVente();
+        $stats['totalFacturesAchat'] = $this->getTotalFacturesAchat();
+        $stats['soldeCaisse'] = $this->getSoldeCaisseTotal();
+
+        // Anciennes clés pour compatibilité ascendante
+        $stats['total_articles'] = $stats['totalArticles'];
         $stats['total_clients'] = $this->getTotalClients();
         $stats['total_fournisseurs'] = $this->getTotalFournisseurs();
         $stats['total_personnel'] = $this->getTotalPersonnel();
@@ -42,6 +49,33 @@ class DashboardModel
         return $stats;
     }
 
+    private function getTotalFacturesVente()
+    {
+        $query = "SELECT COUNT(*) as total FROM facture_vente";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int)$result['total'];
+    }
+
+    private function getTotalFacturesAchat()
+    {
+        $query = "SELECT COUNT(*) as total FROM facture_achat";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int)$result['total'];
+    }
+
+    private function getSoldeCaisseTotal()
+    {
+        $query = "SELECT COALESCE(SUM(solde_actuel), 0) as total FROM caisse";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (float)$result['total'];
+    }
+
     public function getRecentVentes($limit = 10)
     {
         error_log("DashboardModel::getRecentVentes called with limit=$limit");
@@ -49,18 +83,18 @@ class DashboardModel
         $query = "
             SELECT
                 fv.id,
-                fv.numero_facture,
+                fv.numero_facture as numero,
                 fv.date_facture,
-                fv.montant_ttc,
+                fv.montant_ttc as montant,
                 fv.reste_a_payer,
-                ec.nom as client_nom,
+                ec.nom as client,
                 efi.nom as filiale_nom,
-                s.libelle as statut_libelle
+                s.libelle as statut
             FROM facture_vente fv
             INNER JOIN entreprise ec ON fv.entreprise_client_id = ec.id
             INNER JOIN entreprise efi ON fv.entreprise_filiale_id = efi.id
             INNER JOIN statut s ON fv.statut_id = s.id
-            ORDER BY fv.date_facture DESC
+            ORDER BY fv.date_facture DESC, fv.id DESC
             LIMIT ?
         ";
 
@@ -80,18 +114,18 @@ class DashboardModel
         $query = "
             SELECT
                 fa.id,
-                fa.numero_facture_fournisseur,
+                fa.numero_facture_fournisseur as numero,
                 fa.date_facture,
-                fa.montant_ttc,
+                fa.montant_ttc as montant,
                 fa.reste_a_payer,
-                ef.nom as fournisseur_nom,
+                ef.nom as fournisseur,
                 efi.nom as filiale_nom,
-                s.libelle as statut_libelle
+                s.libelle as statut
             FROM facture_achat fa
             INNER JOIN entreprise ef ON fa.entreprise_fournisseur_id = ef.id
             INNER JOIN entreprise efi ON fa.entreprise_filiale_id = efi.id
             INNER JOIN statut s ON fa.statut_id = s.id
-            ORDER BY fa.date_facture DESC
+            ORDER BY fa.date_facture DESC, fa.id DESC
             LIMIT ?
         ";
 

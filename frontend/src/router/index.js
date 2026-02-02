@@ -38,6 +38,7 @@ import StatsVentes from "../views/StatsVentes.vue"
 import Analytics from "../views/Analytics.vue"
 import Login from "../views/Login.vue"
 
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [

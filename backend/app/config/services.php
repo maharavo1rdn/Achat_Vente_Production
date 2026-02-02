@@ -20,6 +20,9 @@ use app\models\ProformaDemandeAchatModel;
 use app\models\ProformaFournisseurModel;
 use app\models\PaiementVenteModel;
 use app\models\PaiementAchatModel;
+use app\models\StatStockModel;
+use app\models\StatFinanceModel;
+use app\models\StatCommercialModel;
 use app\models\ModePaiementModel;
 use app\models\MouvementStockModel;
 
@@ -110,6 +113,18 @@ Flight::map('paiementVenteModel', function() {
 
 Flight::map('paiementAchatModel', function() {
     return new PaiementAchatModel(Flight::db());
+});
+
+Flight::map('statStockModel', function() {
+    return new StatStockModel(Flight::db());
+});
+
+Flight::map('statFinanceModel', function() {
+    return new StatFinanceModel(Flight::db());
+});
+
+Flight::map('statCommercialModel', function() {
+    return new StatCommercialModel(Flight::db());
 });
 
 Flight::map('modePaiementModel', function() {
