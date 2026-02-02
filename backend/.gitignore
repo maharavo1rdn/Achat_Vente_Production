@@ -187,6 +187,7 @@ sessions/
 /*.sqlite
 /*.sqlite3
 
+app/config
 # Configuration files with sensitive data
 config/database.php
 config/config.php
