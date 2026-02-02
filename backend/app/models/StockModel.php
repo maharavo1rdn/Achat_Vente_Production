@@ -109,7 +109,7 @@ class StockModel
             WHERE s.article_id = ?
         ";
 
-        $params = [$articleId, $entrepriseId];
+        $params = [$articleId];
 
         if ($depotId !== null) {
             $query .= " AND s.depot_id = ?";
@@ -198,7 +198,7 @@ class StockModel
 
         $query .= " ORDER BY ms.date_mouvement DESC LIMIT 50";
 
-        error_log("query:". $query . " params: " . json_encode($params));
+        error_log("query:" . $query . " params: " . json_encode($params));
         $stmt = $this->db->prepare($query);
         $stmt->execute($params);
 
@@ -247,7 +247,7 @@ class StockModel
         $mouvementId = $this->db->lastInsertId();
 
         // Mettre à jour le stock
-        $this->updateStockQuantite($data['article_id'], $data['depot_id'], $quantiteApres,$data['prix_unitaire']);
+        $this->updateStockQuantite($data['article_id'], $data['depot_id'], $quantiteApres);
 
         error_log("StockModel::createMouvement created mouvement with id=$mouvementId");
         return (int)$mouvementId;
@@ -431,7 +431,7 @@ class StockModel
     public function getDepotInfo($depotId)
     {
         error_log("StockModel::getDepotInfo called with depotId=$depotId");
-        
+
         $query = "
             SELECT 
                 d.id as depot_id,
@@ -453,23 +453,23 @@ class StockModel
             LEFT JOIN methode_valorisation_stock mvs ON st.methode_valorisation_stock_id = mvs.id
             WHERE d.id = ?
         ";
-        
+
         $stmt = $this->db->prepare($query);
         $stmt->execute([$depotId, $depotId]);
-        
+
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$result) {
             throw new InvalidArgumentException("Dépôt non trouvé");
         }
-        
+
         return $result;
     }
 
     public function getStockByDepot($depotId)
     {
         error_log("StockModel::getStockByDepot called with depotId=$depotId");
-        
+
         $query = "
             SELECT 
                 s.id,
@@ -488,21 +488,21 @@ class StockModel
             WHERE s.depot_id = ? AND s.quantite_actuelle > 0
             ORDER BY a.designation
         ";
-        
+
         $stmt = $this->db->prepare($query);
         $stmt->execute([$depotId]);
-        
+
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         error_log("StockModel::getStockByDepot retrieved " . count($results) . " articles");
-        
+
         return $results;
     }
 
     public function getLotsByDepot($depotId)
     {
         error_log("StockModel::getLotsByDepot called with depotId=$depotId");
-        
+
         $query = "
             SELECT 
                 l.id,
@@ -521,21 +521,21 @@ class StockModel
             WHERE l.depot_id = ? AND l.quantite_restante > 0
             ORDER BY a.designation, l.date_entree DESC
         ";
-        
+
         $stmt = $this->db->prepare($query);
         $stmt->execute([$depotId]);
-        
+
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         error_log("StockModel::getLotsByDepot retrieved " . count($results) . " lots");
-        
+
         return $results;
     }
 
     public function getMouvementsByArticle($articleId, $depotId = null)
     {
         error_log("StockModel::getMouvementsByArticle called with articleId=$articleId, depotId=" . ($depotId ?? 'null'));
-        
+
         $query = "
             SELECT 
                 ms.id,
@@ -550,23 +550,23 @@ class StockModel
             INNER JOIN personnel p ON ms.personnel_id = p.id
             WHERE ms.article_id = ?
         ";
-        
+
         $params = [$articleId];
-        
+
         if ($depotId) {
             $query .= " AND ms.depot_id = ?";
             $params[] = $depotId;
         }
-        
+
         $query .= " ORDER BY ms.date_mouvement DESC LIMIT 50";
-        
+
         $stmt = $this->db->prepare($query);
         $stmt->execute($params);
-        
+
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         error_log("StockModel::getMouvementsByArticle retrieved " . count($results) . " movements");
-        
+
         return $results;
     }
 

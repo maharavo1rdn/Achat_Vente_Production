@@ -170,9 +170,8 @@ class ProformaDemandeAchatModel
             $this->db->commit();
             
             return $demandeId;
-            exit();
 
-        } catch (Exception $e) {
+            } catch (Exception $e) {
             $this->db->rollBack();
             throw $e;
         }

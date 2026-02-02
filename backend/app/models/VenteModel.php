@@ -131,7 +131,7 @@ class VenteModel
 
         // Generate initial numero_devis if not provided so validation passes
         if (empty($data['numero_devis'])) {
-            $data['numero_devis'] = $this->generateNumeroDevis(false);
+            $data['numero_devis'] = $this->generateNumeroDevis();
         }
 
         $this->validateDevisData($data);
