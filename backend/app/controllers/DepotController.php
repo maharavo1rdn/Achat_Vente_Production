@@ -48,6 +48,9 @@ class DepotController
             if (isset($data['site_id']))
                 $data['site_id'] = $data['site_id'] === '' ? null : (int)$data['site_id'];
 
+            if (isset($data['methode_valorisation_stock_id']))
+                $data['methode_valorisation_stock_id'] = $data['methode_valorisation_stock_id'] === '' ? null : (int)$data['methode_valorisation_stock_id'];
+
             $newId = Flight::depotModel()->create($data);
             Flight::json(['id' => (int)$newId], 201);
         } catch (Exception $e) {
@@ -67,6 +70,9 @@ class DepotController
 
             if (isset($data['site_id']))
                 $data['site_id'] = $data['site_id'] === '' ? null : (int)$data['site_id'];
+
+            if (isset($data['methode_valorisation_stock_id']))
+                $data['methode_valorisation_stock_id'] = $data['methode_valorisation_stock_id'] === '' ? null : (int)$data['methode_valorisation_stock_id'];
 
             $result = Flight::depotModel()->update($id, $data);
             if ($result) Flight::json(['success' => true]);

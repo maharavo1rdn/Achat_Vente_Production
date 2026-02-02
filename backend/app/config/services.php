@@ -22,6 +22,7 @@ use app\models\PaiementVenteModel;
 use app\models\PaiementAchatModel;
 use app\models\StatStockModel;
 use app\models\StatFinanceModel;
+use app\models\StatutModel;
 use app\models\StatCommercialModel;
 use app\models\ModePaiementModel;
 use app\models\MouvementStockModel;
@@ -132,4 +133,8 @@ Flight::map('modePaiementModel', function() {
 });
 Flight::map('mouvementStockModel', function() {
     return new MouvementStockModel(Flight::db());
+});
+
+Flight::map('statutModel', function() {
+    return new StatutModel(Flight::db());
 });

@@ -28,7 +28,7 @@
           <h1 class="page-title">Factures de Vente</h1>
           <p class="page-subtitle">Suivi des factures clients</p>
         </div>
-        <button @click="openCreateModal" class="btn-primary">
+        <button @click="showBonCommandeModal = true" class="btn-primary">
           <Plus class="w-4 h-4" />
           <span>Nouvelle Facture</span>
         </button>
@@ -76,8 +76,13 @@
             <label class="label">Client</label>
             <select v-model="selectedClient" class="select">
               <option value="">Tous les clients</option>
-              <option value="1">Client A</option>
-              <option value="2">Client B</option>
+              <option 
+                v-for="client in uniqueClients" 
+                :key="client" 
+                :value="client"
+              >
+                {{ client }}
+              </option>
             </select>
           </div>
           <div class="filter-item">
@@ -128,7 +133,7 @@
                   <div v-if="facture.remarques" class="text-xs text-gray-500 mt-1">{{ facture.remarques }}</div>
                 </td>
                 <td class="text-gray-600">{{ formatDate(facture.date_facture) }}</td>
-                <td class="font-medium">{{ facture.client }}</td>
+                <td class="font-medium">{{ facture.client_nom }}</td>
                 <td class="text-right font-semibold">{{ formatCurrency(facture.montant_ttc) }}</td>
                 <td class="text-right font-semibold" :class="getResteClass(facture.reste_a_payer)">
                   {{ formatCurrency(facture.reste_a_payer) }}
@@ -138,7 +143,7 @@
                     {{ getStatutLabel(facture) }}
                   </span>
                 </td>
-                <td class="text-xs text-gray-500">{{ facture.vendeur }}</td>
+                <td class="text-xs text-gray-500">{{ facture.personnel_nom }} {{ facture.personnel_prenom }}</td>
                 <td>
                   <div class="table-actions">
                     <button @click="viewFacture(facture)" class="action-btn" title="Voir">
@@ -167,15 +172,60 @@
       </div>
     </div>
 
-    <PaymentForm v-if="showPaymentModal" :facture="currentFacture" type="vente" @close="showPaymentModal = false"
-      @created="onPaymentCreated" />
+    <!-- Modal Sélection Bon de Commande -->
+    <div v-if="showBonCommandeModal" class="modal-overlay" @click="showBonCommandeModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">Créer une facture</h3>
+          <button @click="showBonCommandeModal = false" class="modal-close">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <p class="text-sm text-gray-600 mb-4">
+            Sélectionnez un bon de commande validé pour créer la facture correspondante :
+          </p>
+          
+          <div v-if="loadingBC" class="loading-state">
+            <div class="spinner"></div>
+            <p class="loading-text">Chargement des bons de commande...</p>
+          </div>
+          
+          <div v-else-if="bonCommandes.length === 0" class="text-center py-8 text-gray-500">
+            Aucun bon de commande validé disponible pour facturation
+          </div>
+          
+          <div v-else class="space-y-3">
+            <div 
+              v-for="bc in bonCommandes" 
+              :key="bc.id" 
+              class="bc-item"
+              @click="createFactureFromBC(bc)"
+            >
+              <div class="bc-info">
+                <div class="bc-header">
+                  <span class="bc-number">{{ bc.numero_bc }}</span>
+                  <span class="bc-date">{{ formatDate(bc.date_commande) }}</span>
+                </div>
+                <div class="bc-details">
+                  <span class="bc-client">{{ bc.client_nom }}</span>
+                  <span class="bc-amount">{{ formatCurrency(bc.montant_ttc) }}</span>
+                </div>
+              </div>
+              <button class="bc-select-btn">
+                Sélectionner
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { Plus, Eye, CreditCard, Printer, Search } from 'lucide-vue-next'
+import { ref, computed, onMounted, watch } from 'vue'
+import { Plus, Eye, CreditCard, Printer, Search, X } from 'lucide-vue-next'
 import venteService from '@/services/venteService'
 
 const router = useRouter()
@@ -188,6 +238,11 @@ const dateFilter = ref('')
 const factures = ref([])
 const loading = ref(false)
 const error = ref(null)
+
+// Modal de sélection de bon de commande
+const showBonCommandeModal = ref(false)
+const bonCommandes = ref([])
+const loadingBC = ref(false)
 
 const loadFactures = async () => {
   try {
@@ -207,8 +262,8 @@ const filteredFactures = computed(() => {
   return factures.value.filter(facture => {
     const matchSearch = !searchQuery.value ||
       facture.numero_facture?.toLowerCase().includes(searchQuery.value.toLowerCase())
-
-    const matchClient = !selectedClient.value || facture.client === selectedClient.value
+    
+    const matchClient = !selectedClient.value || facture.client_nom === selectedClient.value
     const matchStatut = !selectedStatut.value || getStatutLabel(facture) === selectedStatut.value
 
     return matchSearch && matchClient && matchStatut
@@ -225,6 +280,11 @@ const facturesImpayees = computed(() => {
 
 const totalResteAEncaisser = computed(() => {
   return factures.value.reduce((sum, f) => sum + (f.reste_a_payer || 0), 0)
+})
+
+const uniqueClients = computed(() => {
+  const clients = [...new Set(factures.value.map(f => f.client_nom).filter(Boolean))]
+  return clients.sort()
 })
 
 const getStatutLabel = (facture) => {
@@ -256,8 +316,42 @@ const formatDate = (date) => {
   return new Date(date).toLocaleDateString('fr-FR')
 }
 
-const openCreateModal = () => {
-  console.log('Open create modal')
+const loadBonCommandes = async () => {
+  try {
+    loadingBC.value = true
+    const response = await venteService.bonCommande.getAll()
+    // Filtrer les bons de commande qui peuvent être facturés (statut VALIDE et pas encore facturés)
+    bonCommandes.value = response.data.filter(bc => 
+      bc.statut === 'VALIDE' && !hasExistingFacture(bc.id)
+    ) || []
+  } catch (err) {
+    console.error('Erreur chargement bons de commande:', err)
+  } finally {
+    loadingBC.value = false
+  }
+}
+
+const hasExistingFacture = (bcId) => {
+  return factures.value.some(f => f.bon_commande_vente_id === bcId)
+}
+
+const createFactureFromBC = async (bonCommande) => {
+  if (!confirm(`Créer une facture à partir du bon de commande ${bonCommande.numero_bc} ?`)) return
+  
+  try {
+    await venteService.bonCommande.convertToFacture(bonCommande.id)
+    await loadFactures()
+    showBonCommandeModal.value = false
+    alert('Facture créée avec succès')
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Erreur lors de la création de la facture'
+    console.error('Erreur création facture:', err)
+  }
+}
+
+const printFacture = (facture) => {
+  console.log('Print facture:', facture)
+  // Logique d'impression
 }
 
 const viewFacture = (facture) => {
@@ -288,13 +382,15 @@ const editRemarques = async (facture) => {
   }
 }
 
-const printFacture = (facture) => {
-  console.log('Print facture:', facture)
-  // Logique d'impression
-}
-
 onMounted(() => {
   loadFactures()
+})
+
+// Watcher pour charger les bons de commande quand la modal s'ouvre
+watch(showBonCommandeModal, (newValue) => {
+  if (newValue) {
+    loadBonCommandes()
+  }
 })
 </script>
 
@@ -493,5 +589,65 @@ onMounted(() => {
 
 .badge-warning {
   @apply bg-orange-100 text-orange-700;
+}
+
+.modal-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+}
+
+.modal-content {
+  @apply bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden;
+}
+
+.modal-header {
+  @apply flex items-center justify-between p-6 border-b border-gray-200;
+}
+
+.modal-title {
+  @apply text-lg font-semibold text-gray-900;
+}
+
+.modal-close {
+  @apply p-1 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100;
+}
+
+.modal-body {
+  @apply p-6 overflow-y-auto max-h-96;
+}
+
+.bc-item {
+  @apply border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-gray-300 hover:shadow-sm transition-all flex items-center justify-between;
+}
+
+.bc-info {
+  @apply flex-1;
+}
+
+.bc-header {
+  @apply flex items-center justify-between mb-2;
+}
+
+.bc-number {
+  @apply font-semibold text-gray-900;
+}
+
+.bc-date {
+  @apply text-sm text-gray-500;
+}
+
+.bc-details {
+  @apply flex items-center justify-between text-sm;
+}
+
+.bc-client {
+  @apply text-gray-700;
+}
+
+.bc-amount {
+  @apply font-semibold text-gray-900;
+}
+
+.bc-select-btn {
+  @apply px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors;
 }
 </style>

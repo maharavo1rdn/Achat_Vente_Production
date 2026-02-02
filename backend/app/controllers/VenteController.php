@@ -3,6 +3,7 @@
 namespace app\controllers;
 
 use Exception;
+use InvalidArgumentException;
 use Flight;
 
 class VenteController {
@@ -36,6 +37,8 @@ class VenteController {
             $result = Flight::venteModel()->createDevis($data);
             Flight::json($result, 201);
         } catch (Exception $e) {
+            // Log full exception for debugging
+            error_log("VenteController::createDevis Exception: " . $e->__toString());
             Flight::json(['error' => $e->getMessage()], 500);
         }
     }
@@ -45,6 +48,23 @@ class VenteController {
             $data = Flight::request()->data;
             $result = Flight::venteModel()->updateDevis($id, $data);
             Flight::json($result);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateDevisStatut($id) {
+        try {
+            $data = Flight::request()->data;
+            $statutCode = $data['statut_code'] ?? null;
+            
+            if (!$statutCode) {
+                Flight::json(['error' => 'Le code statut est obligatoire'], 400);
+                return;
+            }
+            
+            $result = Flight::venteModel()->updateDevisStatut($id, $statutCode);
+            Flight::json(['success' => $result]);
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
@@ -129,6 +149,31 @@ class VenteController {
         }
     }
 
+    public function convertBonCommandeToFactureWithCustomData($id) {
+        try {
+            $customData = Flight::request()->data;
+            error_log("VenteController::convertBonCommandeToFactureWithCustomData received data: " . json_encode($customData));
+            $result = Flight::venteModel()->convertBonCommandeToFactureWithCustomData($id, $customData);
+            Flight::json($result, 201);
+        } catch (InvalidArgumentException $e) {
+            error_log("VenteController::convertBonCommandeToFactureWithCustomData InvalidArgumentException: " . $e->getMessage());
+            Flight::json(['error' => $e->getMessage()], 400);
+        } catch (Exception $e) {
+            error_log("VenteController::convertBonCommandeToFactureWithCustomData Exception: " . $e->__toString());
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function checkIfBonCommandeIsFactured($id) {
+        try {
+            $isFactured = Flight::venteModel()->factureExistsForBonCommande($id);
+            Flight::json(['isFactured' => $isFactured]);
+        } catch (Exception $e) {
+            error_log("VenteController::checkIfBonCommandeIsFactured Exception: " . $e->getMessage());
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     public function getAllFactures() {
         try {
             $filters = Flight::request()->query;
@@ -155,9 +200,11 @@ class VenteController {
     public function createFacture() {
         try {
             $data = Flight::request()->data;
+            error_log("VenteController::createFacture received data: " . json_encode($data));
             $result = Flight::venteModel()->createFacture($data);
             Flight::json($result, 201);
         } catch (Exception $e) {
+            error_log("VenteController::createFacture Exception: " . $e->__toString());
             Flight::json(['error' => $e->getMessage()], 500);
         }
     }

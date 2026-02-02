@@ -65,4 +65,69 @@ class StockController {
             Flight::json(['error' => $e->getMessage()], 500);
         }
     }
+
+    public function getStockValorise() {
+        try {
+            $filters = Flight::request()->query;
+            $valorise = Flight::stockModel()->getStockValorise($filters);
+            Flight::json($valorise);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getStockConsolideGroupe() {
+        try {
+            $res = Flight::stockModel()->getStockConsolideGroupe();
+            Flight::json($res);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getStructureOrganisation() {
+        try {
+            $res = Flight::stockModel()->getStructureOrganisation();
+            Flight::json($res);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getDepotInfo($depotId) {
+        try {
+            $depotInfo = Flight::stockModel()->getDepotInfo($depotId);
+            Flight::json($depotInfo);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getStockByDepot($depotId) {
+        try {
+            $stockArticles = Flight::stockModel()->getStockByDepot($depotId);
+            Flight::json($stockArticles);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getLotsByDepot($depotId) {
+        try {
+            $lots = Flight::stockModel()->getLotsByDepot($depotId);
+            Flight::json($lots);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getMouvementsByArticle($articleId) {
+        try {
+            $depotId = Flight::request()->query->depot_id ?? null;
+            $mouvements = Flight::stockModel()->getMouvementsByArticle($articleId, $depotId);
+            Flight::json($mouvements);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
 }
