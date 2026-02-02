@@ -100,12 +100,82 @@ class MouvementStockController {
                 'message' => 'Sortie créée avec succès',
                 'data' => ['mouvements_ids' => $result]
             ], 201);
+            exit();
             
         } catch (Exception $e) {
             error_log("Erreur dans creerSortieAvecFIFO: " . $e->getMessage());
             Flight::json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
+
+    public function creerSortieAvecLIFO() {
+        try {
+            $data = Flight::request()->data->getData();
+            
+            // Validation des données requises
+            $requiredFields = ['article_id', 'quantite', 'personnel_id', 'reference_document'];
+            foreach ($requiredFields as $field) {
+                if (!isset($data[$field]) || empty($data[$field])) {
+                    throw new InvalidArgumentException("Le champ '$field' est requis");
+                }
+            }
+            
+            $result = Flight::mouvementStockModel()->creerSortieAvecLIFO(
+                $data['article_id'],
+                $data['quantite'],
+                $data['personnel_id'],
+                $data['reference_document'],
+                $data['prix_unitaire'] ?? null
+            );
+            
+            Flight::json([
+                'success' => true, 
+                'message' => 'Sortie LIFO créée avec succès',
+                'data' => $result
+            ], 201);
+            
+        } catch (Exception $e) {
+            error_log("Erreur dans creerSortieAvecLIFO: " . $e->getMessage());
+            Flight::json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+    
+    /**
+     * Crée une sortie avec méthode CMUP
+     */
+    public function creerSortieAvecCMUP() {
+        try {
+            $data = Flight::request()->data->getData();
+            
+            // Validation des données requises
+            $requiredFields = ['article_id', 'quantite', 'personnel_id', 'reference_document'];
+            foreach ($requiredFields as $field) {
+                if (!isset($data[$field]) || empty($data[$field])) {
+                    throw new InvalidArgumentException("Le champ '$field' est requis");
+                }
+            }
+            
+            $result = Flight::mouvementStockModel()->creerSortieAvecCMUP(
+                $data['article_id'],
+                $data['quantite'],
+                $data['personnel_id'],
+                $data['reference_document'],
+                $data['prix_unitaire'] ?? null
+            );
+            
+            Flight::json([
+                'success' => true, 
+                'message' => 'Sortie CMUP créée avec succès',
+                'data' => $result
+            ], 201);
+            
+        } catch (Exception $e) {
+            error_log("Erreur dans creerSortieAvecCMUP: " . $e->getMessage());
+            Flight::json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    
 
     public function getMouvementsDetailles() {
         try {

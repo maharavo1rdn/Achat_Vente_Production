@@ -326,6 +326,8 @@ $router->group('/api/mouvements-stock', function() use ($mouvementStockControlle
     
     // Créer une sortie avec FIFO
     Flight::route('POST /sortie-fifo', [$mouvementStockController, 'creerSortieAvecFIFO']);
+    Flight::route('POST /sortie-lifo', [$mouvementStockController, 'creerSortieAvecLIFO']);
+    Flight::route('POST /sortie-cmup', [$mouvementStockController, 'creerSortieAvecCMUP']);
     
     // Liste des mouvements détaillés (avec filtres) - ROUTE GET PRINCIPALE
     Flight::route('GET /', [$mouvementStockController, 'getMouvementsDetailles']);

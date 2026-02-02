@@ -335,6 +335,7 @@ import {
   Eye, TrendingUp, TrendingDown, Package, Warehouse, GitBranch 
 } from 'lucide-vue-next'
 import mouvementService from '@/services/mouvementStockService'
+import depotService from '@/services/depotService'
 
 const loading = ref(false)
 const error = ref(null)
@@ -483,8 +484,9 @@ const loadDernieresSorties = async () => {
 const loadDepots = async () => {
   try {
     // À remplacer par votre service de dépôts
-    const response = { data: { data: [] } }
-    depots.value = response.data.data
+    const response = await depotService.getAll()
+    depots.value = response.data
+    // alert(JSON.stringify(depots.value));
   } catch (err) {
     console.error('Erreur chargement dépôts:', err)
   }

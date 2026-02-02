@@ -24,7 +24,7 @@ class StatistiqueModel {
         $sql = "
             SELECT COALESCE(SUM(pv.montant), 0) AS total
             FROM paiement_vente pv
-            WHERE pv.statut_id = 5 OR pv.statut_id = 6
+            
             {$where}
         ";
 

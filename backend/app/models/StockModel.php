@@ -88,10 +88,10 @@ class StockModel
             FROM stock s
             INNER JOIN article a ON s.article_id = a.id
             INNER JOIN depot e ON s.depot_id = e.id
-            WHERE s.article_id = ?
+            WHERE s.article_id = ? AND s.depot_id= ?
         ";
 
-        $params = [$articleId];
+        $params = [$articleId, $entrepriseId];
 
        
 
@@ -291,7 +291,7 @@ class StockModel
         return $results;
     }
 
-    private function updateStockQuantite($articleId, $depotId, $nouvelleQuantite)
+    public function updateStockQuantite($articleId, $depotId, $nouvelleQuantite)
     {
         error_log("StockModel::updateStockQuantite called with articleId=$articleId, entrepriseId=$depotId, nouvelleQuantite=$nouvelleQuantite");
 
@@ -305,7 +305,7 @@ class StockModel
             $stmt->execute([$nouvelleQuantite, $articleId, $depotId]);
         } else {
             // Créer nouvelle entrée
-            $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle) VALUES (?, ?, ?)";
+            $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle,methode_valorisation_stock_id) VALUES (?, ?, ? , 2)";
             $stmt = $this->db->prepare($query);
             $stmt->execute([$articleId, $depotId, $nouvelleQuantite]);
         }

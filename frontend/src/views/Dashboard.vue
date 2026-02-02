@@ -414,12 +414,12 @@
             </div>
             <div v-else v-for="vente in recentVentes" :key="vente.id" class="activity-item">
               <div class="activity-info">
-                <p class="activity-title">{{ vente.numero_facture }}</p>
-                <p class="activity-subtitle">{{ vente.client_nom }}</p>
+                <p class="activity-title">{{ vente.numero }}</p>
+                <p class="activity-subtitle">{{ vente.client }}</p>
               </div>
               <div class="activity-meta">
-                <p class="activity-amount">{{ formatCurrency(vente.montant_ttc) }}</p>
-                <span class="badge badge-success">{{ vente.statut_libelle }}</span>
+                <p class="activity-amount">{{ formatCurrency(vente.montant) }}</p>
+                <span class="badge badge-success">{{ vente.statut }}</span>
               </div>
             </div>
           </div>
@@ -439,12 +439,12 @@
             </div>
             <div v-else v-for="achat in recentAchats" :key="achat.id" class="activity-item">
               <div class="activity-info">
-                <p class="activity-title">{{ achat.numero_facture_fournisseur }}</p>
-                <p class="activity-subtitle">{{ achat.fournisseur_nom }}</p>
+                <p class="activity-title">{{ achat.numero}}</p>
+                <p class="activity-subtitle">{{ achat.fournisseur }}</p>
               </div>
               <div class="activity-meta">
-                <p class="activity-amount">{{ formatCurrency(achat.montant_ttc) }}</p>
-                <span class="badge badge-warning">{{ achat.statut_libelle }}</span>
+                <p class="activity-amount">{{ formatCurrency(achat.montant) }}</p>
+                <span class="badge badge-warning">{{ achat.statut }}</span>
               </div>
             </div>
           </div>
@@ -482,8 +482,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { Package, TrendingUp, ShoppingCart, Wallet } from 'lucide-vue-next'
-import { ref, onMounted } from 'vue'
-import { Package, TrendingUp, Wallet } from 'lucide-vue-next'
 import api from '@/services/api/api'
 import statStockService from '@/services/statStockService'
 import financeService from '@/services/financeService'
@@ -613,12 +611,7 @@ const formatCurrency = (amount) => {
   }).format(amount)
 }
 
-const formatPercent = (value) => {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'percent',
-    minimumFractionDigits: 1
-  }).format(value / 100)
-}
+
 
 const formatPercent = (value) => {
   const numeric = Number(value) || 0
@@ -630,8 +623,7 @@ const loadDashboardData = async () => {
   error.value = null
   try {
     // Stats de base
-    const statsResponse = await api.get('/dashboard/stats')
-    stats.value = statsResponse.data || stats.value
+    
     const params = {}
     if (startDate.value && endDate.value) {
       params['periode'] = [startDate.value, endDate.value]

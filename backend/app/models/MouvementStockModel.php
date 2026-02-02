@@ -2,6 +2,7 @@
 
 namespace app\models;
 
+use Flight;
 use InvalidArgumentException;
 use PDO;
 
@@ -415,52 +416,168 @@ class MouvementStockModel
     /**
      * Crée une sortie de stock avec FIFO
      */
+    /**
+ * Crée une sortie de stock avec FIFO (First In, First Out)
+ * Version avec création de mouvements de sortie séparés pour chaque lot FIFO
+ */
     public function creerSortieAvecFIFO($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null)
     {
-        error_log("MouvementStockModel::creerSortieAvecFIFO called: articleId=$articleId, quantite=$quantite");
-
-        // Déterminer les dépôts pour la sortie FIFO
-        $depotsPourSortie = $this->getDepotFIFOPourSortie($articleId, $quantite);
-
-        if (empty($depotsPourSortie)) {
-            throw new InvalidArgumentException("Impossible de déterminer les dépôts pour la sortie");
-        }
-
-        $mouvementsIds = [];
-
-        // Créer les mouvements de sortie pour chaque dépôt
-        foreach ($depotsPourSortie as $depot) {
-            // Récupérer le stock avant pour ce dépôt
-            $stockAvant = $this->getStockActuelParDepot($articleId, $depot['depot_id']);
-            
-            $query = "
-                INSERT INTO mouvement_stock (
-                    type_mouvement, quantite_stock_avant, quantite_entree, quantite_sortie,
-                    quantite_stock_apres, prix_unitaire_mouvement, article_id, personnel_id,
-                    depot_id, reference_document, date_mouvement
-                ) VALUES ('VENTE', ?, 0, ?, ?, ?, ?, ?, ?, ?, NOW())
+        error_log("=== DEBUT creerSortieAvecFIFO ===");
+        error_log("Article: $articleId, Quantité: $quantite, Référence: $referenceDocument");
+        
+        $this->db->beginTransaction();
+        
+        
+            // 1. RÉCUPÉRER LES ENTRÉES DISPONIBLES triées FIFO
+            $sql = "
+                SELECT 
+                    ms.id as entree_id,
+                    ms.depot_id,
+                    ms.quantite_entree,
+                    ms.date_mouvement,
+                    ms.prix_unitaire_mouvement as prix_unitaire_achat,
+                    ms.reference_document as reference_entree,
+                    d.nom as depot_nom,
+                    -- Calculer ce qui reste disponible dans cette entrée
+                    (ms.quantite_entree - COALESCE(
+                        (SELECT SUM(quantite_sortie) 
+                        FROM mouvement_stock ms2 
+                        WHERE ms2.type_mouvement IN ('VENTE', 'SORTIE')
+                        AND ms2.article_id = ms.article_id
+                        AND ms2.reference_entree_source = ms.reference_document), 0)) as quantite_disponible
+                FROM mouvement_stock ms
+                LEFT JOIN depot d ON ms.depot_id = d.id
+                WHERE ms.article_id = ?
+                AND ms.type_mouvement IN ('ACHAT', 'INVENTAIRE')
+                AND ms.quantite_entree > 0
+                ORDER BY ms.date_mouvement ASC  -- FIFO: plus ancien d'abord
             ";
-
-            $quantiteStockApres = $stockAvant - $depot['quantite_sortie'];
-
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([
-                $stockAvant,
-                $depot['quantite_sortie'],
-                $quantiteStockApres,
-                $prixUnitaire,
-                $articleId,
-                $personnelId,
-                $depot['depot_id'],
-                $referenceDocument
-            ]);
-
-            $mouvementsIds[] = $this->db->lastInsertId();
             
-            error_log("MouvementStockModel::creerSortieAvecFIFO: Sortie créée dans le dépôt {$depot['depot_nom']}, quantité: {$depot['quantite_sortie']}");
-        }
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$articleId]);
+            $entreesDisponibles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            error_log("Entrées disponibles (FIFO): " . count($entreesDisponibles));
+            
+            if (empty($entreesDisponibles)) {
+                throw new InvalidArgumentException("Aucune entrée disponible pour l'article $articleId");
+            }
+            
+            // 2. CALCULER LE STOCK TOTAL DISPONIBLE
+            $stockTotalDisponible = 0;
+            foreach ($entreesDisponibles as $entree) {
+                $stockTotalDisponible += $entree['quantite_disponible'];
+                error_log("Lot {$entree['reference_entree']}: Disponible = {$entree['quantite_disponible']}");
+            }
+            
+            error_log("Stock total disponible: $stockTotalDisponible");
+            
+            if ($stockTotalDisponible < $quantite) {
+                throw new InvalidArgumentException(
+                    "Stock insuffisant. Disponible: $stockTotalDisponible, Demandé: $quantite"
+                );
+            }
+            
+            // 3. APPLIQUER FIFO - créer un mouvement par lot utilisé
+            $quantiteRestante = $quantite;
+            $mouvementsSortieIds = [];
+            $lotsUtilises = [];
+            
+            foreach ($entreesDisponibles as $entree) {
+                if ($quantiteRestante <= 0) break;
+                
+                $quantiteDisponibleDansLot = $entree['quantite_disponible'];
+                $quantiteAPrendre = min($quantiteRestante, $quantiteDisponibleDansLot);
+                
+                if ($quantiteAPrendre > 0) {
+                    // CRÉER UN MOUVEMENT DE SORTIE POUR CE LOT
+                    $mouvementSortieId = $this->creerMouvementSortie(
+                        $articleId,
+                        $quantiteAPrendre,
+                        $personnelId,
+                        $referenceDocument,
+                        $entree['depot_id'],
+                        $prixUnitaire ?? $entree['prix_unitaire_achat'],
+                        $entree['reference_entree']  // Référence de l'entrée source
+                    );
+                    
+                    $mouvementsSortieIds[] = $mouvementSortieId;
+                    
+                    $lotsUtilises[] = [
+                        'entree_id' => $entree['entree_id'],
+                        'reference_entree' => $entree['reference_entree'],
+                        'quantite_prelevee' => $quantiteAPrendre,
+                        'quantite_restante_dans_lot' => $quantiteDisponibleDansLot - $quantiteAPrendre,
+                        'depot' => $entree['depot_nom'],
+                        'date_entree' => $entree['date_mouvement']
+                    ];
+                    
+                    $quantiteRestante -= $quantiteAPrendre;
+                    
+                    error_log("Créé sortie ID $mouvementSortieId: $quantiteAPrendre unités du lot {$entree['reference_entree']}");
+                    error_log("Reste à sortir: $quantiteRestante");
+                }
+            }
+            
+            // 4. VALIDER LA TRANSACTION
+            $this->db->commit();
+            
+            $resultat = [
+                'success' => true,
+                'quantite_demandee' => $quantite,
+                'quantite_sortie_reelle' => $quantite - $quantiteRestante,
+                'quantite_restante' => $quantiteRestante,
+                'mouvements_sortie_ids' => $mouvementsSortieIds,
+                'lots_utilises' => $lotsUtilises,
+                'nombre_mouvements_crees' => count($mouvementsSortieIds),
+                'message' => "Sortie FIFO créée avec " . count($mouvementsSortieIds) . " mouvement(s)"
+            ];
+            
+            error_log("=== FIN creerSortieAvecFIFO ===");
+            error_log(json_encode($resultat));
+            
+            return $resultat;
+            
+        
+    }
 
-        return $mouvementsIds;
+    /**
+     * Crée un mouvement de sortie lié à une entrée spécifique
+     */
+   
+    /**
+     * Récupère les entrées disponibles pour FIFO (pour les tests)
+     */
+    public function getEntreesDisponiblesPourFIFO($articleId)
+    {
+        $sql = "
+            SELECT 
+                ms.id,
+                ms.reference_document,
+                ms.quantite_entree,
+                ms.date_mouvement,
+                ms.depot_id,
+                d.nom as depot_nom,
+                ms.prix_unitaire_mouvement,
+                -- Calculer le disponible (entrée - sorties déjà faites)
+                (ms.quantite_entree - COALESCE(
+                    (SELECT SUM(quantite_sortie) 
+                    FROM mouvement_stock ms2 
+                    WHERE ms2.type_mouvement IN ('VENTE', 'SORTIE')
+                    AND ms2.reference_entree_source = ms.reference_document), 0)) as quantite_disponible
+            FROM mouvement_stock ms
+            LEFT JOIN depots d ON ms.depot_id = d.id
+            WHERE ms.article_id = ?
+            AND ms.type_mouvement IN ('ACHAT', 'INVENTAIRE')
+            AND ms.quantite_entree > 0
+            HAVING quantite_disponible > 0
+            ORDER BY ms.date_mouvement ASC
+        ";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$articleId]);
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**
@@ -734,5 +851,699 @@ class MouvementStockModel
     public function getStockActuelParDepotPublic($articleId, $depotId)
     {
         return $this->getStockActuelParDepot($articleId, $depotId);
+    }
+
+
+    /**
+ * Crée une sortie de stock avec LIFO (Last In, First Out)
+ * Principe : Les dernières entrées sont sorties en premier
+ */
+    public function creerSortieAvecLIFO($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null)
+    {
+        error_log("=== DEBUT creerSortieAvecLIFO ===");
+        error_log("Article: $articleId, Quantité: $quantite, Référence: $referenceDocument");
+        
+        $this->db->beginTransaction();
+        
+        
+            // 1. RÉCUPÉRER LES ENTRÉES DISPONIBLES triées LIFO (inverse de FIFO)
+            $sql = "
+                SELECT 
+                    ms.id as entree_id,
+                    ms.depot_id,
+                    ms.quantite_entree,
+                    ms.date_mouvement,
+                    ms.prix_unitaire_mouvement as prix_unitaire_achat,
+                    ms.reference_document as reference_entree,
+                    d.nom as depot_nom,
+                    -- Calculer ce qui reste disponible dans cette entrée
+                    (ms.quantite_entree - COALESCE(
+                        (SELECT SUM(quantite_sortie) 
+                        FROM mouvement_stock ms2 
+                        WHERE ms2.type_mouvement IN ('VENTE', 'SORTIE')
+                        AND ms2.article_id = ms.article_id
+                        AND ms2.reference_entree_source = ms.reference_document), 0)) as quantite_disponible
+                FROM mouvement_stock ms
+                LEFT JOIN depot d ON ms.depot_id = d.id
+                WHERE ms.article_id = ?
+                AND ms.type_mouvement IN ('ACHAT', 'INVENTAIRE')
+                AND ms.quantite_entree > 0
+                ORDER BY ms.date_mouvement DESC  -- LIFO: plus récent d'abord
+            ";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$articleId]);
+            $entreesDisponibles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            error_log("Entrées disponibles (LIFO): " . count($entreesDisponibles));
+            
+            if (empty($entreesDisponibles)) {
+                throw new InvalidArgumentException("Aucune entrée disponible pour l'article $articleId");
+            }
+            
+            // 2. CALCULER LE STOCK TOTAL DISPONIBLE
+            $stockTotalDisponible = 0;
+            foreach ($entreesDisponibles as $entree) {
+                $stockTotalDisponible += $entree['quantite_disponible'];
+                error_log("Lot {$entree['reference_entree']}: Disponible = {$entree['quantite_disponible']}");
+            }
+            
+            error_log("Stock total disponible: $stockTotalDisponible");
+            
+            if ($stockTotalDisponible < $quantite) {
+                throw new InvalidArgumentException(
+                    "Stock insuffisant. Disponible: $stockTotalDisponible, Demandé: $quantite"
+                );
+            }
+            
+            // 3. APPLIQUER LIFO - créer un mouvement par lot utilisé
+            $quantiteRestante = $quantite;
+            $mouvementsSortieIds = [];
+            $lotsUtilises = [];
+            
+            foreach ($entreesDisponibles as $entree) {
+                if ($quantiteRestante <= 0) break;
+                
+                $quantiteDisponibleDansLot = $entree['quantite_disponible'];
+                $quantiteAPrendre = min($quantiteRestante, $quantiteDisponibleDansLot);
+                
+                if ($quantiteAPrendre > 0) {
+                    // CRÉER UN MOUVEMENT DE SORTIE POUR CE LOT
+                    $mouvementSortieId = $this->creerMouvementSortie(
+                        $articleId,
+                        $quantiteAPrendre,
+                        $personnelId,
+                        $referenceDocument,
+                        $entree['depot_id'],
+                        $prixUnitaire ?? $entree['prix_unitaire_achat'],
+                        $entree['reference_entree']  // Référence de l'entrée source
+                    );
+                    
+                    $mouvementsSortieIds[] = $mouvementSortieId;
+                    
+                    $lotsUtilises[] = [
+                        'entree_id' => $entree['entree_id'],
+                        'reference_entree' => $entree['reference_entree'],
+                        'quantite_prelevee' => $quantiteAPrendre,
+                        'quantite_restante_dans_lot' => $quantiteDisponibleDansLot - $quantiteAPrendre,
+                        'depot' => $entree['depot_nom'],
+                        'date_entree' => $entree['date_mouvement'],
+                        'prix_unitaire_achat' => $entree['prix_unitaire_achat'],
+                        'type_sortie' => 'LIFO'
+                    ];
+                    
+                    $quantiteRestante -= $quantiteAPrendre;
+                    
+                    error_log("LIFO: Créé sortie ID $mouvementSortieId: $quantiteAPrendre unités du lot {$entree['reference_entree']}");
+                    error_log("Reste à sortir: $quantiteRestante");
+                }
+            }
+            
+            // 4. VALIDER LA TRANSACTION
+            $this->db->commit();
+            
+            // 5. CALCULER LE COÛT TOTAL LIFO
+            $coutTotalLIFO = 0;
+            foreach ($lotsUtilises as $lot) {
+                $coutTotalLIFO += $lot['quantite_prelevee'] * $lot['prix_unitaire_achat'];
+            }
+            
+            $resultat = [
+                'success' => true,
+                'quantite_demandee' => $quantite,
+                'quantite_sortie_reelle' => $quantite - $quantiteRestante,
+                'quantite_restante' => $quantiteRestante,
+                'mouvements_sortie_ids' => $mouvementsSortieIds,
+                'lots_utilises' => $lotsUtilises,
+                'cout_total_lifo' => $coutTotalLIFO,
+                'cout_moyen_unitaire_lifo' => ($quantite - $quantiteRestante) > 0 ? 
+                    $coutTotalLIFO / ($quantite - $quantiteRestante) : 0,
+                'nombre_mouvements_crees' => count($mouvementsSortieIds),
+                'type_sortie' => 'LIFO',
+                'message' => "Sortie LIFO créée avec " . count($mouvementsSortieIds) . " mouvement(s)"
+            ];
+            
+            error_log("=== FIN creerSortieAvecLIFO ===");
+            error_log("Coût total LIFO: $coutTotalLIFO");
+            
+            return $resultat;
+            
+       
+    }
+
+    /**
+     * Crée une sortie de stock avec CMUP (Coût Moyen Unitaire Pondéré)
+     * Principe : Toutes les entrées sont mélangées, on sort à un prix moyen
+     */
+    public function creerSortieAvecCMUP($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null)
+    {
+        error_log("=== DEBUT creerSortieAvecCMUP ===");
+        error_log("Article: $articleId, Quantité: $quantite, Référence: $referenceDocument");
+        
+        $this->db->beginTransaction();
+        
+        
+            // 1. RÉCUPÉRER TOUTES LES ENTRÉES DISPONIBLES
+            $sql = "
+                SELECT 
+                    ms.id as entree_id,
+                    ms.depot_id,
+                    ms.quantite_entree,
+                    ms.date_mouvement,
+                    ms.prix_unitaire_mouvement as prix_unitaire_achat,
+                    ms.reference_document as reference_entree,
+                    d.nom as depot_nom,
+                    -- Calculer ce qui reste disponible dans cette entrée
+                    (ms.quantite_entree - COALESCE(
+                        (SELECT SUM(quantite_sortie) 
+                        FROM mouvement_stock ms2 
+                        WHERE ms2.type_mouvement IN ('VENTE', 'SORTIE')
+                        AND ms2.article_id = ms.article_id
+                        AND ms2.reference_entree_source = ms.reference_document), 0)) as quantite_disponible
+                FROM mouvement_stock ms
+                LEFT JOIN depot d ON ms.depot_id = d.id
+                WHERE ms.article_id = ?
+                AND ms.type_mouvement IN ('ACHAT', 'INVENTAIRE')
+                AND ms.quantite_entree > 0
+            ";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$articleId]);
+            $entreesDisponibles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            error_log("Entrées disponibles (CMUP): " . count($entreesDisponibles));
+            
+            if (empty($entreesDisponibles)) {
+                throw new InvalidArgumentException("Aucune entrée disponible pour l'article $articleId");
+            }
+            
+            // 2. CALCULER LE STOCK TOTAL ET LE CMUP
+            $stockTotalDisponible = 0;
+            $valeurTotaleStock = 0;
+            $entreesPourCMUP = [];
+            
+            foreach ($entreesDisponibles as $entree) {
+                $stockTotalDisponible += $entree['quantite_disponible'];
+                $valeurLot = $entree['quantite_disponible'] * $entree['prix_unitaire_achat'];
+                $valeurTotaleStock += $valeurLot;
+                
+                $entreesPourCMUP[] = [
+                    'entree_id' => $entree['entree_id'],
+                    'depot_id' => $entree['depot_id'],
+                    'quantite_disponible' => $entree['quantite_disponible'],
+                    'prix_unitaire_achat' => $entree['prix_unitaire_achat'],
+                    'valeur_lot' => $valeurLot,
+                    'reference_entree' => $entree['reference_entree'],
+                    'depot_nom' => $entree['depot_nom'],
+                    'date_entree' => $entree['date_mouvement']
+                ];
+            }
+            
+            // 3. CALCULER LE CMUP (Coût Moyen Unitaire Pondéré)
+            $cmup = $stockTotalDisponible > 0 ? $valeurTotaleStock / $stockTotalDisponible : 0;
+            
+            error_log("Stock total disponible: $stockTotalDisponible");
+            error_log("Valeur totale stock: $valeurTotaleStock");
+            error_log("CMUP calculé: $cmup");
+            
+            if ($stockTotalDisponible < $quantite) {
+                throw new InvalidArgumentException(
+                    "Stock insuffisant. Disponible: $stockTotalDisponible, Demandé: $quantite"
+                );
+            }
+            
+            // 4. AVEC CMUP, ON PEUT CRÉER UN SEUL MOUVEMENT DE SORTIE (prix unique)
+            // Mais on doit quand même gérer les quantités par dépôt si nécessaire
+            $quantiteRestante = $quantite;
+            $mouvementsSortieIds = [];
+            $lotsUtilises = [];
+            
+            // Pour CMUP, on prend proportionnellement de chaque lot
+            foreach ($entreesPourCMUP as $entree) {
+                if ($quantiteRestante <= 0) break;
+                
+                // Proportion à prendre de ce lot
+                $proportion = $entree['quantite_disponible'] / $stockTotalDisponible;
+                $quantiteAPrendre = min(
+                    floor($quantite * $proportion),  // Prendre proportionnellement
+                    $entree['quantite_disponible'],  // Mais pas plus que disponible
+                    $quantiteRestante               // Et pas plus que ce qui reste
+                );
+                
+                // Au moins prendre 1 unité si disponible et nécessaire
+                if ($quantiteAPrendre <= 0 && $quantiteRestante > 0 && $entree['quantite_disponible'] > 0) {
+                    $quantiteAPrendre = min(1, $entree['quantite_disponible'], $quantiteRestante);
+                }
+                
+                if ($quantiteAPrendre > 0) {
+                    // Créer un mouvement de sortie avec le prix CMUP
+                    $mouvementSortieId = $this->creerMouvementSortie(
+                        $articleId,
+                        $quantiteAPrendre,
+                        $personnelId,
+                        $referenceDocument,
+                        $entree['depot_id'],
+                        $prixUnitaire ?? $cmup,  // Utiliser CMUP comme prix
+                        $entree['reference_entree'],
+                        'CMUP'  // Indiquer la méthode
+                    );
+                    
+                    $mouvementsSortieIds[] = $mouvementSortieId;
+                    
+                    $lotsUtilises[] = [
+                        'entree_id' => $entree['entree_id'],
+                        'reference_entree' => $entree['reference_entree'],
+                        'quantite_prelevee' => $quantiteAPrendre,
+                        'quantite_restante_dans_lot' => $entree['quantite_disponible'] - $quantiteAPrendre,
+                        'depot' => $entree['depot_nom'],
+                        'date_entree' => $entree['date_entree'],
+                        'prix_unitaire_achat' => $entree['prix_unitaire_achat'],
+                        'prix_unitaire_applique' => $cmup,  // Prix CMUP appliqué
+                        'type_sortie' => 'CMUP'
+                    ];
+                    
+                    $quantiteRestante -= $quantiteAPrendre;
+                    
+                    error_log("CMUP: Créé sortie ID $mouvementSortieId: $quantiteAPrendre unités à prix $cmup");
+                    error_log("Du lot {$entree['reference_entree']}, Reste à sortir: $quantiteRestante");
+                }
+            }
+            
+            // 5. SI IL RESTE ENCORE À SORTIR, PRENDRE DES LOTS AU HASARD
+            if ($quantiteRestante > 0) {
+                error_log("Prélèvement proportionnel insuffisant, prise complémentaire...");
+                
+                foreach ($entreesPourCMUP as $entree) {
+                    if ($quantiteRestante <= 0) break;
+                    
+                    // Vérifier combien il reste dans ce lot après le prélèvement proportionnel
+                    $lotUtilise = null;
+                    foreach ($lotsUtilises as $lot) {
+                        if ($lot['entree_id'] == $entree['entree_id']) {
+                            $lotUtilise = $lot;
+                            break;
+                        }
+                    }
+                    
+                    $dejaPreleve = $lotUtilise ? $lotUtilise['quantite_prelevee'] : 0;
+                    $quantiteEncoreDisponible = $entree['quantite_disponible'] - $dejaPreleve;
+                    
+                    if ($quantiteEncoreDisponible > 0) {
+                        $quantiteAPrendre = min($quantiteEncoreDisponible, $quantiteRestante);
+                        
+                        if ($quantiteAPrendre > 0) {
+                            // Créer un mouvement de sortie supplémentaire
+                            $mouvementSortieId = $this->creerMouvementSortie(
+                                $articleId,
+                                $quantiteAPrendre,
+                                $personnelId,
+                                $referenceDocument,
+                                $entree['depot_id'],
+                                $prixUnitaire ?? $cmup,
+                                $entree['reference_entree'],
+                                'CMUP'
+                            );
+                            
+                            $mouvementsSortieIds[] = $mouvementSortieId;
+                            
+                            // Mettre à jour le lot utilisé
+                            if ($lotUtilise) {
+                                $lotUtilise['quantite_prelevee'] += $quantiteAPrendre;
+                                $lotUtilise['quantite_restante_dans_lot'] -= $quantiteAPrendre;
+                            } else {
+                                $lotsUtilises[] = [
+                                    'entree_id' => $entree['entree_id'],
+                                    'reference_entree' => $entree['reference_entree'],
+                                    'quantite_prelevee' => $quantiteAPrendre,
+                                    'quantite_restante_dans_lot' => $entree['quantite_disponible'] - $quantiteAPrendre,
+                                    'depot' => $entree['depot_nom'],
+                                    'date_entree' => $entree['date_entree'],
+                                    'prix_unitaire_achat' => $entree['prix_unitaire_achat'],
+                                    'prix_unitaire_applique' => $cmup,
+                                    'type_sortie' => 'CMUP'
+                                ];
+                            }
+                            
+                            $quantiteRestante -= $quantiteAPrendre;
+                            
+                            error_log("CMUP complémentaire: $quantiteAPrendre unités du lot {$entree['reference_entree']}");
+                        }
+                    }
+                }
+            }
+            
+            // 6. VALIDER LA TRANSACTION
+            $this->db->commit();
+            
+            // 7. CALCULER LE COÛT TOTAL CMUP
+            $coutTotalCMUP = ($quantite - $quantiteRestante) * $cmup;
+            
+            $resultat = [
+                'success' => true,
+                'quantite_demandee' => $quantite,
+                'quantite_sortie_reelle' => $quantite - $quantiteRestante,
+                'quantite_restante' => $quantiteRestante,
+                'mouvements_sortie_ids' => $mouvementsSortieIds,
+                'lots_utilises' => $lotsUtilises,
+                'calculs_cmup' => [
+                    'stock_total_disponible' => $stockTotalDisponible,
+                    'valeur_totale_stock' => $valeurTotaleStock,
+                    'cmup_calcule' => $cmup,
+                    'cout_total_cmup' => $coutTotalCMUP
+                ],
+                'cout_total_cmup' => $coutTotalCMUP,
+                'cout_moyen_unitaire_cmup' => $cmup,
+                'nombre_mouvements_crees' => count($mouvementsSortieIds),
+                'type_sortie' => 'CMUP',
+                'message' => "Sortie CMUP créée avec " . count($mouvementsSortieIds) . " mouvement(s), CMUP: $cmup"
+            ];
+            
+            error_log("=== FIN creerSortieAvecCMUP ===");
+            error_log("Coût total CMUP: $coutTotalCMUP, CMUP unitaire: $cmup");
+            
+            return $resultat;
+        
+    }
+
+    /**
+     * Crée un mouvement de sortie (version modifiée pour supporter différentes méthodes)
+     */
+    private function creerMouvementSortie($articleId, $quantite, $personnelId, $referenceDocument, 
+                                        $depotId, $prixUnitaire, $referenceEntreeSource, $methodeSortie = null)
+    {
+        // 1. Récupérer le stock actuel avant la sortie
+        $stockAvant = $this->getStockActuelParDepot($articleId, $depotId);
+        $stockApres = $stockAvant - $quantite;
+        
+        if ($stockApres < 0) {
+            throw new InvalidArgumentException("Stock insuffisant dans le dépôt $depotId");
+        }
+        
+        // 2. Créer le mouvement de sortie avec méthode optionnelle
+        $sql = "
+            INSERT INTO mouvement_stock (
+                type_mouvement,
+                quantite_stock_avant,
+                quantite_entree,
+                quantite_sortie,
+                quantite_stock_apres,
+                prix_unitaire_mouvement,
+                article_id,
+                personnel_id,
+                depot_id,
+                reference_document,
+                reference_entree_source,
+                methode_sortie,
+                date_mouvement
+            ) VALUES (
+                'VENTE',
+                ?,
+                0,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                NOW()
+            )
+        ";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            $stockAvant,
+            $quantite,
+            $stockApres,
+            $prixUnitaire,
+            $articleId,
+            $personnelId,
+            $depotId,
+            $referenceDocument,
+            $referenceEntreeSource,
+            $methodeSortie  // FIFO, LIFO, CMUP
+        ]);
+        
+        $mouvementId = $this->db->lastInsertId();
+        
+        // 3. Mettre à jour le stock
+        $stockModel = Flight::stockModel();
+        $stockModel->updateStockQuantite($articleId, $depotId, $stockApres);
+        
+        error_log("Mouvement sortie créé: ID $mouvementId, Qty: $quantite, Méthode: $methodeSortie");
+        
+        return $mouvementId;
+    }
+
+    /**
+     * Compare les différentes méthodes de sortie pour un article
+     */
+    // public function comparerMethodesSortie($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null)
+    // {
+    //     error_log("=== COMPARAISON MÉTHODES SORTIE ===");
+        
+    //     $resultats = [];
+        
+    //     try {
+    //         // 1. FIFO
+    //         $resultats['FIFO'] = $this->creerSortieAvecFIFO(
+    //             $articleId, $quantite, $personnelId, $referenceDocument . '_FIFO', $prixUnitaire
+    //         );
+    //     } catch (Exception $e) {
+    //         $resultats['FIFO'] = ['error' => $e->getMessage()];
+    //     }
+        
+    //     try {
+    //         // 2. LIFO
+    //         $resultats['LIFO'] = $this->creerSortieAvecLIFO(
+    //             $articleId, $quantite, $personnelId, $referenceDocument . '_LIFO', $prixUnitaire
+    //         );
+    //     } catch (Exception $e) {
+    //         $resultats['LIFO'] = ['error' => $e->getMessage()];
+    //     }
+        
+    //     try {
+    //         // 3. CMUP
+    //         $resultats['CMUP'] = $this->creerSortieAvecCMUP(
+    //             $articleId, $quantite, $personnelId, $referenceDocument . '_CMUP', $prixUnitaire
+    //         );
+    //     } catch (Exception $e) {
+    //         $resultats['CMUP'] = ['error' => $e->getMessage()];
+    //     }
+        
+    //     // 4. Analyse comparative
+    //     $comparaison = [
+    //         'article_id' => $articleId,
+    //         'quantite_demandee' => $quantite,
+    //         'methodes' => $resultats,
+    //         'analyse' => $this->analyserComparaison($resultats)
+    //     ];
+        
+    //     error_log("=== FIN COMPARAISON ===");
+        
+    //     return $comparaison;
+    // }
+
+    /**
+     * Analyse la comparaison des différentes méthodes
+     */
+    private function analyserComparaison($resultats)
+    {
+        $analyse = [];
+        
+        if (isset($resultats['FIFO']['cout_total_lifo'])) { // Correction: devrait être cout_total_fifo
+            $analyse['FIFO'] = [
+                'cout_total' => $resultats['FIFO']['cout_total_lifo'] ?? 0,
+                'cout_moyen' => $resultats['FIFO']['cout_moyen_unitaire_lifo'] ?? 0,
+                'mouvements' => count($resultats['FIFO']['mouvements_sortie_ids'] ?? [])
+            ];
+        }
+        
+        if (isset($resultats['LIFO']['cout_total_lifo'])) {
+            $analyse['LIFO'] = [
+                'cout_total' => $resultats['LIFO']['cout_total_lifo'],
+                'cout_moyen' => $resultats['LIFO']['cout_moyen_unitaire_lifo'],
+                'mouvements' => count($resultats['LIFO']['mouvements_sortie_ids'] ?? [])
+            ];
+        }
+        
+        if (isset($resultats['CMUP']['cout_total_cmup'])) {
+            $analyse['CMUP'] = [
+                'cout_total' => $resultats['CMUP']['cout_total_cmup'],
+                'cout_moyen' => $resultats['CMUP']['cout_moyen_unitaire_cmup'],
+                'mouvements' => count($resultats['CMUP']['mouvements_sortie_ids'] ?? [])
+            ];
+        }
+        
+        // Déterminer la méthode la moins chère
+        $coutsTotaux = array_filter(array_column($analyse, 'cout_total'));
+        if (!empty($coutsTotaux)) {
+            $methodeMoinsChere = array_search(min($coutsTotaux), $coutsTotaux);
+            $analyse['methode_moins_chere'] = $methodeMoinsChere;
+        }
+        
+        return $analyse;
+    }
+
+    /**
+     * Simule les différentes méthodes sans créer réellement les mouvements
+     */
+    public function simulerMethodesSortie($articleId, $quantite)
+    {
+        error_log("=== SIMULATION MÉTHODES SORTIE ===");
+        
+        // Récupérer les entrées disponibles
+        $entrees = $this->getEntreesDisponiblesPourFIFO($articleId);
+        
+        if (empty($entrees)) {
+            throw new InvalidArgumentException("Aucune entrée disponible pour l'article $articleId");
+        }
+        
+        // Calculer le stock total disponible
+        $stockTotal = array_sum(array_column($entrees, 'quantite_disponible'));
+        
+        if ($stockTotal < $quantite) {
+            throw new InvalidArgumentException("Stock insuffisant. Disponible: $stockTotal, Demandé: $quantite");
+        }
+        
+        $simulations = [];
+        
+        // 1. Simulation FIFO
+        $simulations['FIFO'] = $this->simulerFIFO($entrees, $quantite);
+        
+        // 2. Simulation LIFO
+        $simulations['LIFO'] = $this->simulerLIFO($entrees, $quantite);
+        
+        // 3. Simulation CMUP
+        $simulations['CMUP'] = $this->simulerCMUP($entrees, $quantite);
+        
+        return [
+            'article_id' => $articleId,
+            'quantite_demandee' => $quantite,
+            'stock_disponible' => $stockTotal,
+            'entrees_disponibles' => $entrees,
+            'simulations' => $simulations,
+            'recommendation' => $this->genererRecommendation($simulations)
+        ];
+    }
+
+    /**
+     * Simule une sortie FIFO
+     */
+    private function simulerFIFO($entrees, $quantite)
+    {
+        // Trier par date croissante (FIFO)
+        usort($entrees, function($a, $b) {
+            return strtotime($a['date_mouvement']) - strtotime($b['date_mouvement']);
+        });
+        
+        return $this->simulerSortie($entrees, $quantite, 'FIFO');
+    }
+
+    /**
+     * Simule une sortie LIFO
+     */
+    private function simulerLIFO($entrees, $quantite)
+    {
+        // Trier par date décroissante (LIFO)
+        usort($entrees, function($a, $b) {
+            return strtotime($b['date_mouvement']) - strtotime($a['date_mouvement']);
+        });
+        
+        return $this->simulerSortie($entrees, $quantite, 'LIFO');
+    }
+
+    /**
+     * Simule une sortie CMUP
+     */
+    private function simulerCMUP($entrees, $quantite)
+    {
+        // Calculer CMUP
+        $valeurTotale = 0;
+        $quantiteTotale = 0;
+        
+        foreach ($entrees as $entree) {
+            $valeurTotale += $entree['quantite_disponible'] * $entree['prix_unitaire_mouvement'];
+            $quantiteTotale += $entree['quantite_disponible'];
+        }
+        
+        $cmup = $quantiteTotale > 0 ? $valeurTotale / $quantiteTotale : 0;
+        
+        $simulation = $this->simulerSortie($entrees, $quantite, 'CMUP');
+        $simulation['cmup'] = $cmup;
+        $simulation['cout_total'] = $quantite * $cmup;
+        $simulation['cout_moyen'] = $cmup;
+        
+        return $simulation;
+    }
+
+    /**
+     * Simule une sortie générique
+     */
+    private function simulerSortie($entreesTriees, $quantite, $methode)
+    {
+        $quantiteRestante = $quantite;
+        $lotsUtilises = [];
+        $coutTotal = 0;
+        
+        foreach ($entreesTriees as $entree) {
+            if ($quantiteRestante <= 0) break;
+            
+            $quantiteAPrendre = min($quantiteRestante, $entree['quantite_disponible']);
+            
+            if ($quantiteAPrendre > 0) {
+                $lotsUtilises[] = [
+                    'reference_entree' => $entree['reference_document'],
+                    'quantite_prelevee' => $quantiteAPrendre,
+                    'prix_unitaire' => $entree['prix_unitaire_mouvement'],
+                    'cout_ligne' => $quantiteAPrendre * $entree['prix_unitaire_mouvement'],
+                    'date_entree' => $entree['date_mouvement'],
+                    'depot' => $entree['depot_nom']
+                ];
+                
+                $coutTotal += $quantiteAPrendre * $entree['prix_unitaire_mouvement'];
+                $quantiteRestante -= $quantiteAPrendre;
+            }
+        }
+        
+        return [
+            'methode' => $methode,
+            'quantite_demandee' => $quantite,
+            'quantite_simulee' => $quantite - $quantiteRestante,
+            'quantite_restante' => $quantiteRestante,
+            'lots_utilises' => $lotsUtilises,
+            'cout_total' => $coutTotal,
+            'cout_moyen' => ($quantite - $quantiteRestante) > 0 ? $coutTotal / ($quantite - $quantiteRestante) : 0,
+            'nombre_lots_utilises' => count($lotsUtilises)
+        ];
+    }
+
+    /**
+     * Génère une recommandation basée sur les simulations
+     */
+    private function genererRecommendation($simulations)
+    {
+        if (empty($simulations)) return null;
+        
+        $couts = [];
+        foreach ($simulations as $methode => $simulation) {
+            if (isset($simulation['cout_total'])) {
+                $couts[$methode] = $simulation['cout_total'];
+            }
+        }
+        
+        if (empty($couts)) return null;
+        
+        $methodeMoinsChere = array_search(min($couts), $couts);
+        $methodePlusChere = array_search(max($couts), $couts);
+        
+        return [
+            'methode_recommandee' => $methodeMoinsChere,
+            'methode_plus_couteuse' => $methodePlusChere,
+            'difference_cout' => $couts[$methodePlusChere] - $couts[$methodeMoinsChere],
+            'economie_potentielle' => $couts[$methodePlusChere] - $couts[$methodeMoinsChere]
+        ];
     }
 }
