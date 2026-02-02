@@ -606,11 +606,11 @@ class AchatModel
             $query = "INSERT INTO facture_achat_details (facture_achat_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
             $stmt = $this->db->prepare($query);
             $stmt->execute([$factureId, $detail['article_id'], $detail['quantite'], $detail['prix_unitaire']]);
-            $this->createMouvementAchatFromLigne($detail['article_id'],$personnelId, $detail['quantite'], $numeroFactureFournisseur,$depotId);
+            $this->createMouvementAchatFromLigne($detail['article_id'],$personnelId, $detail['quantite'], $numeroFactureFournisseur,$depotId,$detail['prix_unitaire']);
         }
     }
 
-    private function createMouvementAchatFromLigne($article,$personnelId, $quantite, $numeroFacture,$depot)
+    private function createMouvementAchatFromLigne($article,$personnelId, $quantite, $numeroFacture,$depot,$prixUnitaire)
     {
         error_log("AchatModel::createMouvementAchatFromLigne called for article=$article, personnelId=$personnelId, quantite=$quantite, numeroFacture=$numeroFacture");
         
@@ -620,7 +620,8 @@ class AchatModel
             'article_id' => $article,
             'personnel_id' => $personnelId,
             'quantite_entree' => $quantite,
-            'reference_document' => $numeroFacture 
+            'reference_document' => $numeroFacture,
+            'prix_unitaire' => $prixUnitaire
         ];
 
         // Ajouter depot_id si spécifié dans la ligne

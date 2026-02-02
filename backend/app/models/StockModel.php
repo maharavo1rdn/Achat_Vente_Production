@@ -204,7 +204,7 @@ class StockModel
             $data['quantite_entree'] ?? 0,
             $data['quantite_sortie'] ?? 0,
             $quantiteApres,
-            $data['prix_unitaire_mouvement'] ?? null,
+            $data['prix_unitaire'] ?? null,
             $data['article_id'],
             $data['personnel_id'],
             $data['reference_document'] ?? null,
@@ -214,7 +214,7 @@ class StockModel
         $mouvementId = $this->db->lastInsertId();
 
         // Mettre à jour le stock
-        $this->updateStockQuantite($data['article_id'], $data['depot_id'], $quantiteApres);
+        $this->updateStockQuantite($data['article_id'], $data['depot_id'], $quantiteApres,$data['prix_unitaire']);
 
         error_log("StockModel::createMouvement created mouvement with id=$mouvementId");
         return (int)$mouvementId;
@@ -291,7 +291,7 @@ class StockModel
         return $results;
     }
 
-    public function updateStockQuantite($articleId, $depotId, $nouvelleQuantite)
+    public function updateStockQuantite($articleId, $depotId, $nouvelleQuantite,$prixUnitaire=null)
     {
         error_log("StockModel::updateStockQuantite called with articleId=$articleId, entrepriseId=$depotId, nouvelleQuantite=$nouvelleQuantite");
 
@@ -305,9 +305,9 @@ class StockModel
             $stmt->execute([$nouvelleQuantite, $articleId, $depotId]);
         } else {
             // Créer nouvelle entrée
-            $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle,methode_valorisation_stock_id) VALUES (?, ?, ? , 2)";
+            $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle,cmup_actuel,valeur_stock_total,methode_valorisation_stock_id) VALUES (?, ?,?,?, ? , 2)";
             $stmt = $this->db->prepare($query);
-            $stmt->execute([$articleId, $depotId, $nouvelleQuantite]);
+            $stmt->execute([$articleId, $depotId, $nouvelleQuantite,$prixUnitaire*$nouvelleQuantite,$prixUnitaire*$nouvelleQuantite]);
         }
 
         error_log("StockModel::updateStockQuantite stock updated");
