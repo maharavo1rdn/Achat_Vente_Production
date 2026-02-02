@@ -200,6 +200,8 @@ CREATE TABLE mouvement_stock (
     depot_id INTEGER NOT NULL,
     personnel_id INTEGER NOT NULL,
     reference_document VARCHAR(100),
+    reference_entree_source VARCHAR(100),
+    methode_sortie VARCHAR(100),
     FOREIGN KEY (article_id) REFERENCES article(id),
     FOREIGN KEY (depot_id) REFERENCES depot(id),
     FOREIGN KEY (personnel_id) REFERENCES personnel(id)
