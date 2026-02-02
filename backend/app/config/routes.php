@@ -83,6 +83,14 @@ $router->group('/api/stock', function () use ($router, $Stock_Controller) {
     $router->post('/mouvements', [$Stock_Controller, 'createMouvement']);
     $router->get('/historique/@articleId:[0-9]+', [$Stock_Controller, 'getHistoriqueArticle']);
     $router->get('/alerte', [$Stock_Controller, 'getStockAlerte']);
+    $router->get('/valorise', [$Stock_Controller, 'getStockValorise']);
+    $router->get('/consolide-groupe', [$Stock_Controller, 'getStockConsolideGroupe']);
+    $router->get('/structure', [$Stock_Controller, 'getStructureOrganisation']);
+    // Depot details routes
+    $router->get('/depot/@depotId:[0-9]+/info', [$Stock_Controller, 'getDepotInfo']);
+    $router->get('/depot/@depotId:[0-9]+/articles', [$Stock_Controller, 'getStockByDepot']);
+    $router->get('/depot/@depotId:[0-9]+/lots', [$Stock_Controller, 'getLotsByDepot']);
+    $router->get('/mouvements/article/@articleId:[0-9]+', [$Stock_Controller, 'getMouvementsByArticle']);
 });
 
 $router->group('/api/achats', function () use ($router, $Achat_Controller) {
@@ -119,9 +127,13 @@ $router->group('/api/ventes', function () use ($router, $Vente_Controller) {
         $router->get('/@id:[0-9]+', [$Vente_Controller, 'getDevisById']);
         $router->post('', [$Vente_Controller, 'createDevis']);
         $router->put('/@id:[0-9]+', [$Vente_Controller, 'updateDevis']);
+        $router->patch('/@id:[0-9]+/statut', [$Vente_Controller, 'updateDevisStatut']);
         $router->delete('/@id:[0-9]+', [$Vente_Controller, 'deleteDevis']);
         $router->post('/@id:[0-9]+/convert-bc', [$Vente_Controller, 'convertDevisToBonCommande']);
     });
+
+    // Statuts (référentiel)
+    $router->get('/statuts', [new \app\controllers\StatutController(), 'getAll']);
 
     $router->group('/bon-commande', function () use ($router, $Vente_Controller) {
         $router->get('', [$Vente_Controller, 'getAllBonCommande']);
@@ -130,6 +142,8 @@ $router->group('/api/ventes', function () use ($router, $Vente_Controller) {
         $router->put('/@id:[0-9]+', [$Vente_Controller, 'updateBonCommande']);
         $router->delete('/@id:[0-9]+', [$Vente_Controller, 'deleteBonCommande']);
         $router->post('/@id:[0-9]+/convert-facture', [$Vente_Controller, 'convertBonCommandeToFacture']);
+        $router->post('/@id:[0-9]+/convert-facture-custom', [$Vente_Controller, 'convertBonCommandeToFactureWithCustomData']);
+        $router->get('/@id:[0-9]+/is-factured', [$Vente_Controller, 'checkIfBonCommandeIsFactured']);
     });
 
     $router->group('/factures', function () use ($router, $Vente_Controller) {
@@ -138,7 +152,7 @@ $router->group('/api/ventes', function () use ($router, $Vente_Controller) {
         $router->post('', [$Vente_Controller, 'createFacture']);
         $router->put('/@id:[0-9]+', [$Vente_Controller, 'updateFacture']);
         $router->delete('/@id:[0-9]+', [$Vente_Controller, 'deleteFacture']);
-        $router->post('/@id:[0-9]+/encaisser', [$Vente_Controller, 'encaisserFacture']);
+        $router->post('/@id:[0-9]+/encaisser', [$Vente_Controller, 'payerFacture']);
     });
 });
 

@@ -6,6 +6,7 @@ import Articles from "../views/stock/Articles.vue"
 import MouvementStock from "../views/stock/MouvementStock.vue"
 import ArticleDetail from "../views/stock/ArticleDetail.vue"
 import Stock from "../views/stock/Stock.vue"
+import StockDepotDetails from "../views/stock/StockDepotDetails.vue"
 
 import ProformaFournisseur from "../views/achat/ProformaFournisseur.vue"
 import ProformaFournisseurDetail from "../views/achat/ProformaFournisseurDetail.vue"
@@ -15,8 +16,10 @@ import ProformaDemandeAchat from "../views/achat/ProformaDemandeAchat.vue"
 import ProformaDemandeAchatDetail from "../views/achat/ProformaDemandeAchatDetail.vue"
 
 import DevisVente from "../views/vente/DevisVente.vue"
-import BonCommandeVente from "../views/vente/BonCommandeVente.vue"
+import NouveauDevisVente from "../views/vente/NouveauDevisVente.vue"
 import FactureVente from "../views/vente/FactureVente.vue"
+import ListeCommandeVente from "../views/vente/ListeCommandeVente.vue"
+import ListeCommandeVenteDetails from "../views/vente/ListeCommandeVenteDetails.vue"
 
 import Caisse from "../views/finance/Caisse.vue"
 import Caisses from "../views/finance/Caisses.vue"
@@ -48,6 +51,7 @@ const router = createRouter({
     { path: "/articles/:id", name: "article-detail", component: ArticleDetail },
     { path: "/stock", name: "stock", component: Stock },
     { path: "/mouvement_stock", name: "mouvement-stock", component: MouvementStock },
+    { path: "/stock/depot/:depotId", name: "stock-depot-details", component: StockDepotDetails },
     { path: "/entreprises", name: "entreprises", component: Entreprises },
     { path: "/parametres/mode-paiements", name: "mode-paiements", component: () => import('@/views/parametres/ModePaiements.vue') },
     { path: "/entreprises/:id", name: "entreprise-detail", component: EntrepriseDetail },
@@ -66,7 +70,10 @@ const router = createRouter({
     { path: "/achats/factures", name: "facture-achat", component: FactureAchat },
     
     { path: "/ventes/devis", name: "devis-vente", component: DevisVente },
-    { path: "/ventes/bon-commande", name: "bon-commande-vente", component: BonCommandeVente },
+    { path: "/ventes/devis/nouveau", name: "nouveau-devis-vente", component: NouveauDevisVente },
+    { path: "/ventes/liste-commande-vente", name: "liste-commande-vente", component: ListeCommandeVente },
+    { path: "/ventes/liste-commande-vente/:id", name: "liste-commande-vente-detail", component: ListeCommandeVenteDetails },
+    { path: "/ventes/bon-commande", name: "bon-commande-vente", component: ListeCommandeVente },
     { path: "/ventes/factures", name: "facture-vente", component: FactureVente },
     
     { path: "/caisse", name: "caisse", component: Caisse },

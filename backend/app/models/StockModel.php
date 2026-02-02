@@ -22,28 +22,42 @@ class StockModel
             SELECT
                 s.id,
                 s.article_id,
-                s.entreprise_id,
+                s.depot_id,
                 s.quantite_actuelle,
+                s.cmup_actuel,
+                s.valeur_stock_total,
                 s.date_maj,
                 a.reference,
-                a.designation,
+                a.designation as article,
                 a.prix_achat_ref,
                 a.prix_vente_ref,
-                e.nom as entreprise_nom,
+                d.nom as depot,
+                si.nom as site,
+                e.nom as filiale,
                 u.code as unite_code,
-                u.libelle as unite
+                u.libelle as unite,
+                mvs.code as methode_valorisation_code,
+                mvs.libelle as methode_valorisation
             FROM stock s
             INNER JOIN article a ON s.article_id = a.id
-            INNER JOIN entreprise e ON s.entreprise_id = e.id
+            INNER JOIN depot d ON s.depot_id = d.id
+            INNER JOIN site si ON d.site_id = si.id
+            INNER JOIN entreprise e ON si.entreprise_id = e.id
             INNER JOIN unite u ON a.unite_id = u.id
+            INNER JOIN methode_valorisation_stock mvs ON s.methode_valorisation_stock_id = mvs.id
             WHERE 1=1
         ";
 
         $params = [];
 
         if (isset($filters['entreprise_id'])) {
-            $query .= " AND s.entreprise_id = ?";
+            $query .= " AND e.id = ?";
             $params[] = $filters['entreprise_id'];
+        }
+
+        if (isset($filters['depot_id'])) {
+            $query .= " AND s.depot_id = ?";
+            $params[] = $filters['depot_id'];
         }
 
         if (isset($filters['article_id'])) {
@@ -56,7 +70,7 @@ class StockModel
             $params[] = $filters['quantite_min'];
         }
 
-        $query .= " ORDER BY a.designation, e.nom";
+        $query .= " ORDER BY e.nom, d.nom, a.designation";
 
         $stmt = $this->db->prepare($query);
         $stmt->execute($params);
@@ -67,13 +81,13 @@ class StockModel
         return $results;
     }
 
-    public function getStockByArticle($articleId, $entrepriseId = null)
+    public function getStockByArticle($articleId, $depotId = null)
     {
         if ($articleId <= 0) {
             throw new InvalidArgumentException("L'ID d'article doit être un entier positif");
         }
 
-        error_log("StockModel::getStockByArticle called with articleId=$articleId, entrepriseId=" . ($entrepriseId ?? 'null'));
+        error_log("StockModel::getStockByArticle called with articleId=$articleId, depotId=" . ($depotId ?? 'null'));
 
         $query = "
             SELECT
@@ -164,7 +178,7 @@ class StockModel
             $params[] = $filters['date_fin'];
         }
 
-        $query .= " ORDER BY ms.date_mouvement DESC";
+        $query .= " ORDER BY ms.date_mouvement DESC LIMIT 50";
 
         error_log("query:". $query . " params: " . json_encode($params));
         $stmt = $this->db->prepare($query);
@@ -239,11 +253,15 @@ class StockModel
                 ms.quantite_stock_apres,
                 ms.prix_unitaire_mouvement,
                 ms.reference_document,
+                d.nom as depot_nom,
+                si.nom as site_nom,
                 e.nom as entreprise_nom,
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom
             FROM mouvement_stock ms
-            INNER JOIN entreprise e ON ms.entreprise_id = e.id
+            INNER JOIN depot d ON ms.depot_id = d.id
+            INNER JOIN site si ON d.site_id = si.id
+            INNER JOIN entreprise e ON si.entreprise_id = e.id
             INNER JOIN personnel p ON ms.personnel_id = p.id
             WHERE ms.article_id = ?
             ORDER BY ms.date_mouvement DESC
@@ -267,16 +285,21 @@ class StockModel
             SELECT
                 s.id,
                 s.article_id,
-                s.entreprise_id,
+                s.depot_id,
                 s.quantite_actuelle,
                 s.date_maj,
                 a.reference,
-                a.designation,
-                e.nom as entreprise_nom,
-                u.code as unite_code
+                a.designation as article,
+                d.nom as depot,
+                si.nom as site,
+                e.nom as filiale,
+                u.code as unite_code,
+                u.libelle as unite
             FROM stock s
             INNER JOIN article a ON s.article_id = a.id
-            INNER JOIN entreprise e ON s.entreprise_id = e.id
+            INNER JOIN depot d ON s.depot_id = d.id
+            INNER JOIN site si ON d.site_id = si.id
+            INNER JOIN entreprise e ON si.entreprise_id = e.id
             INNER JOIN unite u ON a.unite_id = u.id
             WHERE s.quantite_actuelle <= ?
             ORDER BY s.quantite_actuelle ASC, a.designation
@@ -294,6 +317,75 @@ class StockModel
     public function updateStockQuantite($articleId, $depotId, $nouvelleQuantite,$prixUnitaire=null)
     {
         error_log("StockModel::updateStockQuantite called with articleId=$articleId, entrepriseId=$depotId, nouvelleQuantite=$nouvelleQuantite");
+
+        $query = "SELECT * FROM v_stock_valorise WHERE 1=1";
+        $params = [];
+
+        if (!empty($filters['filiale'])) {
+            $query .= " AND filiale = ?";
+            $params[] = $filters['filiale'];
+        }
+        if (!empty($filters['site'])) {
+            $query .= " AND site = ?";
+            $params[] = $filters['site'];
+        }
+        if (!empty($filters['depot'])) {
+            $query .= " AND depot = ?";
+            $params[] = $filters['depot'];
+        }
+        if (!empty($filters['reference'])) {
+            $query .= " AND reference ILIKE ?";
+            $params[] = '%' . $filters['reference'] . '%';
+        }
+
+        $query .= " ORDER BY filiale, depot, designation";
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        error_log("StockModel::getStockValorise retrieved " . count($results) . " rows");
+
+        return $results;
+    }
+
+    /**
+     * Récupérer le stock consolidé au niveau groupe (v_stock_consolide_groupe)
+     */
+    public function getStockConsolideGroupe()
+    {
+        error_log("StockModel::getStockConsolideGroupe called");
+
+        $query = "SELECT * FROM v_stock_consolide_groupe ORDER BY valeur_totale_groupe DESC";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute();
+
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        error_log("StockModel::getStockConsolideGroupe retrieved " . count($results) . " rows");
+
+        return $results;
+    }
+
+    /**
+     * Récupérer la structure organisationnelle (groupes, entreprises, sites, dépôts)
+     */
+    public function getStructureOrganisation()
+    {
+        error_log("StockModel::getStructureOrganisation called");
+
+        $query = "SELECT DISTINCT groupe, entreprise, site_geo as site, depot_id, depot_logistique as depot FROM v_structure_organisation ORDER BY groupe, entreprise, site, depot";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute();
+
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        error_log("StockModel::getStructureOrganisation retrieved " . count($results) . " rows");
+
+        return $results;
+    }
+
+    private function updateStockQuantite($articleId, $depotId, $nouvelleQuantite)
+    {
+        error_log("StockModel::updateStockQuantite called with articleId=$articleId, depotId=$depotId, nouvelleQuantite=$nouvelleQuantite");
 
         // Vérifier si l'entrée stock existe
         $stockExistant = $this->getStockByArticle($articleId, $depotId);
@@ -313,13 +405,155 @@ class StockModel
         error_log("StockModel::updateStockQuantite stock updated");
     }
 
+    public function getDepotInfo($depotId)
+    {
+        error_log("StockModel::getDepotInfo called with depotId=$depotId");
+        
+        $query = "
+            SELECT 
+                d.id as depot_id,
+                d.nom as depot,
+                s.nom as site,
+                e.nom as filiale,
+                g.nom as groupe,
+                mvs.code as methode_valorisation
+            FROM depot d
+            INNER JOIN site s ON d.site_id = s.id
+            INNER JOIN entreprise e ON s.entreprise_id = e.id
+            LEFT JOIN groupe g ON e.groupe_id = g.id
+            LEFT JOIN (
+                SELECT DISTINCT depot_id, methode_valorisation_stock_id 
+                FROM stock 
+                WHERE depot_id = ?
+                LIMIT 1
+            ) st ON st.depot_id = d.id
+            LEFT JOIN methode_valorisation_stock mvs ON st.methode_valorisation_stock_id = mvs.id
+            WHERE d.id = ?
+        ";
+        
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$depotId, $depotId]);
+        
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$result) {
+            throw new InvalidArgumentException("Dépôt non trouvé");
+        }
+        
+        return $result;
+    }
+
+    public function getStockByDepot($depotId)
+    {
+        error_log("StockModel::getStockByDepot called with depotId=$depotId");
+        
+        $query = "
+            SELECT 
+                s.id,
+                s.article_id,
+                s.depot_id,
+                s.quantite_actuelle,
+                s.cmup_actuel,
+                s.valeur_stock_total,
+                s.date_maj,
+                a.reference,
+                a.designation,
+                u.code as unite
+            FROM stock s
+            INNER JOIN article a ON s.article_id = a.id
+            INNER JOIN unite u ON a.unite_id = u.id
+            WHERE s.depot_id = ? AND s.quantite_actuelle > 0
+            ORDER BY a.designation
+        ";
+        
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$depotId]);
+        
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        error_log("StockModel::getStockByDepot retrieved " . count($results) . " articles");
+        
+        return $results;
+    }
+
+    public function getLotsByDepot($depotId)
+    {
+        error_log("StockModel::getLotsByDepot called with depotId=$depotId");
+        
+        $query = "
+            SELECT 
+                l.id,
+                l.numero_lot,
+                l.article_id,
+                l.depot_id,
+                l.date_entree,
+                l.quantite_initiale,
+                l.quantite_restante,
+                l.prix_unitaire_achat,
+                l.statut,
+                a.reference as article_reference,
+                a.designation as article_designation
+            FROM lot_stock l
+            INNER JOIN article a ON l.article_id = a.id
+            WHERE l.depot_id = ? AND l.quantite_restante > 0
+            ORDER BY a.designation, l.date_entree DESC
+        ";
+        
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$depotId]);
+        
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        error_log("StockModel::getLotsByDepot retrieved " . count($results) . " lots");
+        
+        return $results;
+    }
+
+    public function getMouvementsByArticle($articleId, $depotId = null)
+    {
+        error_log("StockModel::getMouvementsByArticle called with articleId=$articleId, depotId=" . ($depotId ?? 'null'));
+        
+        $query = "
+            SELECT 
+                ms.id,
+                ms.date_mouvement,
+                ms.type_mouvement,
+                ms.quantite_entree,
+                ms.quantite_sortie,
+                ms.prix_unitaire_mouvement,
+                ms.reference_document,
+                p.nom || ' ' || p.prenom as operateur
+            FROM mouvement_stock ms
+            INNER JOIN personnel p ON ms.personnel_id = p.id
+            WHERE ms.article_id = ?
+        ";
+        
+        $params = [$articleId];
+        
+        if ($depotId) {
+            $query .= " AND ms.depot_id = ?";
+            $params[] = $depotId;
+        }
+        
+        $query .= " ORDER BY ms.date_mouvement DESC LIMIT 50";
+        
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+        
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        error_log("StockModel::getMouvementsByArticle retrieved " . count($results) . " movements");
+        
+        return $results;
+    }
+
     private function validateMouvementData($data)
     {
         if (empty($data['type_mouvement'])) {
             throw new InvalidArgumentException("Le type de mouvement est obligatoire");
         }
 
-        $typesValides = ['ACHAT', 'VENTE', 'INVENTAIRE', 'TRANSFERT'];
+        $typesValides = ['ACHAT', 'VENTE', 'INVENTAIRE', 'TRANSFERT', 'ENTREE_ACHAT', 'SORTIE_VENTE'];
         if (!in_array($data['type_mouvement'], $typesValides)) {
             throw new InvalidArgumentException("Type de mouvement invalide");
         }

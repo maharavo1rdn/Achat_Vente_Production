@@ -34,7 +34,7 @@
       </div>
 
       <!-- Stats Cards -->
-      <div class="stats-grid fade-in" style="animation-delay: 0.15s">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 fade-in" style="animation-delay: 0.15s">
         <div class="stat-card">
           <div class="stat-content">
             <p class="stat-label">Articles en stock</p>
@@ -57,6 +57,12 @@
           <div class="stat-content">
             <p class="stat-label">Rupture</p>
             <h3 class="stat-value text-red-600">{{ stockRupture }}</h3>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-content">
+            <p class="stat-label">Valeur totale stock</p>
+            <h3 class="stat-value text-purple-600">{{ formatCurrency(valeurTotaleStock) }}</h3>
           </div>
         </div>
       </div>
@@ -95,6 +101,105 @@
         </div>
       </div>
 
+      <!-- Valorisation -->
+      <div class="card fade-in" style="animation-delay: 0.22s">
+        <div class="card-header-simple">
+          <h2 class="card-title">Valorisation du Stock</h2>
+          <div class="flex items-center gap-3">
+            <label class="text-sm text-gray-600">Regrouper par</label>
+            <select v-model="groupBy" class="select">
+              <option value="filiale">Filiale</option>
+              <option value="site">Site</option>
+              <option value="depot">Dépôt</option>
+              <option value="article">Article</option>
+            </select>
+            <button @click="loadValorisation" class="btn-primary">Actualiser</button>
+          </div>
+        </div>
+        <div class="p-4">
+          <div class="mb-4">
+            <label class="label">Sélectionner un dépôt pour voir les détails</label>
+            <div class="flex gap-3 items-end">
+              <div class="flex-1">
+                <label class="text-sm text-gray-600">Filiale</label>
+                <select v-model="selectedFilialeName" class="select" @change="onFilialeChange">
+                  <option value="">Choisir une filiale</option>
+                  <option v-for="s in structureFilteredFiliales" :key="s" :value="s">{{ s }}</option>
+                </select>
+              </div>
+
+              <div class="flex-1">
+                <label class="text-sm text-gray-600">Site</label>
+                <select v-model="selectedSite" class="select" @change="onSiteChange" :disabled="!selectedFilialeName">
+                  <option value="">Choisir un site</option>
+                  <option v-for="s in filteredSites" :key="s" :value="s">{{ s }}</option>
+                </select>
+              </div>
+
+              <div class="flex-1">
+                <label class="text-sm text-gray-600">Dépôt</label>
+                <select v-model="selectedDepot" class="select" :disabled="!selectedSite">
+                  <option value="">Choisir un dépôt</option>
+                  <option v-for="d in filteredDepots" :key="d.id" :value="d.id">{{ d.nom }}</option>
+                </select>
+              </div>
+
+              <button 
+                @click="voirDetailsDepot" 
+                :disabled="!selectedDepot"
+                class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Voir détails
+              </button>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="label">Filtrer par Filiale / Site / Dépôt (pour tableau)</label>
+            <div class="flex gap-3">
+              <select v-model="selectedFilialeFilter" class="select">
+                <option value="">Toutes les filiales</option>
+                <option v-for="s in structureFilteredFiliales" :key="s" :value="s">{{ s }}</option>
+              </select>
+
+              <select v-model="selectedSiteFilter" class="select">
+                <option value="">Tous les sites</option>
+                <option v-for="s in structureFilteredSites" :key="s" :value="s">{{ s }}</option>
+              </select>
+
+              <select v-model="selectedDepotFilter" class="select">
+                <option value="">Tous les dépôts</option>
+                <option v-for="d in structureFilteredDepots" :key="d" :value="d">{{ d }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>{{ groupByHeader }}</th>
+                  <th class="text-right">Valeur Comptable</th>
+                  <th class="text-right">Valeur Vente Potentielle</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in valoriseGrouped" :key="row.key">
+                  <td class="font-medium">{{ row.key }}</td>
+                  <td class="text-right font-semibold">{{ formatCurrency(row.valeur_comptable) }}</td>
+                  <td class="text-right font-semibold">{{ formatCurrency(row.valeur_vente_potentielle) }}</td>
+                </tr>
+                <tr class="border-t">
+                  <td class="font-medium">Total</td>
+                  <td class="text-right font-semibold">{{ formatCurrency(valoriseTotals.valeur_comptable) }}</td>
+                  <td class="text-right font-semibold">{{ formatCurrency(valoriseTotals.valeur_vente_potentielle) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- Stock Table -->
       <div class="card fade-in" style="animation-delay: 0.25s">
         <div class="card-header-simple">
@@ -107,8 +212,12 @@
                 <th>Article</th>
                 <th>Référence</th>
                 <th>Filiale</th>
+                <th>Dépôt</th>
                 <th class="text-center">Quantité</th>
                 <th>Unité</th>
+                <th class="text-right">CMUP</th>
+                <th class="text-right">Valeur Stock</th>
+                <th>Méthode Val.</th>
                 <th>Dernière MAJ</th>
                 <th class="text-center">Statut</th>
                 <th class="text-center">Actions</th>
@@ -119,8 +228,14 @@
                 <td class="font-medium">{{ stock.article }}</td>
                 <td class="text-gray-600">{{ stock.reference }}</td>
                 <td>{{ stock.filiale }}</td>
+                <td class="text-sm text-gray-600">{{ stock.depot }}</td>
                 <td class="text-center font-semibold">{{ stock.quantite_actuelle }}</td>
                 <td>{{ stock.unite }}</td>
+                <td class="text-right">{{ formatCurrency(stock.cmup_actuel || 0) }}</td>
+                <td class="text-right font-medium">{{ formatCurrency(stock.valeur_stock_total || 0) }}</td>
+                <td class="text-xs">
+                  <span class="badge badge-secondary">{{ stock.methode_valorisation_code || 'N/A' }}</span>
+                </td>
                 <td class="text-gray-600">{{ formatDate(stock.date_maj) }}</td>
                 <td class="text-center">
                   <span :class="getStockBadgeClass(stock.quantite_actuelle)">
@@ -197,9 +312,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { ArrowRightLeft, History, Search } from 'lucide-vue-next'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { ArrowRightLeft, History, Search, Eye } from 'lucide-vue-next'
 import stockService from '@/services/stockService'
+
+const router = useRouter()
 
 const selectedFiliale = ref('')
 const searchArticle = ref('')
@@ -209,16 +327,36 @@ const recentMouvements = ref([])
 const loading = ref(false)
 const error = ref(null)
 
+// Valorisation data
+const valoriseRows = ref([])
+const valoriseGrouped = ref([])
+const valoriseTotals = ref({ valeur_comptable: 0, valeur_vente_potentielle: 0 })
+const groupBy = ref('filiale')
+const selectedFilialeName = ref('')
+const selectedSite = ref('')
+const selectedDepot = ref('')
+const structure = ref([])
+
+// Filter variables for table display
+const selectedFilialeFilter = ref('')
+const selectedSiteFilter = ref('')
+const selectedDepotFilter = ref('')
+
 const loadStockData = async () => {
   loading.value = true
   error.value = null
   try {
-    const [stockResponse, mouvementsResponse] = await Promise.all([
+    const [stockResponse, mouvementsResponse, structureResponse] = await Promise.all([
       stockService.getStock(),
-      stockService.getMouvements()
+      stockService.getMouvements(),
+      stockService.getStructureOrganisation()
     ])
     stocks.value = stockResponse.data || []
     recentMouvements.value = mouvementsResponse.data || []
+    structure.value = structureResponse.data || []
+
+    // Load valorisation initially
+    await loadValorisation()
   } catch (err) {
     error.value = 'Erreur lors du chargement des données de stock'
     console.error('Erreur chargement stock:', err)
@@ -251,6 +389,10 @@ const stockBas = computed(() => {
 
 const stockRupture = computed(() => {
   return stocks.value.filter(s => s.quantite_actuelle === 0).length
+})
+
+const valeurTotaleStock = computed(() => {
+  return stocks.value.reduce((sum, s) => sum + (parseFloat(s.valeur_stock_total) || 0), 0)
 })
 
 const getStockBadgeClass = (quantite) => {
@@ -297,6 +439,92 @@ const formatDateTime = (datetime) => {
   })
 }
 
+const structureFilteredFiliales = computed(() => {
+  const set = new Set()
+  structure.value.forEach(s => set.add(s.entreprise))
+  return Array.from(set)
+})
+
+const structureFilteredSites = computed(() => {
+  const set = new Set()
+  structure.value.forEach(s => set.add(s.site))
+  return Array.from(set)
+})
+
+const structureFilteredDepots = computed(() => {
+  const set = new Set()
+  structure.value.forEach(s => set.add(s.depot_logistique || s.depot))
+  return Array.from(set)
+})
+
+// Computed for cascading depot selection
+const filteredSites = computed(() => {
+  console.log('filteredSites - selectedFilialeName:', selectedFilialeName.value)
+  console.log('filteredSites - structure data:', structure.value)
+  if (!selectedFilialeName.value) return []
+  const filtered = structure.value.filter(s => s.entreprise === selectedFilialeName.value)
+  console.log('filteredSites - filtered by entreprise:', filtered)
+  const sites = filtered.map(s => s.site)  // API returns site_geo as 'site'
+  console.log('filteredSites - sites mapped:', sites)
+  const uniqueSites = [...new Set(sites)]
+  console.log('filteredSites - unique sites:', uniqueSites)
+  return uniqueSites
+})
+
+const filteredDepots = computed(() => {
+  if (!selectedSite.value) return []
+  return structure.value
+    .filter(s => s.entreprise === selectedFilialeName.value && s.site === selectedSite.value)  // API returns site_geo as 'site'
+    .map(s => ({ id: s.depot_id, nom: s.depot }))  // API returns depot_logistique as 'depot'
+})
+
+const groupByHeader = computed(() => {
+  switch(groupBy.value) {
+    case 'filiale': return 'Filiale'
+    case 'site': return 'Site'
+    case 'depot': return 'Dépôt'
+    default: return 'Article'
+  }
+})
+
+const aggregateValorise = (rows) => {
+  const grouped = {}
+  rows.forEach(r => {
+    let key = ''
+    switch(groupBy.value) {
+      case 'filiale': key = r.filiale || 'Autres'; break
+      case 'site': key = r.site || 'Autres'; break
+      case 'depot': key = r.depot || 'Autres'; break
+      case 'article': key = r.reference || r.designation || 'Autres'; break
+    }
+    if (!grouped[key]) grouped[key] = { valeur_comptable: 0, valeur_vente_potentielle: 0 }
+    grouped[key].valeur_comptable += parseFloat(r.valeur_comptable || 0)
+    grouped[key].valeur_vente_potentielle += parseFloat(r.valeur_vente_potentielle || 0)
+  })
+
+  const result = Object.keys(grouped).map(k => ({ key: k, valeur_comptable: grouped[k].valeur_comptable, valeur_vente_potentielle: grouped[k].valeur_vente_potentielle }))
+  // Sort desc by valeur comptable
+  result.sort((a,b) => b.valeur_comptable - a.valeur_comptable)
+
+  valoriseGrouped.value = result
+  valoriseTotals.value = result.reduce((acc, cur) => ({ valeur_comptable: acc.valeur_comptable + cur.valeur_comptable, valeur_vente_potentielle: acc.valeur_vente_potentielle + cur.valeur_vente_potentielle }), { valeur_comptable: 0, valeur_vente_potentielle: 0 })
+}
+
+const loadValorisation = async () => {
+  try {
+    const params = {}
+    if (selectedFilialeName.value) params.filiale = selectedFilialeName.value
+    if (selectedSite.value) params.site = selectedSite.value
+    if (selectedDepot.value) params.depot = selectedDepot.value
+
+    const res = await stockService.getValorise(params)
+    valoriseRows.value = res.data || []
+    aggregateValorise(valoriseRows.value)
+  } catch (err) {
+    console.error('Erreur chargement valorisation:', err)
+  }
+}
+
 const openMouvementModal = () => {
   console.log('Open mouvement modal')
 }
@@ -305,8 +533,47 @@ const viewHistorique = (stock) => {
   console.log('View historique:', stock)
 }
 
+const onFilialeChange = () => {
+  console.log('onFilialeChange - new filiale:', selectedFilialeName.value)
+  selectedSite.value = ''
+  selectedDepot.value = ''
+  console.log('onFilialeChange - reset site and depot to empty string')
+}
+
+const onSiteChange = () => {
+  selectedDepot.value = ''
+}
+
+const voirDetailsDepot = () => {
+  if (!selectedDepot.value) {
+    console.error('Aucun dépôt sélectionné')
+    return
+  }
+  
+  console.log('🔍 Debug selectedDepot:', selectedDepot.value)
+  
+  // Extract the depot ID from the selected depot object
+  const depotId = selectedDepot.value.depot_id || selectedDepot.value.id || selectedDepot.value
+  console.log('🔍 Debug depotId extrait:', depotId)
+  
+  router.push({ name: 'stock-depot-details', params: { depotId } })
+}
+
+const viewDepotDetails = (depotId) => {
+  if (!depotId) {
+    console.error('ID dépôt manquant')
+    return
+  }
+  router.push({ name: 'stock-depot-details', params: { depotId } })
+}
+
 onMounted(() => {
   loadStockData()
+})
+
+// Recharger la valorisation quand le regroupement ou les filtres changent
+watch([groupBy, selectedFilialeName, selectedSite, selectedDepot], () => {
+  loadValorisation()
 })
 </script>
 

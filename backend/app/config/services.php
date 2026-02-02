@@ -99,6 +99,10 @@ Flight::map('depotModel', function() {
     return new DepotModel(Flight::db());
 });
 
+Flight::map('statutModel', function() {
+    return new \app\models\StatutModel(Flight::db());
+});
+
 Flight::map('proformaDemandeAchatModel', function() {
     return new ProformaDemandeAchatModel(Flight::db());
 });

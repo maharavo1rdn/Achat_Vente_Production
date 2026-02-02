@@ -16,6 +16,9 @@ export default {
     update(id, data) {
       return api.put(`/ventes/devis/${id}`, data)
     },
+    updateStatut(id, statutCode) {
+      return api.patch(`/ventes/devis/${id}/statut`, { statut_code: statutCode })
+    },
     delete(id) {
       return api.delete(`/ventes/devis/${id}`)
     },
@@ -43,6 +46,12 @@ export default {
     },
     convertToFacture(id) {
       return api.post(`/ventes/bon-commande/${id}/convert-facture`)
+    },
+    convertToFactureWithCustomData(id, customData) {
+      return api.post(`/ventes/bon-commande/${id}/convert-facture-custom`, customData)
+    },
+    checkIfFactured(id) {
+      return api.get(`/ventes/bon-commande/${id}/is-factured`)
     }
   },
 
