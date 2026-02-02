@@ -5,6 +5,7 @@ import Dashboard from "../views/Dashboard.vue"
 import Articles from "../views/stock/Articles.vue"
 import ArticleDetail from "../views/stock/ArticleDetail.vue"
 import Stock from "../views/stock/Stock.vue"
+import StockDepotDetails from "../views/stock/StockDepotDetails.vue"
 
 import ProformaFournisseur from "../views/achat/ProformaFournisseur.vue"
 import BonCommandeAchat from "../views/achat/BonCommandeAchat.vue"
@@ -31,6 +32,7 @@ const router = createRouter({
     { path: "/articles", name: "articles", component: Articles },
     { path: "/articles/:id", name: "article-detail", component: ArticleDetail },
     { path: "/stock", name: "stock", component: Stock },
+    { path: "/stock/depot/:depotId", name: "stock-depot-details", component: StockDepotDetails },
     { path: "/entreprises", name: "entreprises", component: Entreprises },
     { path: "/entreprises/:id", name: "entreprise-detail", component: EntrepriseDetail },
     { path: "/sites/:id", name: "site-detail", component: SiteDetail },

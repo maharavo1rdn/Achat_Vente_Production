@@ -61,6 +61,14 @@ $router->group('/api/stock', function () use ($router, $Stock_Controller) {
     $router->post('/mouvements', [$Stock_Controller, 'createMouvement']);
     $router->get('/historique/@articleId:[0-9]+', [$Stock_Controller, 'getHistoriqueArticle']);
     $router->get('/alerte', [$Stock_Controller, 'getStockAlerte']);
+    $router->get('/valorise', [$Stock_Controller, 'getStockValorise']);
+    $router->get('/consolide-groupe', [$Stock_Controller, 'getStockConsolideGroupe']);
+    $router->get('/structure', [$Stock_Controller, 'getStructureOrganisation']);
+    // Depot details routes
+    $router->get('/depot/@depotId:[0-9]+/info', [$Stock_Controller, 'getDepotInfo']);
+    $router->get('/depot/@depotId:[0-9]+/articles', [$Stock_Controller, 'getStockByDepot']);
+    $router->get('/depot/@depotId:[0-9]+/lots', [$Stock_Controller, 'getLotsByDepot']);
+    $router->get('/mouvements/article/@articleId:[0-9]+', [$Stock_Controller, 'getMouvementsByArticle']);
 });
 
 $router->group('/api/achats', function () use ($router, $Achat_Controller) {
