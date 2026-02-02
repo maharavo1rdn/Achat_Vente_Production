@@ -473,6 +473,17 @@ class VenteModel
             if ($currentStatutId !== (int)$acceptedStatutId && $currentStatutId !== (int)$valideStatutId) {
                 throw new InvalidArgumentException("Le devis lié doit être en statut 'Validé' ou 'Accepté' pour être associé à un bon de commande");
             }
+            
+            // Vérifier si ce devis n'est pas déjà utilisé dans un autre BC
+            $checkQuery = "SELECT id FROM bon_commande_vente WHERE devis_vente_id = ? LIMIT 1";
+            $checkStmt = $this->db->prepare($checkQuery);
+            $checkStmt->execute([$devisId]);
+            $existingBC = $checkStmt->fetch(\PDO::FETCH_ASSOC);
+            
+            if ($existingBC) {
+                throw new InvalidArgumentException("Ce devis est déjà associé au bon de commande #" . $existingBC['id'] . ". Un devis ne peut être utilisé qu'une seule fois.");
+            }
+            
             $data['devis_vente_id'] = $devisId;
         }
 
@@ -659,6 +670,18 @@ class VenteModel
     {
         error_log("VenteModel::createFactureFromBC called with data: " . json_encode($data));
 
+        // Vérifier si ce BC n'est pas déjà utilisé dans une autre facture
+        if (!empty($data['bon_commande_vente_id'])) {
+            $checkQuery = "SELECT id FROM facture_vente WHERE bon_commande_vente_id = ? LIMIT 1";
+            $checkStmt = $this->db->prepare($checkQuery);
+            $checkStmt->execute([$data['bon_commande_vente_id']]);
+            $existingFacture = $checkStmt->fetch(\PDO::FETCH_ASSOC);
+            
+            if ($existingFacture) {
+                throw new InvalidArgumentException("Ce bon de commande est déjà associé à la facture #" . $existingFacture['id'] . ". Un bon de commande ne peut être facturé qu'une seule fois.");
+            }
+        }
+
         $query = "
             INSERT INTO facture_vente (
                 numero_facture, date_facture, bon_commande_vente_id,
@@ -816,6 +839,18 @@ class VenteModel
         $this->validateFactureData($data);
 
         error_log("VenteModel::createFacture called with data: " . json_encode($data));
+
+        // Vérifier si ce BC n'est pas déjà utilisé dans une autre facture
+        if (!empty($data['bon_commande_vente_id'])) {
+            $checkQuery = "SELECT id FROM facture_vente WHERE bon_commande_vente_id = ? LIMIT 1";
+            $checkStmt = $this->db->prepare($checkQuery);
+            $checkStmt->execute([$data['bon_commande_vente_id']]);
+            $existingFacture = $checkStmt->fetch(\PDO::FETCH_ASSOC);
+            
+            if ($existingFacture) {
+                throw new InvalidArgumentException("Ce bon de commande est déjà associé à la facture #" . $existingFacture['id'] . ". Un bon de commande ne peut être facturé qu'une seule fois.");
+            }
+        }
 
         $query = "
             INSERT INTO facture_vente (
