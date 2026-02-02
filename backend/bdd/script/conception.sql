@@ -136,9 +136,11 @@ CREATE TABLE depot (
     nom           VARCHAR(200) NOT NULL,
     adresse       VARCHAR(200),
     site_id       INTEGER NOT NULL,
+    methode_valorisation_stock_id INTEGER,
     est_actif     BOOLEAN DEFAULT true,
     date_creation TIMESTAMP DEFAULT NOW(),
-    FOREIGN KEY (site_id) REFERENCES site(id) ON DELETE CASCADE
+    FOREIGN KEY (site_id) REFERENCES site(id) ON DELETE CASCADE,
+    FOREIGN KEY (methode_valorisation_stock_id) REFERENCES methode_valorisation_stock(id)
 );
 
 CREATE TABLE personnel (

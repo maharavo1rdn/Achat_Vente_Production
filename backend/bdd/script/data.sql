@@ -86,9 +86,9 @@ INSERT INTO site (id, nom, adresse, entreprise_id) VALUES
 (1, 'Siege Ankorondrano',      'Zone Industrielle',            1),
 (2, 'Showroom Analakely',      'Avenue de l''Independance',    2);
 
-INSERT INTO depot (id, nom, adresse, site_id) VALUES
-(1, 'Entrepot Central',        'Hangar A, Ankorondrano',       1),
-(2, 'Stock Arriere Boutique',  'Analakely',                    2);
+INSERT INTO depot (id, nom, adresse, site_id, methode_valorisation_stock_id) VALUES
+(1, 'Entrepot Central',        'Hangar A, Ankorondrano',       1, 1),  -- CMUP par defaut
+(2, 'Stock Arriere Boutique',  'Analakely',                    2, 2);  -- FIFO par defaut
 
 INSERT INTO personnel (id, code_employe, nom, prenom, email, mot_de_passe_hash, personnel_role_id, entreprise_id, site_defaut_id) VALUES 
 (1, 'ADM001', 'SYSTEM',  'Admin',   'admin@gmail.mg',  'hash123', 1, 1, 1),

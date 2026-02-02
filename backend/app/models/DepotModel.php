@@ -27,11 +27,15 @@ class DepotModel
                 s.nom AS site_nom,
                 s.entreprise_id,
                 e.nom AS entreprise_nom,
+                d.methode_valorisation_stock_id,
+                mvs.code AS methode_valorisation_code,
+                mvs.libelle AS methode_valorisation_libelle,
                 d.est_actif,
                 d.date_creation
             FROM depot d
             LEFT JOIN site s ON s.id = d.site_id
             LEFT JOIN entreprise e ON e.id = s.entreprise_id
+            LEFT JOIN methode_valorisation_stock mvs ON mvs.id = d.methode_valorisation_stock_id
             WHERE 1=1
         ";
 
@@ -83,10 +87,13 @@ class DepotModel
         if ($id <= 0) throw new InvalidArgumentException("L'ID doit être un entier positif");
 
         $query = "
-            SELECT d.id, d.nom, d.adresse, d.site_id, s.nom AS site_nom, s.entreprise_id, e.nom AS entreprise_nom, d.est_actif, d.date_creation
+            SELECT d.id, d.nom, d.adresse, d.site_id, s.nom AS site_nom, s.entreprise_id, e.nom AS entreprise_nom, 
+                   d.methode_valorisation_stock_id, mvs.code AS methode_valorisation_code, mvs.libelle AS methode_valorisation_libelle,
+                   d.est_actif, d.date_creation
             FROM depot d
             LEFT JOIN site s ON s.id = d.site_id
             LEFT JOIN entreprise e ON e.id = s.entreprise_id
+            LEFT JOIN methode_valorisation_stock mvs ON mvs.id = d.methode_valorisation_stock_id
             WHERE d.id = ?
         ";
 
@@ -99,12 +106,13 @@ class DepotModel
     {
         $this->validateDepotData($data);
 
-        $query = "INSERT INTO depot (nom, adresse, site_id, est_actif) VALUES (?, ?, ?, ?)";
+        $query = "INSERT INTO depot (nom, adresse, site_id, methode_valorisation_stock_id, est_actif) VALUES (?, ?, ?, ?, ?)";
         $stmt = $this->db->prepare($query);
         $stmt->execute([
             $data['nom'],
             $data['adresse'] ?? null,
             isset($data['site_id']) ? (int)$data['site_id'] : null,
+            isset($data['methode_valorisation_stock_id']) ? (int)$data['methode_valorisation_stock_id'] : null,
             $data['est_actif'] ?? true
         ]);
 
@@ -116,12 +124,13 @@ class DepotModel
         if ($id <= 0) throw new InvalidArgumentException("L'ID doit être un entier positif");
         $this->validateDepotData($data, false);
 
-        $query = "UPDATE depot SET nom = ?, adresse = ?, site_id = ?, est_actif = ? WHERE id = ?";
+        $query = "UPDATE depot SET nom = ?, adresse = ?, site_id = ?, methode_valorisation_stock_id = ?, est_actif = ? WHERE id = ?";
         $stmt = $this->db->prepare($query);
         $stmt->execute([
             $data['nom'],
             $data['adresse'] ?? null,
             isset($data['site_id']) ? (int)$data['site_id'] : null,
+            isset($data['methode_valorisation_stock_id']) ? (int)$data['methode_valorisation_stock_id'] : null,
             $data['est_actif'] ?? true,
             $id
         ]);
@@ -140,7 +149,7 @@ class DepotModel
     public function getBySite($siteId)
     {
         if (!is_numeric($siteId) || (int)$siteId <= 0) throw new InvalidArgumentException("L'ID du site doit être un entier positif");
-        $stmt = $this->db->prepare("SELECT d.id, d.nom, d.adresse, d.site_id, s.nom AS site_nom, s.entreprise_id, e.nom AS entreprise_nom, d.est_actif, d.date_creation FROM depot d LEFT JOIN site s ON s.id = d.site_id LEFT JOIN entreprise e ON e.id = s.entreprise_id WHERE d.site_id = ? ORDER BY d.nom");
+        $stmt = $this->db->prepare("SELECT d.id, d.nom, d.adresse, d.site_id, s.nom AS site_nom, s.entreprise_id, e.nom AS entreprise_nom, d.methode_valorisation_stock_id, mvs.code AS methode_valorisation_code, mvs.libelle AS methode_valorisation_libelle, d.est_actif, d.date_creation FROM depot d LEFT JOIN site s ON s.id = d.site_id LEFT JOIN entreprise e ON e.id = s.entreprise_id LEFT JOIN methode_valorisation_stock mvs ON mvs.id = d.methode_valorisation_stock_id WHERE d.site_id = ? ORDER BY d.nom");
         $stmt->execute([(int)$siteId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -148,7 +157,7 @@ class DepotModel
     public function getByEntreprise($entrepriseId)
     {
         if (!is_numeric($entrepriseId) || (int)$entrepriseId <= 0) throw new InvalidArgumentException("L'ID de l'entreprise doit être un entier positif");
-        $stmt = $this->db->prepare("SELECT d.id, d.nom, d.adresse, d.site_id, s.nom AS site_nom, s.entreprise_id, e.nom AS entreprise_nom, d.est_actif, d.date_creation FROM depot d LEFT JOIN site s ON s.id = d.site_id LEFT JOIN entreprise e ON e.id = s.entreprise_id WHERE s.entreprise_id = ? ORDER BY d.nom");
+        $stmt = $this->db->prepare("SELECT d.id, d.nom, d.adresse, d.site_id, s.nom AS site_nom, s.entreprise_id, e.nom AS entreprise_nom, d.methode_valorisation_stock_id, mvs.code AS methode_valorisation_code, mvs.libelle AS methode_valorisation_libelle, d.est_actif, d.date_creation FROM depot d LEFT JOIN site s ON s.id = d.site_id LEFT JOIN entreprise e ON e.id = s.entreprise_id LEFT JOIN methode_valorisation_stock mvs ON mvs.id = d.methode_valorisation_stock_id WHERE s.entreprise_id = ? ORDER BY d.nom");
         $stmt->execute([(int)$entrepriseId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

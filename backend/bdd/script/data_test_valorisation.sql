@@ -1,18 +1,18 @@
 -- =============================================================================
--- DONNÉES DE TEST POUR VALORISATION DE STOCK
--- Scénarios complets pour tester CMUP, FIFO, LIFO
+-- DONNEES DE TEST POUR VALORISATION DE STOCK
+-- Scenarios complets pour tester CMUP, FIFO, LIFO
 -- =============================================================================
 
 \c achat_vente_db;
 
 -- -----------------------------------------------------------------------------
--- 0. NETTOYAGE DES DONNÉES EXISTANTES (dans l'ordre des dépendances)
+-- 0. NETTOYAGE DES DONNEES EXISTANTES (dans l'ordre des dependances)
 -- -----------------------------------------------------------------------------
 
--- Désactiver temporairement les contraintes de clé étrangère
+-- Desactiver temporairement les contraintes de cle etrangere
 SET session_replication_role = replica;
 
--- Nettoyer les données dans l'ordre inverse des dépendances
+-- Nettoyer les donnees dans l'ordre inverse des dependances
 TRUNCATE TABLE paiement_achat_details CASCADE;
 TRUNCATE TABLE paiement_achat CASCADE;
 TRUNCATE TABLE paiement_vente_details CASCADE;
@@ -44,7 +44,7 @@ TRUNCATE TABLE site CASCADE;
 TRUNCATE TABLE entreprise CASCADE;
 TRUNCATE TABLE groupe CASCADE;
 
--- Nettoyer les tables de référence
+-- Nettoyer les tables de reference
 TRUNCATE TABLE statut CASCADE;
 TRUNCATE TABLE unite CASCADE;
 TRUNCATE TABLE article_categorie CASCADE;
@@ -52,10 +52,10 @@ TRUNCATE TABLE personnel_role CASCADE;
 TRUNCATE TABLE mode_paiement CASCADE;
 TRUNCATE TABLE methode_valorisation_stock CASCADE;
 
--- Réactiver les contraintes
+-- Reactiver les contraintes
 SET session_replication_role = DEFAULT;
 
--- Réinitialiser les séquences
+-- Reinitialiser les sequences
 ALTER SEQUENCE IF EXISTS groupe_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS entreprise_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS site_id_seq RESTART WITH 1;
@@ -81,10 +81,10 @@ ALTER SEQUENCE IF EXISTS facture_vente_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS devis_vente_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS devis_num_seq RESTART WITH 1;
 
-SELECT '🧹 Nettoyage terminé - Base prête pour les données de test' as status;
+SELECT 'Nettoyage termine - Base prete pour les donnees de test' as status;
 
 -- -----------------------------------------------------------------------------
--- 1. DONNÉES DE RÉFÉRENCE
+-- 1. DONNEES DE REFERENCE
 -- -----------------------------------------------------------------------------
 
 -- Statuts
@@ -107,13 +107,13 @@ INSERT INTO unite (code, libelle) VALUES
 
 -- Catégories d'articles
 INSERT INTO article_categorie (code, libelle) VALUES 
-('ELECTRONIQUE', 'Électronique'),
+('ELECTRONIQUE', 'Electronique'),
 ('INFORMATIQUE', 'Informatique'),
 ('MOBILIER', 'Mobilier'),
 ('CONSOMMABLE', 'Consommables'),
-('MATERIEL', 'Matériel');
+('MATERIEL', 'Materiel');
 
--- Rôles personnel
+-- Roles personnel
 INSERT INTO personnel_role (code, libelle, niveau_acces) VALUES 
 ('ADMIN', 'Administrateur', 5),
 ('GESTIONNAIRE', 'Gestionnaire de stock', 4),
@@ -122,16 +122,16 @@ INSERT INTO personnel_role (code, libelle, niveau_acces) VALUES
 
 -- Modes de paiement
 INSERT INTO mode_paiement (code, libelle) VALUES 
-('ESPECES', 'Espèces'),
+('ESPECES', 'Especes'),
 ('VIREMENT', 'Virement bancaire'),
-('CHEQUE', 'Chèque'),
+('CHEQUE', 'Cheque'),
 ('CARTE', 'Carte bancaire');
 
--- Méthodes de valorisation
+-- Methodes de valorisation
 INSERT INTO methode_valorisation_stock (code, libelle, description) VALUES 
-('CMUP', 'Coût Moyen Unitaire Pondéré', 'Valorisation au coût moyen pondéré'),
-('FIFO', 'Premier Entré Premier Sorti', 'Valorisation FIFO - First In First Out'),
-('LIFO', 'Dernier Entré Premier Sorti', 'Valorisation LIFO - Last In First Out');
+('CMUP', 'Cout Moyen Unitaire Pondere', 'Valorisation au cout moyen pondere'),
+('FIFO', 'Premier Entre Premier Sorti', 'Valorisation FIFO - First In First Out'),
+('LIFO', 'Dernier Entre Premier Sorti', 'Valorisation LIFO - Last In First Out');
 
 -- -----------------------------------------------------------------------------
 -- 2. STRUCTURE ORGANISATIONNELLE
@@ -153,11 +153,13 @@ INSERT INTO site (nom, adresse, telephone, entreprise_id) VALUES
 ('Succursale Analakely', 'Rue du Commerce Analakely', '+261 20 22 234 56', 1),
 ('Entrepot Anosizato', 'Zone Industrielle Anosizato', '+261 20 22 345 67', 1);
 
--- Dépôts avec différentes méthodes de valorisation
-INSERT INTO depot (nom, adresse, site_id) VALUES 
-('Entrepot Central', 'Bâtiment A - Ankorondrano', 1),
-('Depot Analakely', 'Magasin Analakely', 2),
-('Stock Anosizato', 'Entrepot Anosizato', 3);
+-- Depots avec differentes methodes de valorisation
+-- On peut definir une methode par depot (s'applique a tous les articles du depot)
+-- OU definir une methode par (article + depot) dans la table stock
+INSERT INTO depot (nom, adresse, site_id, methode_valorisation_stock_id) VALUES 
+('Entrepot Central', 'Batiment A - Ankorondrano', 1, 1),  -- CMUP par defaut
+('Depot Analakely', 'Magasin Analakely', 2, 2),          -- FIFO par defaut
+('Stock Anosizato', 'Entrepot Anosizato', 3, 3);         -- LIFO par defaut
 
 -- Personnel
 INSERT INTO personnel (code_employe, nom, prenom, email, telephone, personnel_role_id, entreprise_id, site_defaut_id) VALUES 
@@ -170,23 +172,23 @@ INSERT INTO personnel (code_employe, nom, prenom, email, telephone, personnel_ro
 INSERT INTO article (reference, designation, description, prix_achat_ref, prix_vente_ref, unite_id, article_categorie_id) VALUES 
 ('LAPTOP001', 'Ordinateur Portable HP', 'HP ProBook 450 G8 - i5, 8GB RAM, 256GB SSD', 2500000, 3200000, 1, 2),
 ('MOUSE001', 'Souris Optique', 'Souris optique sans fil Logitech', 45000, 65000, 1, 2),
-('CABLE001', 'Câble HDMI', 'Câble HDMI 2.0 - 2 mètres', 25000, 35000, 1, 1),
+('CABLE001', 'Cable HDMI', 'Cable HDMI 2.0 - 2 metres', 25000, 35000, 1, 1),
 ('PHONE001', 'Smartphone Samsung', 'Galaxy A54 5G - 128GB', 1800000, 2300000, 1, 1),
-('KEYBOARD001', 'Clavier Mécanique', 'Clavier Gaming RGB', 180000, 250000, 1, 2);
-
--- Caisse
-INSERT INTO caisse (code_caisse, libelle, solde_actuel, entreprise_id) VALUES 
-('CAISSE01', 'Caisse principale', 50000000, 1);
+('KEYBOARD001', 'Clavier Mecanique', 'Clavier Gaming RGB', 180000, 250000, 1, 2);
 
 -- -----------------------------------------------------------------------------
--- 3. SCÉNARIO TEST VALORISATION - LAPTOP001
+-- SCENARIO TEST VALORISATION - LAPTOP001
 -- -----------------------------------------------------------------------------
 
--- Stock initial avec méthodes différentes par dépôt
+-- Stock initial avec methodes differentes par depot
 INSERT INTO stock (article_id, depot_id, methode_valorisation_stock_id, quantite_actuelle, cmup_actuel, valeur_stock_total) VALUES 
 (1, 1, 1, 0, 0, 0),  -- LAPTOP001 - Depot 1 - CMUP
 (1, 2, 2, 0, 0, 0),  -- LAPTOP001 - Depot 2 - FIFO  
 (1, 3, 3, 0, 0, 0);  -- LAPTOP001 - Depot 3 - LIFO
+
+-- Caisse
+INSERT INTO caisse (code_caisse, libelle, solde_actuel, entreprise_id) VALUES 
+('CAISSE01', 'Caisse principale', 50000000, 1);
 
 -- Demandes d'achat pour créer des entrées de stock
 INSERT INTO proforma_demande_achat (numero_da, date_demande, personnel_demandeur_id, entreprise_id, depot_cible_id, motif_achat, statut_id) VALUES 
@@ -237,81 +239,37 @@ INSERT INTO facture_achat_details (facture_achat_id, article_id, quantite, prix_
 (3, 1, 8, 2450000);
 
 -- -----------------------------------------------------------------------------
--- 4. MOUVEMENTS DE STOCK - ENTRÉES À DIFFÉRENTES DATES ET PRIX
+-- MOUVEMENTS DE STOCK - ENTREES A DIFFERENTES DATES ET PRIX
 -- -----------------------------------------------------------------------------
 
--- Première entrée - 25 janvier 2024 - 10 laptops à 2,400,000 Ar
+-- Premiere entree - 25 janvier 2024 - 10 laptops a 2,400,000 Ar
 INSERT INTO mouvement_stock (date_mouvement, type_mouvement, quantite_stock_avant, quantite_entree, quantite_stock_apres, prix_unitaire_mouvement, article_id, depot_id, personnel_id, reference_document) VALUES 
 ('2024-01-25 10:00:00', 'ENTREE_ACHAT', 0, 10, 10, 2400000, 1, 1, 4, 'FA2024001');
 
--- Deuxième entrée - 20 février 2024 - 15 laptops à 2,600,000 Ar  
+-- Deuxieme entree - 20 fevrier 2024 - 15 laptops a 2,600,000 Ar  
 INSERT INTO mouvement_stock (date_mouvement, type_mouvement, quantite_stock_avant, quantite_entree, quantite_stock_apres, prix_unitaire_mouvement, article_id, depot_id, personnel_id, reference_document) VALUES 
 ('2024-02-20 14:30:00', 'ENTREE_ACHAT', 10, 15, 25, 2600000, 1, 1, 4, 'FA2024002');
 
--- Troisième entrée - 15 mars 2024 - 8 laptops à 2,450,000 Ar
+-- Troisieme entree - 15 mars 2024 - 8 laptops a 2,450,000 Ar
 INSERT INTO mouvement_stock (date_mouvement, type_mouvement, quantite_stock_avant, quantite_entree, quantite_stock_apres, prix_unitaire_mouvement, article_id, depot_id, personnel_id, reference_document) VALUES 
 ('2024-03-15 09:15:00', 'ENTREE_ACHAT', 25, 8, 33, 2450000, 1, 1, 4, 'FA2024003');
 
--- Dupliquer les mouvements pour les autres dépôts (FIFO et LIFO)
--- Dépôt 2 (FIFO)
+-- Dupliquer les mouvements pour les autres depots (FIFO et LIFO)
+-- Depot 2 (FIFO)
 INSERT INTO mouvement_stock (date_mouvement, type_mouvement, quantite_stock_avant, quantite_entree, quantite_stock_apres, prix_unitaire_mouvement, article_id, depot_id, personnel_id, reference_document) VALUES 
 ('2024-01-25 10:00:00', 'ENTREE_ACHAT', 0, 10, 10, 2400000, 1, 2, 4, 'FA2024001-D2'),
 ('2024-02-20 14:30:00', 'ENTREE_ACHAT', 10, 15, 25, 2600000, 1, 2, 4, 'FA2024002-D2'),
 ('2024-03-15 09:15:00', 'ENTREE_ACHAT', 25, 8, 33, 2450000, 1, 2, 4, 'FA2024003-D2');
 
--- Dépôt 3 (LIFO)  
+-- Depot 3 (LIFO)  
 INSERT INTO mouvement_stock (date_mouvement, type_mouvement, quantite_stock_avant, quantite_entree, quantite_stock_apres, prix_unitaire_mouvement, article_id, depot_id, personnel_id, reference_document) VALUES 
 ('2024-01-25 10:00:00', 'ENTREE_ACHAT', 0, 10, 10, 2400000, 1, 3, 4, 'FA2024001-D3'),
 ('2024-02-20 14:30:00', 'ENTREE_ACHAT', 10, 15, 25, 2600000, 1, 3, 4, 'FA2024002-D3'),
 ('2024-03-15 09:15:00', 'ENTREE_ACHAT', 25, 8, 33, 2450000, 1, 3, 4, 'FA2024003-D3');
 
 -- -----------------------------------------------------------------------------
--- 5. LOTS DE STOCK POUR CHAQUE ENTRÉE
--- -----------------------------------------------------------------------------
-
--- Lots pour Dépôt 1 (CMUP)
-INSERT INTO lot_stock (numero_lot, article_id, depot_id, date_entree, mouvement_entree_id, quantite_initiale, quantite_restante, prix_unitaire_achat, statut) VALUES 
-('LOT2024001-D1', 1, 1, '2024-01-25 10:00:00', 1, 10, 10, 2400000, 'ACTIF'),
-('LOT2024002-D1', 1, 1, '2024-02-20 14:30:00', 2, 15, 15, 2600000, 'ACTIF'),
-('LOT2024003-D1', 1, 1, '2024-03-15 09:15:00', 3, 8, 8, 2450000, 'ACTIF');
-
--- Lots pour Dépôt 2 (FIFO)
-INSERT INTO lot_stock (numero_lot, article_id, depot_id, date_entree, mouvement_entree_id, quantite_initiale, quantite_restante, prix_unitaire_achat, statut) VALUES 
-('LOT2024001-D2', 1, 2, '2024-01-25 10:00:00', 4, 10, 10, 2400000, 'ACTIF'),
-('LOT2024002-D2', 1, 2, '2024-02-20 14:30:00', 5, 15, 15, 2600000, 'ACTIF'),
-('LOT2024003-D2', 1, 2, '2024-03-15 09:15:00', 6, 8, 8, 2450000, 'ACTIF');
-
--- Lots pour Dépôt 3 (LIFO)
-INSERT INTO lot_stock (numero_lot, article_id, depot_id, date_entree, mouvement_entree_id, quantite_initiale, quantite_restante, prix_unitaire_achat, statut) VALUES 
-('LOT2024001-D3', 1, 3, '2024-01-25 10:00:00', 7, 10, 10, 2400000, 'ACTIF'),
-('LOT2024002-D3', 1, 3, '2024-02-20 14:30:00', 8, 15, 15, 2600000, 'ACTIF'),
-('LOT2024003-D3', 1, 3, '2024-03-15 09:15:00', 9, 8, 8, 2450000, 'ACTIF');
-
--- -----------------------------------------------------------------------------
--- 6. MISE À JOUR DU STOCK APRÈS LES ENTRÉES
--- -----------------------------------------------------------------------------
-
--- Mise à jour du stock pour chaque dépôt avec les bonnes valeurs
-UPDATE stock SET 
-    quantite_actuelle = 33,
-    cmup_actuel = 2521212.12, -- (10*2400000 + 15*2600000 + 8*2450000) / 33
-    valeur_stock_total = 83200000 -- 33 * 2521212.12
-WHERE article_id = 1 AND depot_id = 1;
-
-UPDATE stock SET 
-    quantite_actuelle = 33,
-    cmup_actuel = 2521212.12,
-    valeur_stock_total = 83200000 
-WHERE article_id = 1 AND depot_id = 2;
-
-UPDATE stock SET 
-    quantite_actuelle = 33,
-    cmup_actuel = 2521212.12,
-    valeur_stock_total = 83200000 
-WHERE article_id = 1 AND depot_id = 3;
-
--- -----------------------------------------------------------------------------
--- 7. SCÉNARIOS DE VENTE POUR TESTER LES VALORISATIONS
+-- MOUVEMENTS DE STOCK - ENTREES A DIFFERENTES DATES ET PRIX
+-- Les lots seront crees automatiquement par les triggers
 -- -----------------------------------------------------------------------------
 
 -- Devis de vente
@@ -336,10 +294,10 @@ INSERT INTO facture_vente_details (facture_vente_id, article_id, quantite, prix_
 (1, 1, 3, 3200000);
 
 -- -----------------------------------------------------------------------------
--- 8. MOUVEMENTS DE SORTIE POUR TESTER LES DIFFÉRENTES MÉTHODES
+-- MOUVEMENTS DE SORTIE POUR TESTER LES DIFFERENTES METHODES
 -- -----------------------------------------------------------------------------
 
--- Sortie de 3 laptops le 10 avril 2024 - DÉPÔT 1 (CMUP)
+-- Sortie de 3 laptops le 10 avril 2024 - DEPOT 1 (CMUP)
 -- Le coût doit être le CMUP : 3 * 2,521,212.12 = 7,563,636.36
 INSERT INTO mouvement_stock (date_mouvement, type_mouvement, quantite_stock_avant, quantite_sortie, quantite_stock_apres, prix_unitaire_mouvement, article_id, depot_id, personnel_id, reference_document) VALUES 
 ('2024-04-10 15:00:00', 'SORTIE_VENTE', 33, 3, 30, 2521212.12, 1, 1, 4, 'FV2024001');
@@ -355,42 +313,9 @@ INSERT INTO mouvement_stock (date_mouvement, type_mouvement, quantite_stock_avan
 ('2024-04-10 15:00:00', 'SORTIE_VENTE', 33, 3, 30, 2450000, 1, 3, 4, 'FV2024001-D3');
 
 -- -----------------------------------------------------------------------------
--- 9. DÉTAILS DE SORTIE PAR LOT (pour FIFO et LIFO)
+-- MISE A JOUR DU STOCK APRES SORTIES
+-- Les quantites seront mises a jour automatiquement par les triggers
 -- -----------------------------------------------------------------------------
-
--- Pour FIFO (Dépôt 2) - prendre du lot le plus ancien
-INSERT INTO sortie_lot_detail (mouvement_sortie_id, lot_stock_id, quantite_prelevee, prix_unitaire_lot) VALUES 
-(11, 4, 3, 2400000); -- 3 pièces du LOT2024001-D2
-
--- Pour LIFO (Dépôt 3) - prendre du lot le plus récent  
-INSERT INTO sortie_lot_detail (mouvement_sortie_id, lot_stock_id, quantite_prelevee, prix_unitaire_lot) VALUES 
-(12, 9, 3, 2450000); -- 3 pièces du LOT2024003-D3
-
--- Mise à jour des quantités restantes dans les lots
-UPDATE lot_stock SET quantite_restante = 7 WHERE numero_lot = 'LOT2024001-D2'; -- FIFO
-UPDATE lot_stock SET quantite_restante = 5 WHERE numero_lot = 'LOT2024003-D3'; -- LIFO
-
--- -----------------------------------------------------------------------------
--- 10. MISE À JOUR DU STOCK APRÈS SORTIES
--- -----------------------------------------------------------------------------
-
--- Mise à jour stock Dépôt 1 (CMUP) - valeur restante : 30 * 2,521,212.12
-UPDATE stock SET 
-    quantite_actuelle = 30,
-    valeur_stock_total = 75636363.6
-WHERE article_id = 1 AND depot_id = 1;
-
--- Mise à jour stock Dépôt 2 (FIFO) - valeur restante : 7*2400000 + 15*2600000 + 8*2450000
-UPDATE stock SET 
-    quantite_actuelle = 30,
-    valeur_stock_total = 76000000
-WHERE article_id = 1 AND depot_id = 2;
-
--- Mise à jour stock Dépôt 3 (LIFO) - valeur restante : 10*2400000 + 15*2600000 + 5*2450000  
-UPDATE stock SET 
-    quantite_actuelle = 30,
-    valeur_stock_total = 75250000
-WHERE article_id = 1 AND depot_id = 3;
 
 -- -----------------------------------------------------------------------------
 -- 11. DONNÉES SUPPLÉMENTAIRES POUR AUTRES ARTICLES
@@ -406,21 +331,9 @@ INSERT INTO mouvement_stock (date_mouvement, type_mouvement, quantite_stock_avan
 ('2024-02-15 10:00:00', 'ENTREE_ACHAT', 50, 30, 80, 48000, 2, 1, 4, 'MOUSE-LOT2'),
 ('2024-03-20 14:00:00', 'ENTREE_ACHAT', 80, 20, 100, 52000, 2, 1, 4, 'MOUSE-LOT3');
 
--- Lots correspondants
-INSERT INTO lot_stock (numero_lot, article_id, depot_id, date_entree, mouvement_entree_id, quantite_initiale, quantite_restante, prix_unitaire_achat, statut) VALUES 
-('MOUSE-LOT1-2024', 2, 1, '2024-01-10 08:00:00', 13, 50, 50, 40000, 'ACTIF'),
-('MOUSE-LOT2-2024', 2, 1, '2024-02-15 10:00:00', 14, 30, 30, 48000, 'ACTIF'),
-('MOUSE-LOT3-2024', 2, 1, '2024-03-20 14:00:00', 15, 20, 20, 52000, 'ACTIF');
-
--- Mise à jour stock souris - CMUP = (50*40000 + 30*48000 + 20*52000) / 100 = 44800
-UPDATE stock SET 
-    quantite_actuelle = 100,
-    cmup_actuel = 44800,
-    valeur_stock_total = 4480000
-WHERE article_id = 2 AND depot_id = 1;
-
 -- -----------------------------------------------------------------------------
--- 12. REQUÊTES DE VÉRIFICATION
+-- REQUETES DE VERIFICATION
+-- Les lots et valorisations seront geres automatiquement par les triggers
 -- -----------------------------------------------------------------------------
 
 -- Vue pour vérifier les valorisations

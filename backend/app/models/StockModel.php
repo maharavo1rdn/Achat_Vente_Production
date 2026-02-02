@@ -81,35 +81,39 @@ class StockModel
         return $results;
     }
 
-    public function getStockByArticle($articleId, $entrepriseId = null)
+    public function getStockByArticle($articleId, $depotId = null)
     {
         if ($articleId <= 0) {
             throw new InvalidArgumentException("L'ID d'article doit être un entier positif");
         }
 
-        error_log("StockModel::getStockByArticle called with articleId=$articleId, entrepriseId=" . ($entrepriseId ?? 'null'));
+        error_log("StockModel::getStockByArticle called with articleId=$articleId, depotId=" . ($depotId ?? 'null'));
 
         $query = "
             SELECT
                 s.id,
                 s.article_id,
-                s.entreprise_id,
+                s.depot_id,
                 s.quantite_actuelle,
                 s.date_maj,
                 a.reference,
                 a.designation,
+                d.nom as depot_nom,
+                si.nom as site_nom,
                 e.nom as entreprise_nom
             FROM stock s
             INNER JOIN article a ON s.article_id = a.id
-            INNER JOIN entreprise e ON s.entreprise_id = e.id
+            INNER JOIN depot d ON s.depot_id = d.id
+            INNER JOIN site si ON d.site_id = si.id
+            INNER JOIN entreprise e ON si.entreprise_id = e.id
             WHERE s.article_id = ?
         ";
 
         $params = [$articleId];
 
-        if ($entrepriseId !== null) {
-            $query .= " AND s.entreprise_id = ?";
-            $params[] = $entrepriseId;
+        if ($depotId !== null) {
+            $query .= " AND s.depot_id = ?";
+            $params[] = $depotId;
         }
 
         $stmt = $this->db->prepare($query);
@@ -209,7 +213,7 @@ class StockModel
         error_log("StockModel::createMouvement called with data: " . json_encode($data));
 
         // Récupérer le stock actuel
-        $stockActuel = $this->getStockByArticle($data['article_id'], $data['entreprise_id']);
+        $stockActuel = $this->getStockByArticle($data['article_id'], $data['depot_id']);
         $quantiteAvant = $stockActuel ? $stockActuel['quantite_actuelle'] : 0;
 
         // Calculer la quantité après mouvement
@@ -218,7 +222,7 @@ class StockModel
         $query = "
             INSERT INTO mouvement_stock (
                 type_mouvement, quantite_stock_avant, quantite_entree, quantite_sortie,
-                quantite_stock_apres, prix_unitaire_mouvement, article_id, entreprise_id,
+                quantite_stock_apres, prix_unitaire_mouvement, article_id, depot_id,
                 personnel_id, reference_document
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
@@ -232,7 +236,7 @@ class StockModel
             $quantiteApres,
             $data['prix_unitaire_mouvement'] ?? null,
             $data['article_id'],
-            $data['entreprise_id'],
+            $data['depot_id'],
             $data['personnel_id'],
             $data['reference_document'] ?? null
         ]);
@@ -240,7 +244,7 @@ class StockModel
         $mouvementId = $this->db->lastInsertId();
 
         // Mettre à jour le stock
-        $this->updateStockQuantite($data['article_id'], $data['entreprise_id'], $quantiteApres);
+        $this->updateStockQuantite($data['article_id'], $data['depot_id'], $quantiteApres);
 
         error_log("StockModel::createMouvement created mouvement with id=$mouvementId");
         return (int)$mouvementId;
@@ -265,11 +269,15 @@ class StockModel
                 ms.quantite_stock_apres,
                 ms.prix_unitaire_mouvement,
                 ms.reference_document,
+                d.nom as depot_nom,
+                si.nom as site_nom,
                 e.nom as entreprise_nom,
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom
             FROM mouvement_stock ms
-            INNER JOIN entreprise e ON ms.entreprise_id = e.id
+            INNER JOIN depot d ON ms.depot_id = d.id
+            INNER JOIN site si ON d.site_id = si.id
+            INNER JOIN entreprise e ON si.entreprise_id = e.id
             INNER JOIN personnel p ON ms.personnel_id = p.id
             WHERE ms.article_id = ?
             ORDER BY ms.date_mouvement DESC
@@ -395,23 +403,23 @@ class StockModel
         return $results;
     }
 
-    private function updateStockQuantite($articleId, $entrepriseId, $nouvelleQuantite)
+    private function updateStockQuantite($articleId, $depotId, $nouvelleQuantite)
     {
-        error_log("StockModel::updateStockQuantite called with articleId=$articleId, entrepriseId=$entrepriseId, nouvelleQuantite=$nouvelleQuantite");
+        error_log("StockModel::updateStockQuantite called with articleId=$articleId, depotId=$depotId, nouvelleQuantite=$nouvelleQuantite");
 
         // Vérifier si l'entrée stock existe
-        $stockExistant = $this->getStockByArticle($articleId, $entrepriseId);
+        $stockExistant = $this->getStockByArticle($articleId, $depotId);
 
         if ($stockExistant) {
             // Mettre à jour
-            $query = "UPDATE stock SET quantite_actuelle = ?, date_maj = NOW() WHERE article_id = ? AND entreprise_id = ?";
+            $query = "UPDATE stock SET quantite_actuelle = ?, date_maj = NOW() WHERE article_id = ? AND depot_id = ?";
             $stmt = $this->db->prepare($query);
-            $stmt->execute([$nouvelleQuantite, $articleId, $entrepriseId]);
+            $stmt->execute([$nouvelleQuantite, $articleId, $depotId]);
         } else {
-            // Créer nouvelle entrée
-            $query = "INSERT INTO stock (article_id, entreprise_id, quantite_actuelle) VALUES (?, ?, ?)";
+            // Créer nouvelle entrée - il faut aussi définir une méthode de valorisation par défaut
+            $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle, methode_valorisation_stock_id) VALUES (?, ?, ?, 1)";
             $stmt = $this->db->prepare($query);
-            $stmt->execute([$articleId, $entrepriseId, $nouvelleQuantite]);
+            $stmt->execute([$articleId, $depotId, $nouvelleQuantite]);
         }
 
         error_log("StockModel::updateStockQuantite stock updated");
@@ -565,7 +573,7 @@ class StockModel
             throw new InvalidArgumentException("Le type de mouvement est obligatoire");
         }
 
-        $typesValides = ['ACHAT', 'VENTE', 'INVENTAIRE', 'TRANSFERT'];
+        $typesValides = ['ACHAT', 'VENTE', 'INVENTAIRE', 'TRANSFERT', 'ENTREE_ACHAT', 'SORTIE_VENTE'];
         if (!in_array($data['type_mouvement'], $typesValides)) {
             throw new InvalidArgumentException("Type de mouvement invalide");
         }
@@ -574,8 +582,8 @@ class StockModel
             throw new InvalidArgumentException("L'article est obligatoire");
         }
 
-        if (!isset($data['entreprise_id']) || $data['entreprise_id'] <= 0) {
-            throw new InvalidArgumentException("L'entreprise est obligatoire");
+        if (!isset($data['depot_id']) || $data['depot_id'] <= 0) {
+            throw new InvalidArgumentException("Le dépôt est obligatoire");
         }
 
         if (!isset($data['personnel_id']) || $data['personnel_id'] <= 0) {
