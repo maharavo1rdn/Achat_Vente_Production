@@ -191,6 +191,7 @@ sessions/
 config/database.php
 config/config.php
 config/settings.php
+app/config/config.php
 
 # Backup files
 *.bak
