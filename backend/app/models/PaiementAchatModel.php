@@ -25,7 +25,7 @@ class PaiementAchatModel
                 pa.date_paiement,
                 pa.facture_achat_id,
                 pa.caisse_mouvement_id,
-                pa.montant,
+                pa.montant_total_paye AS montant,
                 pa.statut_id,
                 s.libelle as statut_libelle,
                 fa.numero_facture_fournisseur as numero_facture,

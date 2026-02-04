@@ -25,12 +25,12 @@ class StatAchatModel {
                 ef.id,
                 ef.nom,
                 ef.type_entreprise,
-                COALESCE(SUM(pa.montant), 0) AS total_paye,
+                COALESCE(SUM(pa.montant_total_paye), 0) AS total_paye,
                 COALESCE(SUM(fa.montant_ttc), 0) AS total_facture,
                 COUNT(DISTINCT fa.id) AS nombre_factures
             FROM facture_achat fa
             INNER JOIN entreprise ef ON fa.entreprise_fournisseur_id = ef.id
-            LEFT JOIN paiement_achat pa ON fa.id = pa.facture_achat_id AND pa.statut_id = 3
+            LEFT JOIN paiement_achat pa ON fa.id = pa.facture_achat_id
             WHERE 1=1
             {$where}
             GROUP BY ef.id, ef.nom, ef.type_entreprise

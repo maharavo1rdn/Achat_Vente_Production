@@ -22,7 +22,7 @@ class StatistiqueModel {
         [$where, $params] = $this->buildPeriodClause('pv.date_paiement', $periode);
 
         $sql = "
-            SELECT COALESCE(SUM(pv.montant), 0) AS total
+            SELECT COALESCE(SUM(pv.montant_total_paye), 0) AS total
             FROM paiement_vente pv
             
             {$where}
@@ -43,9 +43,9 @@ class StatistiqueModel {
         [$where, $params] = $this->buildPeriodClause('pa.date_paiement', $periode);
 
         $sql = "
-            SELECT COALESCE(SUM(pa.montant), 0) AS total
+            SELECT COALESCE(SUM(pa.montant_total_paye), 0) AS total
             FROM paiement_achat pa
-            WHERE pa.statut_id = 3
+            WHERE 1=1
             {$where}
         ";
 
@@ -69,12 +69,12 @@ class StatistiqueModel {
                 ec.id,
                 ec.nom,
                 ec.type_entreprise,
-                COALESCE(SUM(pv.montant), 0) AS total,
+                COALESCE(SUM(pv.montant_total_paye), 0) AS total,
                 COUNT(DISTINCT fv.id) AS factures
             FROM paiement_vente pv
             INNER JOIN facture_vente fv ON pv.facture_vente_id = fv.id
             INNER JOIN entreprise ec ON fv.entreprise_client_id = ec.id
-            WHERE pv.statut_id = 3
+            WHERE 1=1
             {$where}
             GROUP BY ec.id, ec.nom, ec.type_entreprise
             ORDER BY factures DESC, total DESC
@@ -147,9 +147,9 @@ class StatistiqueModel {
 
         [$where, $params] = $this->buildPeriodClause('pa.date_paiement', $periode);
         $sql = "
-            SELECT COALESCE(SUM(pa.montant), 0) AS total
+            SELECT COALESCE(SUM(pa.montant_total_paye), 0) AS total
             FROM paiement_achat pa
-            WHERE pa.statut_id = 3
+            WHERE 1=1
             {$where}
         ";
 

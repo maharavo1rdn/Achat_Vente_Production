@@ -25,7 +25,7 @@ class PaiementVenteModel
                 pv.date_paiement,
                 pv.facture_vente_id,
                 pv.caisse_mouvement_id,
-                pv.montant,
+                pv.montant_total_paye AS montant,
                 pv.statut_id,
                 s.libelle as statut_libelle,
                 fv.numero_facture,
