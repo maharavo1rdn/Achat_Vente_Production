@@ -319,6 +319,80 @@ class StockModel
     }
 
     /**
+     * Récupérer le stock valorisé avec valeur comptable et valeur vente potentielle
+     * Utilisé par le frontend pour l'affichage de valorisation
+     */
+    public function getStockValorise($filters = [])
+    {
+        error_log("StockModel::getStockValorise called with filters: " . json_encode($filters));
+
+        $query = "
+            SELECT
+                s.id,
+                s.article_id,
+                s.depot_id,
+                s.quantite_actuelle,
+                COALESCE(s.cmup_actuel, 0) as cmup_actuel,
+                COALESCE(s.valeur_stock_total, s.quantite_actuelle * COALESCE(s.cmup_actuel, a.prix_achat_ref, 0)) as valeur_comptable,
+                COALESCE(s.quantite_actuelle * a.prix_vente_ref, 0) as valeur_vente_potentielle,
+                s.date_maj,
+                a.reference,
+                a.designation,
+                a.prix_achat_ref,
+                a.prix_vente_ref,
+                d.nom as depot,
+                si.nom as site,
+                e.nom as filiale,
+                u.code as unite_code,
+                mvs.code as methode_valorisation_code
+            FROM stock s
+            INNER JOIN article a ON s.article_id = a.id
+            INNER JOIN depot d ON s.depot_id = d.id
+            INNER JOIN site si ON d.site_id = si.id
+            INNER JOIN entreprise e ON si.entreprise_id = e.id
+            INNER JOIN unite u ON a.unite_id = u.id
+            LEFT JOIN methode_valorisation_stock mvs ON s.methode_valorisation_stock_id = mvs.id
+            WHERE 1=1
+        ";
+
+        $params = [];
+
+        if (!empty($filters['filiale'])) {
+            $query .= " AND e.nom = ?";
+            $params[] = $filters['filiale'];
+        }
+
+        if (!empty($filters['site'])) {
+            $query .= " AND si.nom = ?";
+            $params[] = $filters['site'];
+        }
+
+        if (!empty($filters['depot'])) {
+            $query .= " AND s.depot_id = ?";
+            $params[] = $filters['depot'];
+        }
+
+        $query .= " ORDER BY e.nom, si.nom, d.nom, a.designation";
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // S'assurer que toutes les valeurs numériques sont correctement typées
+        foreach ($results as &$row) {
+            $row['quantite_actuelle'] = (int)$row['quantite_actuelle'];
+            $row['cmup_actuel'] = round((float)$row['cmup_actuel'], 2);
+            $row['valeur_comptable'] = round((float)$row['valeur_comptable'], 2);
+            $row['valeur_vente_potentielle'] = round((float)$row['valeur_vente_potentielle'], 2);
+        }
+
+        error_log("StockModel::getStockValorise retrieved " . count($results) . " stock entries");
+
+        return $results;
+    }
+
+    /**
      * Récupérer le stock consolidé au niveau groupe (v_stock_consolide_groupe)
      */
     public function getStockConsolideGroupe()

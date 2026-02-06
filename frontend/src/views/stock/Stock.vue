@@ -101,142 +101,126 @@
         </div>
       </div>
 
-      <!-- Valorisation -->
+      <!-- Valorisation (section compacte) -->
       <div class="card fade-in" style="animation-delay: 0.22s">
-        <div class="card-header-simple">
+        <div class="card-header-simple flex items-center justify-between">
           <h2 class="card-title">Valorisation du Stock</h2>
-          <div class="flex items-center gap-3">
-            <label class="text-sm text-gray-600">Regrouper par</label>
-            <select v-model="groupBy" class="select">
-              <option value="filiale">Filiale</option>
-              <option value="site">Site</option>
-              <option value="depot">Dépôt</option>
-              <option value="article">Article</option>
+          <div class="flex items-center gap-2">
+            <select v-model="groupBy" class="select select-sm">
+              <option value="filiale">Par Filiale</option>
+              <option value="site">Par Site</option>
+              <option value="depot">Par Dépôt</option>
             </select>
-            <button @click="loadValorisation" class="btn-primary">Actualiser</button>
           </div>
         </div>
-        <div class="p-4">
-          <div class="mb-4">
-            <label class="label">Sélectionner un dépôt pour voir les détails</label>
-            <div class="flex gap-3 items-end">
-              <div class="flex-1">
-                <label class="text-sm text-gray-600">Filiale</label>
-                <select v-model="selectedFilialeName" class="select" @change="onFilialeChange">
-                  <option value="">Choisir une filiale</option>
-                  <option v-for="s in structureFilteredFiliales" :key="s" :value="s">{{ s }}</option>
-                </select>
-              </div>
-
-              <div class="flex-1">
-                <label class="text-sm text-gray-600">Site</label>
-                <select v-model="selectedSite" class="select" @change="onSiteChange" :disabled="!selectedFilialeName">
-                  <option value="">Choisir un site</option>
-                  <option v-for="s in filteredSites" :key="s" :value="s">{{ s }}</option>
-                </select>
-              </div>
-
-              <div class="flex-1">
-                <label class="text-sm text-gray-600">Dépôt</label>
-                <select v-model="selectedDepot" class="select" :disabled="!selectedSite">
-                  <option value="">Choisir un dépôt</option>
-                  <option v-for="d in filteredDepots" :key="d.id" :value="d.id">{{ d.nom }}</option>
-                </select>
-              </div>
-
-              <button 
-                @click="voirDetailsDepot" 
-                :disabled="!selectedDepot"
-                class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Voir détails
-              </button>
-            </div>
-          </div>
-
-          <div class="mb-4">
-            <label class="label">Filtrer par Filiale / Site / Dépôt (pour tableau)</label>
-            <div class="flex gap-3">
-              <select v-model="selectedFilialeFilter" class="select">
-                <option value="">Toutes les filiales</option>
-                <option v-for="s in structureFilteredFiliales" :key="s" :value="s">{{ s }}</option>
-              </select>
-
-              <select v-model="selectedSiteFilter" class="select">
-                <option value="">Tous les sites</option>
-                <option v-for="s in structureFilteredSites" :key="s" :value="s">{{ s }}</option>
-              </select>
-
-              <select v-model="selectedDepotFilter" class="select">
-                <option value="">Tous les dépôts</option>
-                <option v-for="d in structureFilteredDepots" :key="d" :value="d">{{ d }}</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="table-wrapper">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>{{ groupByHeader }}</th>
-                  <th class="text-right">Valeur Comptable</th>
-                  <th class="text-right">Valeur Vente Potentielle</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in valoriseGrouped" :key="row.key">
-                  <td class="font-medium">{{ row.key }}</td>
-                  <td class="text-right font-semibold">{{ formatCurrency(row.valeur_comptable) }}</td>
-                  <td class="text-right font-semibold">{{ formatCurrency(row.valeur_vente_potentielle) }}</td>
-                </tr>
-                <tr class="border-t">
-                  <td class="font-medium">Total</td>
-                  <td class="text-right font-semibold">{{ formatCurrency(valoriseTotals.valeur_comptable) }}</td>
-                  <td class="text-right font-semibold">{{ formatCurrency(valoriseTotals.valeur_vente_potentielle) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        
+        <!-- Tableau valorisation compact -->
+        <div class="table-wrapper" v-if="valoriseGrouped.length > 0">
+          <table class="table table-compact">
+            <thead>
+              <tr>
+                <th>{{ groupByHeader }}</th>
+                <th class="text-right">Valeur Comptable</th>
+                <th class="text-right">Valeur Vente</th>
+                <th class="text-right">Marge</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in valoriseGrouped" :key="row.key" class="hover:bg-gray-50">
+                <td class="font-medium">{{ row.key }}</td>
+                <td class="text-right">{{ formatCurrency(row.valeur_comptable) }}</td>
+                <td class="text-right text-green-600">{{ formatCurrency(row.valeur_vente_potentielle) }}</td>
+                <td class="text-right" :class="row.valeur_vente_potentielle - row.valeur_comptable >= 0 ? 'text-green-600' : 'text-red-600'">
+                  {{ formatCurrency(row.valeur_vente_potentielle - row.valeur_comptable) }}
+                </td>
+              </tr>
+              <tr class="bg-gray-50 font-semibold border-t-2">
+                <td>Total</td>
+                <td class="text-right">{{ formatCurrency(valoriseTotals.valeur_comptable) }}</td>
+                <td class="text-right text-green-600">{{ formatCurrency(valoriseTotals.valeur_vente_potentielle) }}</td>
+                <td class="text-right text-green-700">
+                  {{ formatCurrency(valoriseTotals.valeur_vente_potentielle - valoriseTotals.valeur_comptable) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-else class="p-4 text-center text-gray-500">
+          Aucune donnée de valorisation
         </div>
       </div>
 
-      <!-- Stock Table -->
+      <!-- Navigation vers dépôt -->
+      <div class="card fade-in p-4" style="animation-delay: 0.23s">
+        <div class="flex gap-3 items-end flex-wrap">
+          <div class="flex-1 min-w-[150px]">
+            <label class="label">Filiale</label>
+            <select v-model="selectedFilialeName" class="select" @change="onFilialeChange">
+              <option value="">Sélectionner</option>
+              <option v-for="s in structureFilteredFiliales" :key="s" :value="s">{{ s }}</option>
+            </select>
+          </div>
+          <div class="flex-1 min-w-[150px]">
+            <label class="label">Site</label>
+            <select v-model="selectedSite" class="select" @change="onSiteChange" :disabled="!selectedFilialeName">
+              <option value="">Sélectionner</option>
+              <option v-for="s in filteredSites" :key="s" :value="s">{{ s }}</option>
+            </select>
+          </div>
+          <div class="flex-1 min-w-[150px]">
+            <label class="label">Dépôt</label>
+            <select v-model="selectedDepot" class="select" :disabled="!selectedSite">
+              <option value="">Sélectionner</option>
+              <option v-for="d in filteredDepots" :key="d.id" :value="d.id">{{ d.nom }}</option>
+            </select>
+          </div>
+          <button 
+            @click="voirDetailsDepot" 
+            :disabled="!selectedDepot"
+            class="btn-primary h-10 disabled:opacity-50"
+          >
+            <Eye class="w-4 h-4 mr-1" />
+            Détails dépôt
+          </button>
+        </div>
+      </div>
+
+      <!-- Stock Table (simplifié) -->
       <div class="card fade-in" style="animation-delay: 0.25s">
-        <div class="card-header-simple">
-          <h2 class="card-title">État du Stock</h2>
+        <div class="card-header-simple flex items-center justify-between">
+          <h2 class="card-title">État du Stock ({{ filteredStocks.length }} articles)</h2>
         </div>
         <div class="table-wrapper">
           <table class="table">
             <thead>
               <tr>
                 <th>Article</th>
-                <th>Référence</th>
-                <th>Filiale</th>
-                <th>Dépôt</th>
-                <th class="text-center">Quantité</th>
-                <th>Unité</th>
+                <th>Réf.</th>
+                <th>Localisation</th>
+                <th class="text-center">Qté</th>
                 <th class="text-right">CMUP</th>
-                <th class="text-right">Valeur Stock</th>
-                <th>Méthode Val.</th>
-                <th>Dernière MAJ</th>
+                <th class="text-right">Valeur</th>
                 <th class="text-center">Statut</th>
                 <th class="text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="stock in filteredStocks" :key="stock.id" class="table-row">
+              <tr v-for="stock in filteredStocks" :key="stock.id" 
+                  class="table-row"
+                  :class="{ 'bg-red-50': stock.quantite_actuelle === 0, 'bg-orange-50': stock.quantite_actuelle > 0 && stock.quantite_actuelle < 10 }">
                 <td class="font-medium">{{ stock.article }}</td>
-                <td class="text-gray-600">{{ stock.reference }}</td>
-                <td>{{ stock.filiale }}</td>
-                <td class="text-sm text-gray-600">{{ stock.depot }}</td>
-                <td class="text-center font-semibold">{{ stock.quantite_actuelle }}</td>
-                <td>{{ stock.unite }}</td>
-                <td class="text-right">{{ formatCurrency(stock.cmup_actuel || 0) }}</td>
-                <td class="text-right font-medium">{{ formatCurrency(stock.valeur_stock_total || 0) }}</td>
-                <td class="text-xs">
-                  <span class="badge badge-secondary">{{ stock.methode_valorisation_code || 'N/A' }}</span>
+                <td class="text-gray-600 text-sm">{{ stock.reference }}</td>
+                <td class="text-sm">
+                  <div>{{ stock.filiale }}</div>
+                  <div class="text-gray-500 text-xs">{{ stock.depot }}</div>
                 </td>
-                <td class="text-gray-600">{{ formatDate(stock.date_maj) }}</td>
+                <td class="text-center font-bold" :class="{
+                  'text-red-600': stock.quantite_actuelle === 0,
+                  'text-orange-600': stock.quantite_actuelle > 0 && stock.quantite_actuelle < 10,
+                  'text-green-600': stock.quantite_actuelle >= 10
+                }">{{ stock.quantite_actuelle }} {{ stock.unite_code }}</td>
+                <td class="text-right text-sm">{{ formatCurrency(stock.cmup_actuel) }}</td>
+                <td class="text-right font-medium">{{ formatCurrency(stock.valeur_stock_total) }}</td>
                 <td class="text-center">
                   <span :class="getStockBadgeClass(stock.quantite_actuelle)">
                     {{ getStockStatus(stock.quantite_actuelle) }}
@@ -244,11 +228,14 @@
                 </td>
                 <td>
                   <div class="table-actions">
-                    <button @click="viewHistorique(stock)" class="action-btn" title="Historique">
-                      <History class="w-4 h-4" />
+                    <button @click="viewHistorique(stock)" class="action-btn" title="Voir détails">
+                      <Eye class="w-4 h-4" />
                     </button>
                   </div>
                 </td>
+              </tr>
+              <tr v-if="filteredStocks.length === 0">
+                <td colspan="8" class="text-center text-gray-500 py-8">Aucun article en stock</td>
               </tr>
             </tbody>
           </table>
@@ -337,11 +324,6 @@ const selectedSite = ref('')
 const selectedDepot = ref('')
 const structure = ref([])
 
-// Filter variables for table display
-const selectedFilialeFilter = ref('')
-const selectedSiteFilter = ref('')
-const selectedDepotFilter = ref('')
-
 const loadStockData = async () => {
   loading.value = true
   error.value = null
@@ -418,11 +400,13 @@ const getTypeBadgeClass = (type) => {
 }
 
 const formatCurrency = (amount) => {
+  const value = parseFloat(amount) || 0
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
-    minimumFractionDigits: 0
-  }).format(amount)
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  }).format(value)
 }
 
 const formatDate = (date) => {
@@ -445,30 +429,11 @@ const structureFilteredFiliales = computed(() => {
   return Array.from(set)
 })
 
-const structureFilteredSites = computed(() => {
-  const set = new Set()
-  structure.value.forEach(s => set.add(s.site))
-  return Array.from(set)
-})
-
-const structureFilteredDepots = computed(() => {
-  const set = new Set()
-  structure.value.forEach(s => set.add(s.depot_logistique || s.depot))
-  return Array.from(set)
-})
-
 // Computed for cascading depot selection
 const filteredSites = computed(() => {
-  console.log('filteredSites - selectedFilialeName:', selectedFilialeName.value)
-  console.log('filteredSites - structure data:', structure.value)
   if (!selectedFilialeName.value) return []
   const filtered = structure.value.filter(s => s.entreprise === selectedFilialeName.value)
-  console.log('filteredSites - filtered by entreprise:', filtered)
-  const sites = filtered.map(s => s.site)  // API returns site_geo as 'site'
-  console.log('filteredSites - sites mapped:', sites)
-  const uniqueSites = [...new Set(sites)]
-  console.log('filteredSites - unique sites:', uniqueSites)
-  return uniqueSites
+  return [...new Set(filtered.map(s => s.site))]
 })
 
 const filteredDepots = computed(() => {
@@ -498,8 +463,11 @@ const aggregateValorise = (rows) => {
       case 'article': key = r.reference || r.designation || 'Autres'; break
     }
     if (!grouped[key]) grouped[key] = { valeur_comptable: 0, valeur_vente_potentielle: 0 }
-    grouped[key].valeur_comptable += parseFloat(r.valeur_comptable || 0)
-    grouped[key].valeur_vente_potentielle += parseFloat(r.valeur_vente_potentielle || 0)
+    // Utiliser valeur_comptable ou valeur_stock_total selon ce que l'API retourne
+    const valeurComptable = parseFloat(r.valeur_comptable) || parseFloat(r.valeur_stock_total) || 0
+    const valeurVente = parseFloat(r.valeur_vente_potentielle) || (parseFloat(r.quantite_actuelle) * parseFloat(r.prix_vente_ref)) || 0
+    grouped[key].valeur_comptable += valeurComptable
+    grouped[key].valeur_vente_potentielle += valeurVente
   })
 
   const result = Object.keys(grouped).map(k => ({ key: k, valeur_comptable: grouped[k].valeur_comptable, valeur_vente_potentielle: grouped[k].valeur_vente_potentielle }))
@@ -526,18 +494,16 @@ const loadValorisation = async () => {
 }
 
 const openMouvementModal = () => {
-  console.log('Open mouvement modal')
+  router.push({ name: 'mouvement-stock' })
 }
 
 const viewHistorique = (stock) => {
-  console.log('View historique:', stock)
+  router.push({ name: 'stock-depot-details', params: { depotId: stock.depot_id } })
 }
 
 const onFilialeChange = () => {
-  console.log('onFilialeChange - new filiale:', selectedFilialeName.value)
   selectedSite.value = ''
   selectedDepot.value = ''
-  console.log('onFilialeChange - reset site and depot to empty string')
 }
 
 const onSiteChange = () => {
@@ -545,25 +511,13 @@ const onSiteChange = () => {
 }
 
 const voirDetailsDepot = () => {
-  if (!selectedDepot.value) {
-    console.error('Aucun dépôt sélectionné')
-    return
-  }
-  
-  console.log('🔍 Debug selectedDepot:', selectedDepot.value)
-  
-  // Extract the depot ID from the selected depot object
+  if (!selectedDepot.value) return
   const depotId = selectedDepot.value.depot_id || selectedDepot.value.id || selectedDepot.value
-  console.log('🔍 Debug depotId extrait:', depotId)
-  
   router.push({ name: 'stock-depot-details', params: { depotId } })
 }
 
 const viewDepotDetails = (depotId) => {
-  if (!depotId) {
-    console.error('ID dépôt manquant')
-    return
-  }
+  if (!depotId) return
   router.push({ name: 'stock-depot-details', params: { depotId } })
 }
 
@@ -715,12 +669,24 @@ watch([groupBy, selectedFilialeName, selectedSite, selectedDepot], () => {
   @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm;
 }
 
+.select-sm {
+  @apply px-3 py-1.5 text-sm w-auto min-w-[140px];
+}
+
 .table-wrapper {
   @apply overflow-x-auto;
 }
 
 .table {
   @apply w-full;
+}
+
+.table-compact th {
+  @apply px-4 py-2;
+}
+
+.table-compact td {
+  @apply px-4 py-2;
 }
 
 .table thead {
@@ -741,6 +707,14 @@ watch([groupBy, selectedFilialeName, selectedSite, selectedDepot], () => {
 
 .table-row {
   @apply hover:bg-gray-50 transition-colors;
+}
+
+.table-row.bg-red-50:hover {
+  @apply bg-red-100;
+}
+
+.table-row.bg-orange-50:hover {
+  @apply bg-orange-100;
 }
 
 .table-actions {

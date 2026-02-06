@@ -1089,6 +1089,88 @@ class VenteModel
         return 'CMUP';
     }
 
+    /**
+     * Crée les mouvements de sortie de stock pour une facture livrée
+     * Utilise les triggers PostgreSQL pour la valorisation CMUP/FIFO/LIFO
+     */
+    private function creerMouvementsSortieVente($factureId)
+    {
+        error_log("VenteModel::creerMouvementsSortieVente appelé pour facture $factureId");
+        
+        // Récupérer la facture avec depot_expedition_id et personnel_id
+        $query = "SELECT fv.*, fv.depot_expedition_id, fv.personnel_id, fv.numero_facture 
+                  FROM facture_vente fv WHERE fv.id = ?";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$factureId]);
+        $facture = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$facture) {
+            throw new Exception("Facture introuvable: $factureId");
+        }
+        
+        $depotId = $facture['depot_expedition_id'];
+        $personnelId = $facture['personnel_id'];
+        $numeroFacture = $facture['numero_facture'];
+        
+        if (!$depotId) {
+            throw new Exception("Dépôt d'expédition non défini pour la facture $factureId");
+        }
+        
+        // Récupérer les détails de la facture
+        $details = $this->getFactureDetails($factureId);
+        
+        if (empty($details)) {
+            error_log("Aucun détail trouvé pour facture $factureId");
+            return [];
+        }
+        
+        $stockModel = \Flight::stockModel();
+        $mouvements = [];
+        
+        foreach ($details as $detail) {
+            $articleId = $detail['article_id'];
+            $quantite = $detail['quantite'];
+            $prixUnitaire = $detail['prix_unitaire'];
+            
+            // Vérifier le stock disponible
+            $stockQuery = "SELECT quantite_actuelle FROM stock WHERE article_id = ? AND depot_id = ?";
+            $stockStmt = $this->db->prepare($stockQuery);
+            $stockStmt->execute([$articleId, $depotId]);
+            $stock = $stockStmt->fetch(PDO::FETCH_ASSOC);
+            
+            $stockDispo = $stock ? (float)$stock['quantite_actuelle'] : 0;
+            
+            if ($stockDispo < $quantite) {
+                throw new Exception(
+                    "Stock insuffisant pour article $articleId (dispo: $stockDispo, demandé: $quantite)"
+                );
+            }
+            
+            // Créer le mouvement de stock (le trigger gère la valorisation)
+            $mouvementData = [
+                'type_mouvement' => 'VENTE',
+                'article_id' => $articleId,
+                'depot_id' => $depotId,
+                'personnel_id' => $personnelId,
+                'quantite_sortie' => $quantite,
+                'prix_unitaire' => $prixUnitaire,
+                'reference_document' => $numeroFacture
+            ];
+            
+            $mouvementId = $stockModel->createMouvement($mouvementData);
+            $mouvements[] = [
+                'article_id' => $articleId,
+                'quantite' => $quantite,
+                'mouvement_id' => $mouvementId
+            ];
+            
+            error_log("Mouvement créé pour article $articleId, qte: $quantite, mouvement_id: $mouvementId");
+        }
+        
+        error_log("VenteModel::creerMouvementsSortieVente terminé: " . count($mouvements) . " mouvements créés");
+        return $mouvements;
+    }
+
     public function updateFacture($id, $data)
     {
         if ($id <= 0) {
@@ -1099,47 +1181,84 @@ class VenteModel
 
         error_log("VenteModel::updateFacture called with id=$id, data: " . json_encode($data));
 
-        $query = "
-            UPDATE facture_vente SET
-                numero_facture = ?,
-                date_facture = ?,
-                bon_commande_vente_id = ?,
-                entreprise_client_id = ?,
-                entreprise_filiale_id = ?,
-                personnel_id = ?,
-                statut_id = ?,
-                montant_ttc = ?,
-                reste_a_payer = ?,
-                remarques = ?
-            WHERE id = ?
-        ";
+        // Récupérer le statut actuel AVANT mise à jour
+        $queryStatut = "SELECT statut_id, depot_expedition_id FROM facture_vente WHERE id = ?";
+        $stmtStatut = $this->db->prepare($queryStatut);
+        $stmtStatut->execute([$id]);
+        $ancienneFacture = $stmtStatut->fetch(PDO::FETCH_ASSOC);
+        $ancienStatutId = $ancienneFacture ? (int)$ancienneFacture['statut_id'] : 0;
+        
+        // Statut LIVRE = 4
+        $STATUT_LIVRE = 4;
+        $nouveauStatutId = isset($data['statut_id']) ? (int)$data['statut_id'] : $ancienStatutId;
+        $passageALivre = ($nouveauStatutId === $STATUT_LIVRE && $ancienStatutId !== $STATUT_LIVRE);
 
-        $stmt = $this->db->prepare($query);
-        $result = $stmt->execute([
-            $data['numero_facture'],
-            $data['date_facture'] ?? date('Y-m-d'),
-            $data['bon_commande_vente_id'] ?? null,
-            $data['entreprise_client_id'],
-            $data['entreprise_filiale_id'],
-            $data['personnel_id'],
-            $data['statut_id'],
-            $data['montant_ttc'] ?? 0,
-            $data['reste_a_payer'] ?? $data['montant_ttc'] ?? 0,
-            $data['remarques'] ?? null,
-            $id
-        ]);
-
-        if ($result && $stmt->rowCount() > 0) {
-            if (isset($data['details']) && is_array($data['details'])) {
-                $this->updateFactureDetails($id, $data['details']);
-            }
-
-            error_log("VenteModel::updateFacture updated facture with id=$id");
-            return true;
+        // Démarrer une transaction si passage à LIVRE (pour atomicité)
+        if ($passageALivre) {
+            $this->db->beginTransaction();
         }
 
-        error_log("VenteModel::updateFacture no facture updated with id=$id");
-        return false;
+        try {
+            $query = "
+                UPDATE facture_vente SET
+                    numero_facture = ?,
+                    date_facture = ?,
+                    bon_commande_vente_id = ?,
+                    entreprise_client_id = ?,
+                    entreprise_filiale_id = ?,
+                    personnel_id = ?,
+                    statut_id = ?,
+                    montant_ttc = ?,
+                    reste_a_payer = ?,
+                    remarques = ?
+                WHERE id = ?
+            ";
+
+            $stmt = $this->db->prepare($query);
+            $result = $stmt->execute([
+                $data['numero_facture'],
+                $data['date_facture'] ?? date('Y-m-d'),
+                $data['bon_commande_vente_id'] ?? null,
+                $data['entreprise_client_id'],
+                $data['entreprise_filiale_id'],
+                $data['personnel_id'],
+                $data['statut_id'],
+                $data['montant_ttc'] ?? 0,
+                $data['reste_a_payer'] ?? $data['montant_ttc'] ?? 0,
+                $data['remarques'] ?? null,
+                $id
+            ]);
+
+            if ($result && $stmt->rowCount() > 0) {
+                if (isset($data['details']) && is_array($data['details'])) {
+                    $this->updateFactureDetails($id, $data['details']);
+                }
+
+                // Si passage à LIVRE : créer les mouvements de sortie de stock
+                if ($passageALivre) {
+                    error_log("Facture $id passe à LIVRE - création des mouvements de sortie stock");
+                    $this->creerMouvementsSortieVente($id);
+                    $this->db->commit();
+                    error_log("Stock mis à jour suite à livraison facture $id");
+                }
+
+                error_log("VenteModel::updateFacture updated facture with id=$id");
+                return true;
+            }
+
+            if ($passageALivre) {
+                $this->db->rollBack();
+            }
+            error_log("VenteModel::updateFacture no facture updated with id=$id");
+            return false;
+            
+        } catch (\Exception $e) {
+            if ($passageALivre) {
+                $this->db->rollBack();
+            }
+            error_log("VenteModel::updateFacture ERREUR: " . $e->getMessage());
+            throw $e;
+        }
     }
 
     public function deleteFacture($id)
