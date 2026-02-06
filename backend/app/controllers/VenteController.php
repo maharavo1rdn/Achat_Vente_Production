@@ -211,6 +211,51 @@ class VenteController {
         }
     }
 
+    /**
+     * Valide la disponibilité du stock pour une liste d'articles
+     * POST /api/ventes/valider-stock
+     * Body: { details: [{article_id, quantite, depot_id?}], depot_id?: default }
+     */
+    public function validerStockPourVente() {
+        try {
+            $data = Flight::request()->data->getData();
+            $details = $data['details'] ?? [];
+            $depotId = $data['depot_id'] ?? null;
+            
+            if (empty($details)) {
+                Flight::json(['error' => 'Les détails des articles sont obligatoires'], 400);
+                return;
+            }
+            
+            $result = Flight::venteModel()->validerStockPourVente($details, $depotId);
+            Flight::json($result);
+        } catch (Exception $e) {
+            error_log("VenteController::validerStockPourVente Exception: " . $e->getMessage());
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Crée une facture avec sortie de stock automatique
+     * POST /api/ventes/factures-avec-stock
+     * Body: données facture incluant details et depot_expedition_id
+     */
+    public function createFactureAvecSortieStock() {
+        try {
+            $data = Flight::request()->data->getData();
+            error_log("VenteController::createFactureAvecSortieStock received data: " . json_encode($data));
+            
+            $result = Flight::venteModel()->createFactureAvecSortieStock($data);
+            Flight::json($result, 201);
+        } catch (InvalidArgumentException $e) {
+            error_log("VenteController::createFactureAvecSortieStock InvalidArgumentException: " . $e->getMessage());
+            Flight::json(['error' => $e->getMessage()], 400);
+        } catch (Exception $e) {
+            error_log("VenteController::createFactureAvecSortieStock Exception: " . $e->__toString());
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     public function updateFacture($id) {
         try {
             $data = Flight::request()->data;

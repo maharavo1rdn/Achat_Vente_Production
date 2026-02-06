@@ -419,6 +419,7 @@ class MouvementStockModel
     /**
  * Crée une sortie de stock avec FIFO (First In, First Out)
  * Version avec création de mouvements de sortie séparés pour chaque lot FIFO
+ * @throws InvalidArgumentException si stock insuffisant
  */
     public function creerSortieAvecFIFO($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null)
     {
@@ -426,6 +427,8 @@ class MouvementStockModel
         error_log("Article: $articleId, Quantité: $quantite, Référence: $referenceDocument");
         
         $this->db->beginTransaction();
+        
+        try {
         
         
             // 1. RÉCUPÉRER LES ENTRÉES DISPONIBLES triées FIFO
@@ -519,26 +522,40 @@ class MouvementStockModel
                 }
             }
             
-            // 4. VALIDER LA TRANSACTION
+            // 4. CALCULER LE COÛT TOTAL FIFO
+            $coutTotalFIFO = 0;
+            foreach ($lotsUtilises as $lot) {
+                $coutTotalFIFO += $lot['quantite_prelevee'] * ($lot['prix_unitaire_achat'] ?? 0);
+            }
+            
+            // 5. VALIDER LA TRANSACTION
             $this->db->commit();
             
+            $quantiteSortie = $quantite - $quantiteRestante;
             $resultat = [
                 'success' => true,
                 'quantite_demandee' => $quantite,
-                'quantite_sortie_reelle' => $quantite - $quantiteRestante,
+                'quantite_sortie_reelle' => $quantiteSortie,
                 'quantite_restante' => $quantiteRestante,
                 'mouvements_sortie_ids' => $mouvementsSortieIds,
                 'lots_utilises' => $lotsUtilises,
+                'cout_total_fifo' => round($coutTotalFIFO, 2),
+                'cout_moyen_unitaire_fifo' => $quantiteSortie > 0 ? round($coutTotalFIFO / $quantiteSortie, 2) : 0,
                 'nombre_mouvements_crees' => count($mouvementsSortieIds),
+                'type_sortie' => 'FIFO',
                 'message' => "Sortie FIFO créée avec " . count($mouvementsSortieIds) . " mouvement(s)"
             ];
             
             error_log("=== FIN creerSortieAvecFIFO ===");
-            error_log(json_encode($resultat));
+            error_log("Coût total FIFO: $coutTotalFIFO");
             
             return $resultat;
             
-        
+        } catch (\Exception $e) {
+            $this->db->rollBack();
+            error_log("ERREUR creerSortieAvecFIFO: " . $e->getMessage());
+            throw $e;
+        }
     }
 
     /**
@@ -857,6 +874,7 @@ class MouvementStockModel
     /**
  * Crée une sortie de stock avec LIFO (Last In, First Out)
  * Principe : Les dernières entrées sont sorties en premier
+ * @throws InvalidArgumentException si stock insuffisant
  */
     public function creerSortieAvecLIFO($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null)
     {
@@ -864,6 +882,8 @@ class MouvementStockModel
         error_log("Article: $articleId, Quantité: $quantite, Référence: $referenceDocument");
         
         $this->db->beginTransaction();
+        
+        try {
         
         
             // 1. RÉCUPÉRER LES ENTRÉES DISPONIBLES triées LIFO (inverse de FIFO)
@@ -959,25 +979,26 @@ class MouvementStockModel
                 }
             }
             
-            // 4. VALIDER LA TRANSACTION
-            $this->db->commit();
-            
-            // 5. CALCULER LE COÛT TOTAL LIFO
+            // 4. CALCULER LE COÛT TOTAL LIFO (avant commit pour inclure dans la transaction)
             $coutTotalLIFO = 0;
             foreach ($lotsUtilises as $lot) {
-                $coutTotalLIFO += $lot['quantite_prelevee'] * $lot['prix_unitaire_achat'];
+                $coutTotalLIFO += $lot['quantite_prelevee'] * ($lot['prix_unitaire_achat'] ?? 0);
             }
             
+            // 5. VALIDER LA TRANSACTION
+            $this->db->commit();
+            
+            $quantiteSortie = $quantite - $quantiteRestante;
             $resultat = [
                 'success' => true,
                 'quantite_demandee' => $quantite,
-                'quantite_sortie_reelle' => $quantite - $quantiteRestante,
+                'quantite_sortie_reelle' => $quantiteSortie,
                 'quantite_restante' => $quantiteRestante,
                 'mouvements_sortie_ids' => $mouvementsSortieIds,
                 'lots_utilises' => $lotsUtilises,
-                'cout_total_lifo' => $coutTotalLIFO,
-                'cout_moyen_unitaire_lifo' => ($quantite - $quantiteRestante) > 0 ? 
-                    $coutTotalLIFO / ($quantite - $quantiteRestante) : 0,
+                'cout_total_lifo' => round($coutTotalLIFO, 2),
+                'cout_moyen_unitaire_lifo' => $quantiteSortie > 0 ? 
+                    round($coutTotalLIFO / $quantiteSortie, 2) : 0,
                 'nombre_mouvements_crees' => count($mouvementsSortieIds),
                 'type_sortie' => 'LIFO',
                 'message' => "Sortie LIFO créée avec " . count($mouvementsSortieIds) . " mouvement(s)"
@@ -988,12 +1009,17 @@ class MouvementStockModel
             
             return $resultat;
             
-       
+        } catch (\Exception $e) {
+            $this->db->rollBack();
+            error_log("ERREUR creerSortieAvecLIFO: " . $e->getMessage());
+            throw $e;
+        }
     }
 
     /**
      * Crée une sortie de stock avec CMUP (Coût Moyen Unitaire Pondéré)
      * Principe : Toutes les entrées sont mélangées, on sort à un prix moyen
+     * @throws InvalidArgumentException si stock insuffisant
      */
     public function creerSortieAvecCMUP($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null)
     {
@@ -1001,6 +1027,8 @@ class MouvementStockModel
         error_log("Article: $articleId, Quantité: $quantite, Référence: $referenceDocument");
         
         $this->db->beginTransaction();
+        
+        try {
         
         
             // 1. RÉCUPÉRER TOUTES LES ENTRÉES DISPONIBLES
@@ -1196,26 +1224,27 @@ class MouvementStockModel
             $this->db->commit();
             
             // 7. CALCULER LE COÛT TOTAL CMUP
-            $coutTotalCMUP = ($quantite - $quantiteRestante) * $cmup;
+            $quantiteSortie = $quantite - $quantiteRestante;
+            $coutTotalCMUP = $quantiteSortie * $cmup;
             
             $resultat = [
                 'success' => true,
                 'quantite_demandee' => $quantite,
-                'quantite_sortie_reelle' => $quantite - $quantiteRestante,
+                'quantite_sortie_reelle' => $quantiteSortie,
                 'quantite_restante' => $quantiteRestante,
                 'mouvements_sortie_ids' => $mouvementsSortieIds,
                 'lots_utilises' => $lotsUtilises,
                 'calculs_cmup' => [
-                    'stock_total_disponible' => $stockTotalDisponible,
-                    'valeur_totale_stock' => $valeurTotaleStock,
-                    'cmup_calcule' => $cmup,
-                    'cout_total_cmup' => $coutTotalCMUP
+                    'stock_total_disponible' => round($stockTotalDisponible, 2),
+                    'valeur_totale_stock' => round($valeurTotaleStock, 2),
+                    'cmup_calcule' => round($cmup, 2),
+                    'cout_total_cmup' => round($coutTotalCMUP, 2)
                 ],
-                'cout_total_cmup' => $coutTotalCMUP,
-                'cout_moyen_unitaire_cmup' => $cmup,
+                'cout_total_cmup' => round($coutTotalCMUP, 2),
+                'cout_moyen_unitaire_cmup' => round($cmup, 2),
                 'nombre_mouvements_crees' => count($mouvementsSortieIds),
                 'type_sortie' => 'CMUP',
-                'message' => "Sortie CMUP créée avec " . count($mouvementsSortieIds) . " mouvement(s), CMUP: $cmup"
+                'message' => "Sortie CMUP créée avec " . count($mouvementsSortieIds) . " mouvement(s), CMUP: " . round($cmup, 2)
             ];
             
             error_log("=== FIN creerSortieAvecCMUP ===");
@@ -1223,6 +1252,11 @@ class MouvementStockModel
             
             return $resultat;
         
+        } catch (\Exception $e) {
+            $this->db->rollBack();
+            error_log("ERREUR creerSortieAvecCMUP: " . $e->getMessage());
+            throw $e;
+        }
     }
 
     /**

@@ -130,4 +130,19 @@ class StockController {
             Flight::json(['error' => $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Récupère le stock valorisé complet avec totaux et alertes
+     * GET /api/stock/valorise-complet?entreprise_id=&depot_id=&seuil_critique=&statut_stock=
+     */
+    public function getStockValoriseComplet() {
+        try {
+            $filters = Flight::request()->query->getData();
+            $result = Flight::stockModel()->getStockValoriseComplet($filters);
+            Flight::json($result);
+        } catch (Exception $e) {
+            error_log("StockController::getStockValoriseComplet Exception: " . $e->getMessage());
+            Flight::json(['error' => $e->getMessage()], 500);
+        }
+    }
 }

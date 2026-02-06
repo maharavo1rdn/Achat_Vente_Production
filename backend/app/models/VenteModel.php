@@ -131,7 +131,7 @@ class VenteModel
 
         // Generate initial numero_devis if not provided so validation passes
         if (empty($data['numero_devis'])) {
-            $data['numero_devis'] = $this->generateNumeroDevis(false);
+            $data['numero_devis'] = $this->generateNumeroDevis();
         }
 
         $this->validateDevisData($data);
@@ -882,6 +882,211 @@ class VenteModel
 
         error_log("VenteModel::createFacture created facture with id=$newId");
         return (int)$newId;
+    }
+
+    /**
+     * Vérifie la disponibilité du stock pour tous les articles d'une vente
+     * @param array $details Liste des lignes de détail avec article_id, quantite, depot_id optionnel
+     * @param int $depotDefaultId Dépôt par défaut si non spécifié par ligne
+     * @return array Résultat de validation avec 'success' et 'details' par article
+     */
+    public function validerStockPourVente($details, $depotDefaultId = null)
+    {
+        error_log("VenteModel::validerStockPourVente called");
+        
+        $resultat = [
+            'success' => true,
+            'articles_valides' => [],
+            'articles_insuffisants' => [],
+            'message' => ''
+        ];
+
+        foreach ($details as $detail) {
+            $articleId = $detail['article_id'];
+            $quantiteDemandee = $detail['quantite'];
+            $depotId = $detail['depot_id'] ?? $depotDefaultId ?? $this->getDefaultDepotId();
+            
+            // Récupérer le stock disponible
+            $query = "
+                SELECT 
+                    s.quantite_actuelle,
+                    s.cmup_actuel,
+                    mvs.code as methode_valorisation,
+                    a.designation as article_nom
+                FROM stock s
+                INNER JOIN article a ON s.article_id = a.id
+                INNER JOIN methode_valorisation_stock mvs ON s.methode_valorisation_stock_id = mvs.id
+                WHERE s.article_id = ? AND s.depot_id = ?
+            ";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$articleId, $depotId]);
+            $stock = $stmt->fetch(\PDO::FETCH_ASSOC);
+            
+            $stockDisponible = $stock ? (float)$stock['quantite_actuelle'] : 0;
+            $methodeValo = $stock ? $stock['methode_valorisation'] : 'CMUP';
+            
+            $articleInfo = [
+                'article_id' => $articleId,
+                'article_nom' => $stock['article_nom'] ?? "Article #$articleId",
+                'depot_id' => $depotId,
+                'quantite_demandee' => $quantiteDemandee,
+                'quantite_disponible' => $stockDisponible,
+                'methode_valorisation' => $methodeValo,
+                'suffisant' => $stockDisponible >= $quantiteDemandee
+            ];
+            
+            if ($articleInfo['suffisant']) {
+                $resultat['articles_valides'][] = $articleInfo;
+            } else {
+                $resultat['articles_insuffisants'][] = $articleInfo;
+                $resultat['success'] = false;
+            }
+        }
+        
+        if (!$resultat['success']) {
+            $articlesManquants = array_map(function($a) {
+                return $a['article_nom'] . " (demandé: " . $a['quantite_demandee'] . ", disponible: " . $a['quantite_disponible'] . ")";
+            }, $resultat['articles_insuffisants']);
+            
+            $resultat['message'] = "Stock insuffisant pour: " . implode(", ", $articlesManquants);
+        } else {
+            $resultat['message'] = "Stock suffisant pour tous les articles";
+        }
+        
+        error_log("VenteModel::validerStockPourVente result: " . json_encode($resultat));
+        return $resultat;
+    }
+
+    /**
+     * Crée une facture avec déduction automatique du stock selon la méthode de valorisation
+     * @param array $data Données de la facture incluant 'details' et 'depot_expedition_id'
+     * @return array Résultat avec factureId et détails des mouvements de stock
+     * @throws InvalidArgumentException si stock insuffisant ou données invalides
+     */
+    public function createFactureAvecSortieStock($data)
+    {
+        error_log("VenteModel::createFactureAvecSortieStock called");
+        
+        $this->db->beginTransaction();
+        
+        try {
+            // 1. Valider les données
+            if (empty($data['details']) || !is_array($data['details'])) {
+                throw new InvalidArgumentException("Les détails de la facture sont obligatoires");
+            }
+            
+            $depotId = $data['depot_expedition_id'] ?? $this->getDefaultDepotId();
+            $personnelId = $data['personnel_id'];
+            
+            // 2. Valider la disponibilité du stock
+            $validationStock = $this->validerStockPourVente($data['details'], $depotId);
+            if (!$validationStock['success']) {
+                throw new InvalidArgumentException($validationStock['message']);
+            }
+            
+            // 3. Créer la facture
+            $factureId = $this->createFacture($data);
+            $numeroFacture = $this->getFactureById($factureId)['numero_facture'] ?? "FAC-$factureId";
+            
+            // 4. Créer les mouvements de sortie de stock
+            $mouvementsStock = [];
+            $mouvementStockModel = \Flight::mouvementStockModel();
+            
+            foreach ($data['details'] as $detail) {
+                $articleId = $detail['article_id'];
+                $quantite = $detail['quantite'];
+                $ligneDepotId = $detail['depot_id'] ?? $depotId;
+                
+                // Récupérer la méthode de valorisation pour cet article/dépôt
+                $methode = $this->getMethodeValorisationArticle($articleId, $ligneDepotId);
+                
+                $referenceDoc = "VENTE-" . $numeroFacture . "-ART" . $articleId;
+                
+                // Créer la sortie selon la méthode
+                switch ($methode) {
+                    case 'FIFO':
+                        $resultatSortie = $mouvementStockModel->creerSortieAvecFIFO(
+                            $articleId, $quantite, $personnelId, $referenceDoc
+                        );
+                        break;
+                    case 'LIFO':
+                        $resultatSortie = $mouvementStockModel->creerSortieAvecLIFO(
+                            $articleId, $quantite, $personnelId, $referenceDoc
+                        );
+                        break;
+                    case 'CMUP':
+                    default:
+                        $resultatSortie = $mouvementStockModel->creerSortieAvecCMUP(
+                            $articleId, $quantite, $personnelId, $referenceDoc
+                        );
+                        break;
+                }
+                
+                $mouvementsStock[] = [
+                    'article_id' => $articleId,
+                    'methode' => $methode,
+                    'resultat' => $resultatSortie
+                ];
+            }
+            
+            $this->db->commit();
+            
+            error_log("VenteModel::createFactureAvecSortieStock completed successfully");
+            
+            return [
+                'success' => true,
+                'facture_id' => $factureId,
+                'numero_facture' => $numeroFacture,
+                'mouvements_stock' => $mouvementsStock,
+                'message' => "Facture créée et stock mis à jour"
+            ];
+            
+        } catch (\Exception $e) {
+            $this->db->rollBack();
+            error_log("VenteModel::createFactureAvecSortieStock ERREUR: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Récupère la méthode de valorisation pour un article dans un dépôt
+     * Priorité: Stock (article+dépôt) > Dépôt > Défaut (CMUP)
+     */
+    private function getMethodeValorisationArticle($articleId, $depotId)
+    {
+        // 1. Chercher dans stock (article + dépôt spécifique)
+        $query = "
+            SELECT mvs.code
+            FROM stock s
+            INNER JOIN methode_valorisation_stock mvs ON s.methode_valorisation_stock_id = mvs.id
+            WHERE s.article_id = ? AND s.depot_id = ?
+        ";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$articleId, $depotId]);
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        
+        if ($result && !empty($result['code'])) {
+            return $result['code'];
+        }
+        
+        // 2. Chercher la méthode du dépôt
+        $query = "
+            SELECT mvs.code
+            FROM depot d
+            INNER JOIN methode_valorisation_stock mvs ON d.methode_valorisation_stock_id = mvs.id
+            WHERE d.id = ?
+        ";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$depotId]);
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        
+        if ($result && !empty($result['code'])) {
+            return $result['code'];
+        }
+        
+        // 3. Défaut: CMUP
+        return 'CMUP';
     }
 
     public function updateFacture($id, $data)

@@ -95,17 +95,21 @@ class StockModel
                 s.article_id,
                 s.depot_id,
                 s.quantite_actuelle,
+                s.cmup_actuel,
+                s.valeur_stock_total,
                 s.date_maj,
                 a.reference,
                 a.designation,
-                e.nom as depot_nom
+                d.nom as depot_nom,
+                mvs.code as methode_valorisation_code
             FROM stock s
             INNER JOIN article a ON s.article_id = a.id
-            INNER JOIN depot e ON s.depot_id = e.id
-            WHERE s.article_id = ? AND s.depot_id= ?
+            INNER JOIN depot d ON s.depot_id = d.id
+            INNER JOIN methode_valorisation_stock mvs ON s.methode_valorisation_stock_id = mvs.id
+            WHERE s.article_id = ? AND s.depot_id = ?
         ";
 
-        $params = [$articleId, $entrepriseId];
+        $params = [$articleId, $depotId];
 
        
 
@@ -312,28 +316,6 @@ class StockModel
         error_log("StockModel::getStockAlerte retrieved " . count($results) . " alertes");
 
         return $results;
-    }
-
-    private function updateStockQuantite($articleId, $depotId, $nouvelleQuantite, $prixUnitaire=null)
-    {
-        error_log("StockModel::updateStockQuantite called with articleId=$articleId, depotId=$depotId, nouvelleQuantite=$nouvelleQuantite");
-
-        // Vérifier si l'entrée stock existe
-        $stockExistant = $this->getStockByArticle($articleId, $depotId);
-
-        if ($stockExistant) {
-            // Mettre à jour
-            $query = "UPDATE stock SET quantite_actuelle = ?, date_maj = NOW() WHERE article_id = ? AND depot_id = ?";
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([$nouvelleQuantite, $articleId, $depotId]);
-        } else {
-            // Créer nouvelle entrée
-            $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle, cmup_actuel, valeur_stock_total, methode_valorisation_stock_id) VALUES (?, ?, ?, ?, ?, 2)";
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([$articleId, $depotId, $nouvelleQuantite, $prixUnitaire, $prixUnitaire * $nouvelleQuantite]);
-        }
-
-        error_log("StockModel::updateStockQuantite stock updated");
     }
 
     /**
@@ -549,5 +531,233 @@ class StockModel
         if (isset($data['prix_unitaire_mouvement']) && $data['prix_unitaire_mouvement'] < 0) {
             throw new InvalidArgumentException("Le prix unitaire ne peut pas être négatif");
         }
+    }
+
+    /**
+     * Récupère le stock valorisé avec formatage professionnel et totaux
+     * Supporte le groupement par site, dépôt, article
+     * @param array $filters Filtres (entreprise_id, depot_id, seuil_critique, groupBy)
+     * @return array Stock avec totaux et alertes
+     */
+    public function getStockValoriseComplet($filters = [])
+    {
+        error_log("StockModel::getStockValoriseComplet called with filters: " . json_encode($filters));
+
+        $query = "
+            SELECT
+                s.id,
+                s.article_id,
+                s.depot_id,
+                s.quantite_actuelle,
+                s.cmup_actuel,
+                s.valeur_stock_total,
+                s.date_maj,
+                a.reference,
+                a.designation as article,
+                a.prix_achat_ref,
+                a.prix_vente_ref,
+                d.nom as depot,
+                si.id as site_id,
+                si.nom as site,
+                e.id as entreprise_id,
+                e.nom as entreprise,
+                g.id as groupe_id,
+                g.nom as groupe,
+                u.code as unite_code,
+                u.libelle as unite,
+                mvs.code as methode_valorisation_code,
+                mvs.libelle as methode_valorisation,
+                CASE 
+                    WHEN s.quantite_actuelle <= 0 THEN 'RUPTURE'
+                    WHEN s.quantite_actuelle <= COALESCE(?, 10) THEN 'BAS'
+                    ELSE 'NORMAL'
+                END as statut_stock
+            FROM stock s
+            INNER JOIN article a ON s.article_id = a.id
+            INNER JOIN depot d ON s.depot_id = d.id
+            INNER JOIN site si ON d.site_id = si.id
+            INNER JOIN entreprise e ON si.entreprise_id = e.id
+            LEFT JOIN groupe g ON e.groupe_id = g.id
+            INNER JOIN unite u ON a.unite_id = u.id
+            INNER JOIN methode_valorisation_stock mvs ON s.methode_valorisation_stock_id = mvs.id
+            WHERE 1=1
+        ";
+
+        $seuilCritique = $filters['seuil_critique'] ?? 10;
+        $params = [$seuilCritique];
+
+        if (isset($filters['entreprise_id'])) {
+            $query .= " AND e.id = ?";
+            $params[] = $filters['entreprise_id'];
+        }
+
+        if (isset($filters['site_id'])) {
+            $query .= " AND si.id = ?";
+            $params[] = $filters['site_id'];
+        }
+
+        if (isset($filters['depot_id'])) {
+            $query .= " AND s.depot_id = ?";
+            $params[] = $filters['depot_id'];
+        }
+
+        if (isset($filters['methode_valorisation'])) {
+            $query .= " AND mvs.code = ?";
+            $params[] = $filters['methode_valorisation'];
+        }
+
+        if (isset($filters['statut_stock'])) {
+            switch ($filters['statut_stock']) {
+                case 'RUPTURE':
+                    $query .= " AND s.quantite_actuelle <= 0";
+                    break;
+                case 'BAS':
+                    $query .= " AND s.quantite_actuelle > 0 AND s.quantite_actuelle <= ?";
+                    $params[] = $seuilCritique;
+                    break;
+                case 'NORMAL':
+                    $query .= " AND s.quantite_actuelle > ?";
+                    $params[] = $seuilCritique;
+                    break;
+            }
+        }
+
+        $query .= " ORDER BY e.nom, si.nom, d.nom, a.designation";
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+
+        $stocks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Formater les montants et calculer les totaux
+        $totaux = [
+            'quantite_totale' => 0,
+            'valeur_totale' => 0,
+            'valeur_vente_potentielle' => 0,
+            'articles_rupture' => 0,
+            'articles_stock_bas' => 0,
+            'articles_normaux' => 0
+        ];
+        
+        $totauxParSite = [];
+        $totauxParDepot = [];
+        
+        foreach ($stocks as &$stock) {
+            // Arrondir les valeurs monétaires à 2 décimales
+            $stock['cmup_actuel'] = round((float)$stock['cmup_actuel'], 2);
+            $stock['valeur_stock_total'] = round((float)$stock['valeur_stock_total'], 2);
+            $stock['quantite_actuelle'] = (int)$stock['quantite_actuelle'];
+            
+            // Calculer la valeur de vente potentielle
+            $stock['valeur_vente_potentielle'] = round(
+                $stock['quantite_actuelle'] * (float)$stock['prix_vente_ref'], 2
+            );
+            
+            // Marge potentielle
+            $stock['marge_potentielle'] = round(
+                $stock['valeur_vente_potentielle'] - $stock['valeur_stock_total'], 2
+            );
+            
+            // Mettre à jour les totaux globaux
+            $totaux['quantite_totale'] += $stock['quantite_actuelle'];
+            $totaux['valeur_totale'] += $stock['valeur_stock_total'];
+            $totaux['valeur_vente_potentielle'] += $stock['valeur_vente_potentielle'];
+            
+            switch ($stock['statut_stock']) {
+                case 'RUPTURE':
+                    $totaux['articles_rupture']++;
+                    break;
+                case 'BAS':
+                    $totaux['articles_stock_bas']++;
+                    break;
+                default:
+                    $totaux['articles_normaux']++;
+            }
+            
+            // Totaux par site
+            $siteKey = $stock['site_id'];
+            if (!isset($totauxParSite[$siteKey])) {
+                $totauxParSite[$siteKey] = [
+                    'site_id' => $siteKey,
+                    'site' => $stock['site'],
+                    'entreprise' => $stock['entreprise'],
+                    'valeur_stock' => 0,
+                    'valeur_vente' => 0,
+                    'nb_articles' => 0
+                ];
+            }
+            $totauxParSite[$siteKey]['valeur_stock'] += $stock['valeur_stock_total'];
+            $totauxParSite[$siteKey]['valeur_vente'] += $stock['valeur_vente_potentielle'];
+            $totauxParSite[$siteKey]['nb_articles']++;
+            
+            // Totaux par dépôt
+            $depotKey = $stock['depot_id'];
+            if (!isset($totauxParDepot[$depotKey])) {
+                $totauxParDepot[$depotKey] = [
+                    'depot_id' => $depotKey,
+                    'depot' => $stock['depot'],
+                    'site' => $stock['site'],
+                    'valeur_stock' => 0,
+                    'valeur_vente' => 0,
+                    'nb_articles' => 0
+                ];
+            }
+            $totauxParDepot[$depotKey]['valeur_stock'] += $stock['valeur_stock_total'];
+            $totauxParDepot[$depotKey]['valeur_vente'] += $stock['valeur_vente_potentielle'];
+            $totauxParDepot[$depotKey]['nb_articles']++;
+        }
+        
+        // Arrondir les totaux
+        $totaux['valeur_totale'] = round($totaux['valeur_totale'], 2);
+        $totaux['valeur_vente_potentielle'] = round($totaux['valeur_vente_potentielle'], 2);
+        $totaux['marge_potentielle_totale'] = round(
+            $totaux['valeur_vente_potentielle'] - $totaux['valeur_totale'], 2
+        );
+        
+        foreach ($totauxParSite as &$site) {
+            $site['valeur_stock'] = round($site['valeur_stock'], 2);
+            $site['valeur_vente'] = round($site['valeur_vente'], 2);
+        }
+        
+        foreach ($totauxParDepot as &$depot) {
+            $depot['valeur_stock'] = round($depot['valeur_stock'], 2);
+            $depot['valeur_vente'] = round($depot['valeur_vente'], 2);
+        }
+
+        error_log("StockModel::getStockValoriseComplet retrieved " . count($stocks) . " stock entries");
+
+        return [
+            'stocks' => $stocks,
+            'totaux_globaux' => $totaux,
+            'totaux_par_site' => array_values($totauxParSite),
+            'totaux_par_depot' => array_values($totauxParDepot),
+            'filtres_appliques' => $filters,
+            'date_extraction' => date('Y-m-d H:i:s')
+        ];
+    }
+
+    /**
+     * Rend la méthode updateStockQuantite publique pour utilisation dans MouvementStockModel
+     */
+    public function updateStockQuantite($articleId, $depotId, $nouvelleQuantite, $prixUnitaire = null)
+    {
+        error_log("StockModel::updateStockQuantite called with articleId=$articleId, depotId=$depotId, nouvelleQuantite=$nouvelleQuantite");
+
+        // Vérifier si l'entrée stock existe
+        $stockExistant = $this->getStockByArticle($articleId, $depotId);
+
+        if ($stockExistant) {
+            // Mettre à jour
+            $query = "UPDATE stock SET quantite_actuelle = ?, date_maj = NOW() WHERE article_id = ? AND depot_id = ?";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$nouvelleQuantite, $articleId, $depotId]);
+        } else {
+            // Créer nouvelle entrée
+            $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle, cmup_actuel, valeur_stock_total, methode_valorisation_stock_id) VALUES (?, ?, ?, ?, ?, 2)";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$articleId, $depotId, $nouvelleQuantite, $prixUnitaire, ($prixUnitaire ?? 0) * $nouvelleQuantite]);
+        }
+
+        error_log("StockModel::updateStockQuantite stock updated");
     }
 }

@@ -84,6 +84,7 @@ $router->group('/api/stock', function () use ($router, $Stock_Controller) {
     $router->get('/historique/@articleId:[0-9]+', [$Stock_Controller, 'getHistoriqueArticle']);
     $router->get('/alerte', [$Stock_Controller, 'getStockAlerte']);
     $router->get('/valorise', [$Stock_Controller, 'getStockValorise']);
+    $router->get('/valorise-complet', [$Stock_Controller, 'getStockValoriseComplet']);
     $router->get('/consolide-groupe', [$Stock_Controller, 'getStockConsolideGroupe']);
     $router->get('/structure', [$Stock_Controller, 'getStructureOrganisation']);
     // Depot details routes
@@ -154,6 +155,10 @@ $router->group('/api/ventes', function () use ($router, $Vente_Controller) {
         $router->delete('/@id:[0-9]+', [$Vente_Controller, 'deleteFacture']);
         $router->post('/@id:[0-9]+/encaisser', [$Vente_Controller, 'payerFacture']);
     });
+    
+    // Routes pour validation stock et création facture avec sortie de stock
+    $router->post('/valider-stock', [$Vente_Controller, 'validerStockPourVente']);
+    $router->post('/factures-avec-stock', [$Vente_Controller, 'createFactureAvecSortieStock']);
 });
 
 $router->group('/api/caisse', function () use ($router, $Caisse_Controller) {
