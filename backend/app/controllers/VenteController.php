@@ -284,4 +284,19 @@ class VenteController {
             Flight::json(['error' => $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Marquer une facture comme livrée
+     * Ne fonctionne que si la facture est payée (statut_id = 5)
+     */
+    public function livrerFacture($id) {
+        try {
+            $result = Flight::venteModel()->marquerLivre($id);
+            Flight::json(['success' => true, 'message' => 'Facture marquée comme livrée']);
+        } catch (InvalidArgumentException $e) {
+            Flight::json(['error' => $e->getMessage()], 400);
+        } catch (Exception $e) {
+            Flight::json(['error' => $e->getMessage()], 403);
+        }
+    }
 }

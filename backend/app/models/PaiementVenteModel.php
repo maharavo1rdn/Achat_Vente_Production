@@ -26,20 +26,15 @@ class PaiementVenteModel
                 pv.facture_vente_id,
                 pv.caisse_mouvement_id,
                 pv.montant_total_paye AS montant,
-                pv.statut_id,
-                s.libelle as statut_libelle,
                 fv.numero_facture,
                 fv.montant_ttc as facture_montant_ttc,
                 fv.reste_a_payer as facture_reste_a_payer,
                 ef.nom as client_nom,
-                mp.libelle AS mode_paiement_libelle,
                 c.libelle AS caisse_libelle,
                 c.code_caisse AS caisse_code
             FROM paiement_vente pv
-            LEFT JOIN statut s ON pv.statut_id = s.id
             LEFT JOIN facture_vente fv ON pv.facture_vente_id = fv.id
             LEFT JOIN entreprise ef ON fv.entreprise_client_id = ef.id
-            LEFT JOIN mode_paiement mp ON pv.mode_paiement_id = mp.id
             LEFT JOIN caisse_mouvement cm ON pv.caisse_mouvement_id = cm.id
             LEFT JOIN caisse c ON cm.caisse_id = c.id
             WHERE 1=1
@@ -51,13 +46,7 @@ class PaiementVenteModel
             $params[] = (int)$filters['facture_vente_id'];
         }
 
-        if (isset($filters['statut_id'])) {
-            $query .= " AND pv.statut_id = ?";
-            $params[] = (int)$filters['statut_id'];
-        } elseif (isset($filters['paiement_statut_id'])) {
-            $query .= " AND pv.statut_id = ?";
-            $params[] = (int)$filters['paiement_statut_id'];
-        }
+        // Note: paiement_vente n'a pas de statut_id - les filtres de statut sont ignorés
 
         if (isset($filters['date_debut']) && $filters['date_debut'] !== '') {
             $start = $filters['date_debut'];
@@ -85,11 +74,10 @@ class PaiementVenteModel
         if ($id <= 0) throw new InvalidArgumentException("L'ID doit être un entier positif");
 
         $query = "
-            SELECT pv.*, s.libelle as statut_libelle, fv.numero_facture, mp.libelle AS mode_paiement_libelle, c.libelle AS caisse_libelle, c.code_caisse AS caisse_code
+            SELECT pv.id, pv.numero_recu, pv.date_paiement, pv.facture_vente_id, pv.caisse_mouvement_id, pv.montant_total_paye,
+                   fv.numero_facture, c.libelle AS caisse_libelle, c.code_caisse AS caisse_code
             FROM paiement_vente pv
-            LEFT JOIN statut s ON pv.statut_id = s.id
             LEFT JOIN facture_vente fv ON pv.facture_vente_id = fv.id
-            LEFT JOIN mode_paiement mp ON pv.mode_paiement_id = mp.id
             LEFT JOIN caisse_mouvement cm ON pv.caisse_mouvement_id = cm.id
             LEFT JOIN caisse c ON cm.caisse_id = c.id
             WHERE pv.id = ?
@@ -117,17 +105,14 @@ class PaiementVenteModel
     {
         if ($id <= 0) throw new InvalidArgumentException('paiementId invalide');
 
-        $stmt = $this->db->prepare('SELECT statut_id FROM paiement_vente WHERE id = ?');
+        $stmt = $this->db->prepare('SELECT id FROM paiement_vente WHERE id = ?');
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) throw new InvalidArgumentException('Paiement introuvable');
 
-        // Do not allow editing validated payments
-        if ((int)$row['statut_id'] === 3) {
-            throw new InvalidArgumentException('Paiement déjà validé; modification interdite');
-        }
+        // Note: paiement_vente n'a pas de statut_id, les paiements peuvent être modifiés
 
-        $allowed = ['montant', 'mode_paiement_id', 'reference_externe', 'numero_recu', 'date_paiement'];
+        $allowed = ['montant_total_paye', 'numero_recu', 'date_paiement'];
         $sets = [];
         $params = [];
         foreach ($allowed as $f) {
@@ -144,20 +129,16 @@ class PaiementVenteModel
         $stmt = $this->db->prepare($query);
         $stmt->execute($params);
 
-        if (isset($data['montant'])) {
+        if (isset($data['montant_total_paye'])) {
             try {
                 $stmt2 = $this->db->prepare('SELECT caisse_mouvement_id FROM paiement_vente WHERE id = ?');
                 $stmt2->execute([$id]);
                 $r = $stmt2->fetch(PDO::FETCH_ASSOC);
                 if ($r && !empty($r['caisse_mouvement_id'])) {
                     $cmId = (int)$r['caisse_mouvement_id'];
-                    $stmtM = $this->db->prepare('SELECT statut_id FROM caisse_mouvement WHERE id = ?');
-                    $stmtM->execute([$cmId]);
-                    $mvt = $stmtM->fetch(PDO::FETCH_ASSOC);
-                    if ($mvt && (int)$mvt['statut_id'] === 2) {
-                        $stmtU = $this->db->prepare('UPDATE caisse_mouvement SET montant_entree = ? WHERE id = ?');
-                        $stmtU->execute([$data['montant'], $cmId]);
-                    }
+                    // Mettre à jour le montant du mouvement caisse associé
+                    $stmtU = $this->db->prepare('UPDATE caisse_mouvement SET montant_entree = ? WHERE id = ?');
+                    $stmtU->execute([$data['montant_total_paye'], $cmId]);
                 }
             } catch (Exception $e) {
                 error_log('Warning: failed to sync mouvement montant after paiement update: ' . $e->getMessage());
@@ -234,28 +215,37 @@ class PaiementVenteModel
             error_log($mouvementData['libelle_operation'] . " ici");
             $mouvementId = Flight::caisseModel()->createEntree((int)$data['caisse_id'], $mouvementData, 2);
             $data['caisse_mouvement_id'] = $mouvementId;
-            $data['statut_id'] = 2;
         }
 
+        // Structure correcte: paiement_vente(numero_recu, date_paiement, facture_vente_id, caisse_mouvement_id, montant_total_paye)
         $query = "INSERT INTO paiement_vente (
-            numero_recu, statut_id, date_paiement, facture_vente_id, caisse_mouvement_id, montant, mode_paiement_id, reference_externe
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-
-        $statutId = $data['statut_id'] ?? 1;
+            numero_recu, date_paiement, facture_vente_id, caisse_mouvement_id, montant_total_paye
+        ) VALUES (?, ?, ?, ?, ?)";
 
         $stmt = $this->db->prepare($query);
         $stmt->execute([
             $data['numero_recu'],
-            (int)$statutId,
             $data['date_paiement'] ?? date('Y-m-d'),
             (int)$data['facture_vente_id'],
             isset($data['caisse_mouvement_id']) ? (int)$data['caisse_mouvement_id'] : null,
-            $data['montant'],
-            isset($data['mode_paiement_id']) ? (int)$data['mode_paiement_id'] : null,
-            $data['reference_externe'] ?? null
+            $data['montant']
         ]);
+        
+        $paiementId = (int)$this->db->lastInsertId();
+        
+        // Insérer les détails si mode_paiement_id fourni
+        if (isset($data['mode_paiement_id'])) {
+            $queryDetail = "INSERT INTO paiement_vente_details (paiement_vente_id, mode_paiement_id, montant, reference_externe) VALUES (?, ?, ?, ?)";
+            $stmtDetail = $this->db->prepare($queryDetail);
+            $stmtDetail->execute([
+                $paiementId,
+                (int)$data['mode_paiement_id'],
+                $data['montant'],
+                $data['reference_externe'] ?? null
+            ]);
+        }
 
-        return (int)$this->db->lastInsertId();
+        return $paiementId;
     }
 
     public function validate($paiementId, $userId = null, $caisseId = null, $personnelId = null, $libelle = null)
@@ -281,19 +271,14 @@ class PaiementVenteModel
             $paiement = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$paiement) throw new InvalidArgumentException('Paiement introuvable');
 
-            $montant = (float)$paiement['montant'];
+            $montant = (float)$paiement['montant_total_paye'];
 
             $mouvementId = null;
             if (!empty($paiement['caisse_mouvement_id'])) {
                 $mouvementId = (int)$paiement['caisse_mouvement_id'];
 
-                $stmtM = $this->db->prepare('SELECT statut_id FROM caisse_mouvement WHERE id = ?');
-                $stmtM->execute([$mouvementId]);
-                $mvt = $stmtM->fetch(PDO::FETCH_ASSOC);
-                if ($mvt && (int)$mvt['statut_id'] === 2)
-                    Flight::caisseModel()->finalizeMouvement($mouvementId, 3, $montant, false);
-                else
-                    Flight::caisseModel()->finalizeMouvement($mouvementId, 3);
+                // Finaliser le mouvement caisse existant (caisse_mouvement n'a pas de statut_id)
+                Flight::caisseModel()->finalizeMouvement($mouvementId, 3, $montant, false);
 
             } elseif ($caisseId !== null || $personnelId !== null) {
                 if (empty($caisseId) || empty($personnelId)) {
@@ -343,19 +328,20 @@ class PaiementVenteModel
             $startedTransaction = true;
         }
         try {
-            $stmt = $this->db->prepare('SELECT facture_vente_id, montant FROM paiement_vente WHERE id = ?');
+            $stmt = $this->db->prepare('SELECT facture_vente_id, montant_total_paye FROM paiement_vente WHERE id = ?');
             $stmt->execute([$paiementId]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$row) throw new InvalidArgumentException('Paiement introuvable');
 
-            $applyMontant = ($montant === null) ? (float)$row['montant'] : (float)$montant;
+            $applyMontant = ($montant === null) ? (float)$row['montant_total_paye'] : (float)$montant;
             $factureId = (int)$row['facture_vente_id'];
 
             $stmt = $this->db->prepare('UPDATE facture_vente SET reste_a_payer = GREATEST(0, reste_a_payer - ?) WHERE id = ?');
             $stmt->execute([$applyMontant, $factureId]);
 
-            $stmt = $this->db->prepare('UPDATE paiement_vente SET statut_id = ?, date_paiement = COALESCE(date_paiement, CURRENT_DATE) WHERE id = ?');
-            $stmt->execute([3, $paiementId]);
+            // Pas de statut_id dans paiement_vente, simplement mettre à jour la date si nécessaire
+            $stmt = $this->db->prepare('UPDATE paiement_vente SET date_paiement = COALESCE(date_paiement, CURRENT_DATE) WHERE id = ?');
+            $stmt->execute([$paiementId]);
 
             $stmt = $this->db->prepare('SELECT reste_a_payer FROM facture_vente WHERE id = ?');
             $stmt->execute([$factureId]);
@@ -363,8 +349,9 @@ class PaiementVenteModel
             $reste = $r ? (float)$r['reste_a_payer'] : 0;
 
             if ($reste <= 0) {
+                // Si reste à payer <= 0, marquer la facture comme PAYE (statut_id = 5)
                 $stmt = $this->db->prepare('UPDATE facture_vente SET statut_id = ? WHERE id = ?');
-                $stmt->execute([3, $factureId]);
+                $stmt->execute([5, $factureId]);
             }
 
             if ($startedTransaction) {

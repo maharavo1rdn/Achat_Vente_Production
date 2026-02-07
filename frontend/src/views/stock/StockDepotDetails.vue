@@ -245,12 +245,29 @@
           <!-- Historical Movements -->
           <div class="movements-section" v-if="selectedArticle.mouvements && selectedArticle.mouvements.length > 0">
             <h4 class="subsection-title">Mouvements Récents</h4>
+
+            <!-- Prix par date -->
+            <div v-if="selectedArticle.priceHistory && selectedArticle.priceHistory.length > 0" class="price-history">
+              <h5 class="text-sm font-semibold mb-2">Historique prix (dernier 10)</h5>
+              <ul class="price-history-list mb-4">
+                <li v-for="(ph, idx) in selectedArticle.priceHistory" :key="idx" class="text-sm text-gray-700">
+                  {{ formatDate(ph.date) }} — {{ formatCurrency(ph.prix) }} <span class="text-xs text-gray-500">(qté: {{ ph.quantite }})</span>
+                </li>
+              </ul>
+            </div>
+
             <div class="movements-list">
               <div v-for="mouvement in selectedArticle.mouvements.slice(0, 10)" :key="mouvement.id" class="movement-item">
                 <div class="movement-date">{{ formatDate(mouvement.date_mouvement) }}</div>
                 <div class="movement-type">{{ mouvement.type_mouvement }}</div>
                 <div class="movement-quantity" :class="mouvement.quantite_entree > 0 ? 'text-green-600' : 'text-red-600'">
                   {{ mouvement.quantite_entree > 0 ? '+' : '-' }}{{ mouvement.quantite_entree || mouvement.quantite_sortie }}
+                </div>
+                <div class="movement-price text-sm text-gray-700">
+                  <template v-if="mouvement.prix_unitaire_mouvement !== null && mouvement.prix_unitaire_mouvement !== undefined">
+                    {{ formatCurrency(mouvement.prix_unitaire_mouvement) }}
+                    <span class="text-xs text-gray-500"> • {{ formatCurrency((mouvement.quantite_entree || mouvement.quantite_sortie) * mouvement.prix_unitaire_mouvement) }}</span>
+                  </template>
                 </div>
                 <div class="movement-ref text-sm text-gray-500">{{ mouvement.reference_document || 'N/A' }}</div>
               </div>
@@ -365,6 +382,13 @@ const selectArticle = async (article) => {
     // Load detailed movements for this article
     const mouvementsResponse = await stockService.getMouvementsByArticle(article.article_id, route.params.depotId || route.query.depotId)
     article.mouvements = mouvementsResponse.data
+
+    // Extraire l'historique des prix (mouvements avec prix)
+    article.priceHistory = (mouvementsResponse.data || [])
+      .filter(m => m.prix_unitaire_mouvement !== null && m.prix_unitaire_mouvement !== undefined)
+      .map(m => ({ date: m.date_mouvement, prix: m.prix_unitaire_mouvement, quantite: (m.quantite_entree || m.quantite_sortie) }))
+      .slice(0, 10)
+
     selectedArticle.value = article
   } catch (err) {
     console.error('Erreur chargement mouvements:', err)

@@ -424,6 +424,7 @@ CREATE TABLE facture_vente (
     entreprise_filiale_id INTEGER NOT NULL,
     personnel_id        INTEGER NOT NULL,
     statut_id           INTEGER NOT NULL,
+    statut_livraison_id INTEGER,
     montant_ttc         NUMERIC(15,2) NOT NULL,
     reste_a_payer       NUMERIC(15,2) NOT NULL,
     depot_expedition_id INTEGER NOT NULL,
@@ -432,6 +433,7 @@ CREATE TABLE facture_vente (
     FOREIGN KEY (entreprise_filiale_id)  REFERENCES entreprise(id),
     FOREIGN KEY (personnel_id)           REFERENCES personnel(id),
     FOREIGN KEY (statut_id)              REFERENCES statut(id),
+    FOREIGN KEY (statut_livraison_id)    REFERENCES statut(id),
     FOREIGN KEY (depot_expedition_id)    REFERENCES depot(id)
 );
 

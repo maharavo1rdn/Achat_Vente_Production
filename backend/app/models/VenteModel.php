@@ -738,6 +738,7 @@ class VenteModel
                 fv.entreprise_filiale_id,
                 fv.personnel_id,
                 fv.statut_id,
+                fv.statut_livraison_id,
                 fv.montant_ttc,
                 fv.reste_a_payer,
                 ec.nom as client_nom,
@@ -745,13 +746,13 @@ class VenteModel
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom,
                 s.libelle as statut_libelle,
-                bcv.numero_bc
+                sl.libelle as statut_livraison_libelle
             FROM facture_vente fv
             INNER JOIN entreprise ec ON fv.entreprise_client_id = ec.id
             INNER JOIN entreprise efi ON fv.entreprise_filiale_id = efi.id
             INNER JOIN personnel p ON fv.personnel_id = p.id
             INNER JOIN statut s ON fv.statut_id = s.id
-            LEFT JOIN bon_commande_vente bcv ON fv.bon_commande_vente_id = bcv.id
+            LEFT JOIN statut sl ON fv.statut_livraison_id = sl.id
             WHERE 1=1
         ";
 
@@ -799,12 +800,14 @@ class VenteModel
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom,
                 s.libelle as statut_libelle,
+                sl.libelle as statut_livraison_libelle,
                 bcv.numero_bc
             FROM facture_vente fv
             INNER JOIN entreprise ec ON fv.entreprise_client_id = ec.id
             INNER JOIN entreprise efi ON fv.entreprise_filiale_id = efi.id
             INNER JOIN personnel p ON fv.personnel_id = p.id
             INNER JOIN statut s ON fv.statut_id = s.id
+            LEFT JOIN statut sl ON fv.statut_livraison_id = sl.id
             LEFT JOIN bon_commande_vente bcv ON fv.bon_commande_vente_id = bcv.id
             WHERE fv.id = ?
         ";
@@ -1177,26 +1180,23 @@ class VenteModel
             throw new InvalidArgumentException("L'ID doit être un entier positif");
         }
 
+        // Vérifier si la facture est déjà livrée - modification interdite
+        $checkQuery = "SELECT statut_livraison_id, numero_facture FROM facture_vente WHERE id = ?";
+        $checkStmt = $this->db->prepare($checkQuery);
+        $checkStmt->execute([$id]);
+        $current = $checkStmt->fetch(\PDO::FETCH_ASSOC);
+        
+        if ($current && (int)$current['statut_livraison_id'] === 4) {
+            throw new Exception("Modification interdite: la facture #{$current['numero_facture']} est déjà livrée. Le stock a été mis à jour.");
+        }
+
         $this->validateFactureData($data, false);
 
         error_log("VenteModel::updateFacture called with id=$id, data: " . json_encode($data));
 
-        // Récupérer le statut actuel AVANT mise à jour
-        $queryStatut = "SELECT statut_id, depot_expedition_id FROM facture_vente WHERE id = ?";
-        $stmtStatut = $this->db->prepare($queryStatut);
-        $stmtStatut->execute([$id]);
-        $ancienneFacture = $stmtStatut->fetch(PDO::FETCH_ASSOC);
-        $ancienStatutId = $ancienneFacture ? (int)$ancienneFacture['statut_id'] : 0;
-        
-        // Statut LIVRE = 4
-        $STATUT_LIVRE = 4;
-        $nouveauStatutId = isset($data['statut_id']) ? (int)$data['statut_id'] : $ancienStatutId;
-        $passageALivre = ($nouveauStatutId === $STATUT_LIVRE && $ancienStatutId !== $STATUT_LIVRE);
-
-        // Démarrer une transaction si passage à LIVRE (pour atomicité)
-        if ($passageALivre) {
-            $this->db->beginTransaction();
-        }
+        // Note: La livraison (statut_livraison_id) doit être faite via marquerLivre()
+        // Le statut_id = 4 (LIVRE) n'est plus utilisé pour la livraison 
+        // car on a maintenant statut_livraison_id séparé
 
         try {
             $query = "
@@ -1209,8 +1209,7 @@ class VenteModel
                     personnel_id = ?,
                     statut_id = ?,
                     montant_ttc = ?,
-                    reste_a_payer = ?,
-                    remarques = ?
+                    reste_a_payer = ?
                 WHERE id = ?
             ";
 
@@ -1225,7 +1224,6 @@ class VenteModel
                 $data['statut_id'],
                 $data['montant_ttc'] ?? 0,
                 $data['reste_a_payer'] ?? $data['montant_ttc'] ?? 0,
-                $data['remarques'] ?? null,
                 $id
             ]);
 
@@ -1234,28 +1232,14 @@ class VenteModel
                     $this->updateFactureDetails($id, $data['details']);
                 }
 
-                // Si passage à LIVRE : créer les mouvements de sortie de stock
-                if ($passageALivre) {
-                    error_log("Facture $id passe à LIVRE - création des mouvements de sortie stock");
-                    $this->creerMouvementsSortieVente($id);
-                    $this->db->commit();
-                    error_log("Stock mis à jour suite à livraison facture $id");
-                }
-
                 error_log("VenteModel::updateFacture updated facture with id=$id");
                 return true;
             }
 
-            if ($passageALivre) {
-                $this->db->rollBack();
-            }
             error_log("VenteModel::updateFacture no facture updated with id=$id");
             return false;
             
         } catch (\Exception $e) {
-            if ($passageALivre) {
-                $this->db->rollBack();
-            }
             error_log("VenteModel::updateFacture ERREUR: " . $e->getMessage());
             throw $e;
         }
@@ -1265,6 +1249,16 @@ class VenteModel
     {
         if ($id <= 0) {
             throw new InvalidArgumentException("L'ID doit être un entier positif");
+        }
+
+        // Vérifier si la facture est livrée - suppression interdite
+        $checkQuery = "SELECT statut_livraison_id, numero_facture FROM facture_vente WHERE id = ?";
+        $checkStmt = $this->db->prepare($checkQuery);
+        $checkStmt->execute([$id]);
+        $current = $checkStmt->fetch(\PDO::FETCH_ASSOC);
+        
+        if ($current && (int)$current['statut_livraison_id'] === 4) {
+            throw new Exception("Suppression interdite: la facture #{$current['numero_facture']} est livrée. Le stock a été impacté.");
         }
 
         error_log("VenteModel::deleteFacture called with id=$id");
@@ -1609,26 +1603,111 @@ class VenteModel
             $facture = $stmt->fetch(\PDO::FETCH_ASSOC);
             
             if ($facture) {
-                $stmt = $this->db->prepare("
-                    INSERT INTO caisse_mouvement (
-                        type_mouvement, montant, date_mouvement, description,
-                        caisse_id, personnel_id, reference_document
-                    )
-                    SELECT 'ENTREE', ?, NOW(), ?, c.id, ?, ?
+                // Récupérer la caisse de l'entreprise
+                $stmtCaisse = $this->db->prepare("
+                    SELECT c.id, c.solde_actuel 
                     FROM caisse c
                     WHERE c.entreprise_id = ?
                     LIMIT 1
                 ");
-                $stmt->execute([
-                    $facture['montant_ttc'],
-                    'Paiement facture vente ' . $facture['numero'],
-                    $data['personnel_id'],
-                    'FACTURE_VENTE_' . $id,
-                    $facture['entreprise_filiale_id']
-                ]);
+                $stmtCaisse->execute([$facture['entreprise_filiale_id']]);
+                $caisse = $stmtCaisse->fetch(\PDO::FETCH_ASSOC);
+                
+                if ($caisse) {
+                    $soldeAvant = floatval($caisse['solde_actuel']);
+                    $soldeApres = $soldeAvant + floatval($facture['montant_ttc']);
+                    
+                    $stmt = $this->db->prepare("
+                        INSERT INTO caisse_mouvement (
+                            libelle_operation, montant_entree, montant_sortie,
+                            solde_avant, solde_apres, caisse_id, personnel_id
+                        ) VALUES (?, ?, 0, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        'Paiement facture vente ' . $facture['numero'],
+                        $facture['montant_ttc'],
+                        $soldeAvant,
+                        $soldeApres,
+                        $caisse['id'],
+                        $data['personnel_id']
+                    ]);
+                    
+                    // Mettre à jour le solde de la caisse
+                    $stmtUpdate = $this->db->prepare("UPDATE caisse SET solde_actuel = ? WHERE id = ?");
+                    $stmtUpdate->execute([$soldeApres, $caisse['id']]);
+                }
             }
             
             $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Marquer une facture comme livrée
+     * La livraison n'est possible que si la facture est payée (statut_id = 5 PAYE)
+     * 
+     * @param int $factureId ID de la facture
+     * @return bool true si la mise à jour a réussi
+     * @throws InvalidArgumentException si l'ID est invalide
+     * @throws Exception si la facture n'est pas payée
+     */
+    public function marquerLivre($factureId)
+    {
+        if ($factureId <= 0) {
+            throw new InvalidArgumentException("L'ID de la facture doit être un entier positif");
+        }
+
+        // Constantes des statuts
+        $STATUT_PAYE = 5;
+        $STATUT_LIVRE = 4;
+
+        // Vérifier le statut actuel de la facture
+        $query = "SELECT id, numero_facture, statut_id, statut_livraison_id, depot_expedition_id FROM facture_vente WHERE id = ?";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$factureId]);
+        $facture = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$facture) {
+            throw new InvalidArgumentException("Facture introuvable avec l'ID: $factureId");
+        }
+
+        // Si le statut n'indique pas PAYE, vérifions le reste à payer : si reste = 0, corrigeons le statut automatiquement
+        $factureReste = (float)($facture['reste_a_payer'] ?? 0);
+        if ((int)$facture['statut_id'] !== $STATUT_PAYE) {
+            if ($factureReste <= 0) {
+                // Log et correction automatique
+                error_log("VenteModel::marquerLivre - facture {$facture['id']} ({$facture['numero_facture']}) a reste_a_payer=$factureReste mais statut_id={$facture['statut_id']}; mise à jour en PAYE (5)");
+                $up = $this->db->prepare('UPDATE facture_vente SET statut_id = ? WHERE id = ?');
+                $up->execute([$STATUT_PAYE, $factureId]);
+                $facture['statut_id'] = $STATUT_PAYE;
+            } else {
+                throw new Exception("Impossible de livrer la facture #{$facture['numero_facture']}: la facture doit être payée avant d'être livrée. Statut actuel: {$facture['statut_id']}, attendu: $STATUT_PAYE (PAYE)");
+            }
+        }
+
+        // Vérifier si déjà livrée
+        if ((int)$facture['statut_livraison_id'] === $STATUT_LIVRE) {
+            throw new Exception("La facture #{$facture['numero_facture']} est déjà marquée comme livrée");
+        }
+
+        $this->db->beginTransaction();
+        try {
+            // Mettre à jour le statut de livraison
+            $updateQuery = "UPDATE facture_vente SET statut_livraison_id = ? WHERE id = ?";
+            $updateStmt = $this->db->prepare($updateQuery);
+            $updateStmt->execute([$STATUT_LIVRE, $factureId]);
+
+            // Créer les mouvements de sortie de stock
+            error_log("Facture $factureId marquée comme livrée - création des mouvements de sortie stock");
+            $this->creerMouvementsSortieVente($factureId);
+
+            $this->db->commit();
+            error_log("Stock mis à jour suite à livraison facture $factureId");
+
             return true;
         } catch (Exception $e) {
             $this->db->rollBack();

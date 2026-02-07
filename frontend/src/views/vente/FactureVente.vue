@@ -50,6 +50,12 @@
         </div>
         <div class="stat-card">
           <div class="stat-content">
+            <p class="stat-label">Livrées</p>
+            <h3 class="stat-value text-blue-600">{{ facturesLivrees }}</h3>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-content">
             <p class="stat-label">Impayées</p>
             <h3 class="stat-value text-red-600">{{ facturesImpayees }}</h3>
           </div>
@@ -116,14 +122,15 @@
                 <th>Client</th>
                 <th class="text-right">Montant TTC</th>
                 <th class="text-right">Reste à Encaisser</th>
-                <th class="text-center">Statut</th>
+                <th class="text-center">Paiement</th>
+                <th class="text-center">Livraison</th>
                 <th>Vendeur</th>
                 <th class="text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="filteredFactures.length === 0">
-                <td colspan="8" class="text-center py-8 text-gray-500">
+                <td colspan="9" class="text-center py-8 text-gray-500">
                   Aucune facture trouvée
                 </td>
               </tr>
@@ -143,6 +150,11 @@
                     {{ getStatutLabel(facture) }}
                   </span>
                 </td>
+                <td class="text-center">
+                  <span :class="getLivraisonBadgeClass(facture)">
+                    {{ getLivraisonLabel(facture) }}
+                  </span>
+                </td>
                 <td class="text-xs text-gray-500">{{ facture.personnel_nom }} {{ facture.personnel_prenom }}</td>
                 <td>
                   <div class="table-actions">
@@ -153,10 +165,19 @@
                       class="action-btn text-green-600" title="Encaisser">
                       <CreditCard class="w-4 h-4" />
                     </button>
+                    <button v-if="canLivrer(facture)" @click="livrerFacture(facture)"
+                      class="action-btn text-blue-600" title="Marquer comme livré (irréversible)">
+                      <Truck class="w-4 h-4" />
+                    </button>
+                    <span v-if="isLivre(facture)" class="action-btn text-gray-400 cursor-not-allowed" title="Facture livrée - verrouillée">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </span>
                     <button @click="printFacture(facture)" class="action-btn" title="Imprimer">
                       <Printer class="w-4 h-4" />
                     </button>
-                    <button @click="editRemarques(facture)" class="action-btn" title="Remarques">
+                    <button v-if="!isLivre(facture)" @click="editRemarques(facture)" class="action-btn" title="Remarques">
                       <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
                         stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -229,7 +250,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Eye, CreditCard, Printer, Search, X } from 'lucide-vue-next'
+import { Plus, Eye, CreditCard, Printer, Search, X, Truck } from 'lucide-vue-next'
 import venteService from '@/services/venteService'
 
 const router = useRouter()
@@ -282,6 +303,10 @@ const facturesImpayees = computed(() => {
   return factures.value.filter(f => f.reste_a_payer === f.montant_ttc).length
 })
 
+const facturesLivrees = computed(() => {
+  return factures.value.filter(f => f.statut_livraison_id === 4 || f.statut_livraison_libelle).length
+})
+
 const totalResteAEncaisser = computed(() => {
   return factures.value.reduce((sum, f) => sum + (f.reste_a_payer || 0), 0)
 })
@@ -301,6 +326,43 @@ const getStatutBadgeClass = (facture) => {
   if (parseFloat(facture.reste_a_payer) === 0) return 'badge badge-success'
   if (parseFloat(facture.reste_a_payer) === parseFloat(facture.montant_ttc)) return 'badge badge-danger'
   return 'badge badge-warning'
+}
+
+const getLivraisonLabel = (facture) => {
+  // statut_livraison_id = 4 signifie LIVRE
+  if (facture.statut_livraison_id === 4 || facture.statut_livraison_libelle) return 'LIVRÉ'
+  return 'NON LIVRÉ'
+}
+
+const getLivraisonBadgeClass = (facture) => {
+  if (facture.statut_livraison_id === 4 || facture.statut_livraison_libelle) return 'badge badge-delivered'
+  return 'badge badge-secondary'
+}
+
+const canLivrer = (facture) => {
+  // Peut livrer si: payé (reste_a_payer = 0) et pas encore livré
+  const isPaye = parseFloat(facture.reste_a_payer) === 0
+  const estLivre = facture.statut_livraison_id === 4 || facture.statut_livraison_libelle
+  return isPaye && !estLivre
+}
+
+const isLivre = (facture) => {
+  return facture.statut_livraison_id === 4 || !!facture.statut_livraison_libelle
+}
+
+const livrerFacture = async (facture) => {
+  const confirmMsg = `⚠️ ATTENTION: Action irréversible!\n\nMarquer la facture ${facture.numero_facture} comme livrée?\n\nCette action va:\n- Diminuer le stock du dépôt d'expédition\n- Verrouiller la facture (modification/suppression impossible)\n\nContinuer?`
+  if (!confirm(confirmMsg)) return
+  
+  try {
+    await venteService.facture.livrer(facture.id)
+    await loadFactures()
+    alert('✅ Facture livrée avec succès. Le stock a été mis à jour.')
+  } catch (err) {
+    const message = err.response?.data?.error || 'Erreur lors de la livraison'
+    alert(message)
+    console.error('Erreur livraison:', err)
+  }
 }
 
 const getResteClass = (reste) => {
@@ -593,6 +655,14 @@ watch(showBonCommandeModal, (newValue) => {
 
 .badge-warning {
   @apply bg-orange-100 text-orange-700;
+}
+
+.badge-secondary {
+  @apply bg-gray-100 text-gray-600;
+}
+
+.badge-delivered {
+  @apply bg-blue-100 text-blue-700 font-semibold;
 }
 
 .modal-overlay {

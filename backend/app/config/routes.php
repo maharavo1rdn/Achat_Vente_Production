@@ -154,6 +154,7 @@ $router->group('/api/ventes', function () use ($router, $Vente_Controller) {
         $router->put('/@id:[0-9]+', [$Vente_Controller, 'updateFacture']);
         $router->delete('/@id:[0-9]+', [$Vente_Controller, 'deleteFacture']);
         $router->post('/@id:[0-9]+/encaisser', [$Vente_Controller, 'payerFacture']);
+        $router->post('/@id:[0-9]+/livrer', [$Vente_Controller, 'livrerFacture']);
     });
     
     // Routes pour validation stock et création facture avec sortie de stock

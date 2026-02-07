@@ -331,7 +331,7 @@ class AchatModel
                 fa.statut_id,
                 fa.montant_ttc,
                 fa.reste_a_payer,
-                fa.remarques,
+                fa.depot_reception_id,
                 ef.nom as fournisseur_nom,
                 efi.nom as filiale_nom,
                 s.libelle as statut_libelle,

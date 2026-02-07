@@ -74,6 +74,9 @@ export default {
     },
     encaisser(id, montant, caisseId) {
       return api.post(`/ventes/factures/${id}/encaisser`, { montant, caisse_id: caisseId })
+    },
+    livrer(id) {
+      return api.post(`/ventes/factures/${id}/livrer`)
     }
   }
 }

@@ -374,8 +374,8 @@ class CaisseModel
             $query = "
                 INSERT INTO caisse_mouvement (
                     date_mouvement, libelle_operation, montant_entree, montant_sortie,
-                    solde_avant, solde_apres, caisse_id, personnel_id, statut_id
-                ) VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)
+                    solde_avant, solde_apres, caisse_id, personnel_id
+                ) VALUES (?, ?, ?, 0, ?, ?, ?, ?)
             ";
 
             $stmt = $this->db->prepare($query);
@@ -386,15 +386,14 @@ class CaisseModel
                 $soldeAvant,
                 $soldeApres,
                 $caisseId,
-                $data['personnel_id'],
-                $statutId
+                $data['personnel_id']
             ]);
         } else {
             $query = "
                 INSERT INTO caisse_mouvement (
                     libelle_operation, montant_entree, montant_sortie,
-                    solde_avant, solde_apres, caisse_id, personnel_id, statut_id
-                ) VALUES (?, ?, 0, ?, ?, ?, ?, ?)
+                    solde_avant, solde_apres, caisse_id, personnel_id
+                ) VALUES (?, ?, 0, ?, ?, ?, ?)
             ";
 
             $stmt = $this->db->prepare($query);
@@ -404,8 +403,7 @@ class CaisseModel
                 $soldeAvant,
                 $soldeApres,
                 $caisseId,
-                $data['personnel_id'],
-                $statutId
+                $data['personnel_id']
             ]);
         }
 
@@ -443,8 +441,8 @@ class CaisseModel
             $query = "
                 INSERT INTO caisse_mouvement (
                     date_mouvement, libelle_operation, montant_entree, montant_sortie,
-                    solde_avant, solde_apres, caisse_id, personnel_id, statut_id
-                ) VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)
+                    solde_avant, solde_apres, caisse_id, personnel_id
+                ) VALUES (?, ?, 0, ?, ?, ?, ?, ?)
             ";
 
             $stmt = $this->db->prepare($query);
@@ -455,15 +453,14 @@ class CaisseModel
                 $soldeAvant,
                 $soldeApres,
                 $caisseId,
-                $data['personnel_id'],
-                $statutId
+                $data['personnel_id']
             ]);
         } else {
             $query = "
                 INSERT INTO caisse_mouvement (
                     libelle_operation, montant_entree, montant_sortie,
-                    solde_avant, solde_apres, caisse_id, personnel_id, statut_id
-                ) VALUES (?, 0, ?, ?, ?, ?, ?, ?)
+                    solde_avant, solde_apres, caisse_id, personnel_id
+                ) VALUES (?, 0, ?, ?, ?, ?, ?)
             ";
 
             $stmt = $this->db->prepare($query);
@@ -473,8 +470,7 @@ class CaisseModel
                 $soldeAvant,
                 $soldeApres,
                 $caisseId,
-                $data['personnel_id'],
-                $statutId
+                $data['personnel_id']
             ]);
         }
 
@@ -512,8 +508,8 @@ class CaisseModel
             $query = "
                 INSERT INTO caisse_mouvement (
                     libelle_operation, montant_entree, montant_sortie,
-                    solde_avant, solde_apres, caisse_id, personnel_id, statut_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    solde_avant, solde_apres, caisse_id, personnel_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
             ";
 
             $stmt = $this->db->prepare($query);
@@ -524,8 +520,7 @@ class CaisseModel
                 $soldeAvant,
                 $soldeApres,
                 $caisseId,
-                $data['personnel_id'],
-                $statutId
+                $data['personnel_id']
             ]);
 
             $mouvementId = $this->db->lastInsertId();
@@ -650,7 +645,7 @@ class CaisseModel
 
         $query = "
             INSERT INTO paiement_vente (
-                facture_vente_id, caisse_mouvement_id, montant_paye
+                facture_vente_id, caisse_mouvement_id, montant_total_paye
             ) VALUES (?, ?, ?)
         ";
 
@@ -680,7 +675,7 @@ class CaisseModel
 
         $query = "
             INSERT INTO paiement_achat (
-                facture_achat_id, caisse_mouvement_id, montant_paye
+                facture_achat_id, caisse_mouvement_id, montant_total_paye
             ) VALUES (?, ?, ?)
         ";
 
@@ -813,8 +808,8 @@ class CaisseModel
 
             $soldeApres = $soldeAvant + $montantEntree - $montantSortie;
 
-            $stmt = $this->db->prepare('UPDATE caisse_mouvement SET statut_id = ?, solde_apres = ?, montant_entree = ?, montant_sortie = ? WHERE id = ?');
-            $stmt->execute([$statutId, $soldeApres, $montantEntree, $montantSortie, $mouvementId]);
+            $stmt = $this->db->prepare('UPDATE caisse_mouvement SET solde_apres = ?, montant_entree = ?, montant_sortie = ? WHERE id = ?');
+            $stmt->execute([$soldeApres, $montantEntree, $montantSortie, $mouvementId]);
 
             $this->updateCaisseSolde($caisseId, $soldeApres);
 
