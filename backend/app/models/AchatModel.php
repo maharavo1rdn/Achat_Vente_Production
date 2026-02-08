@@ -46,7 +46,7 @@ class AchatModel
             'personnel_id' => $proforma['personnel_id'],
             'statut_id' => $this->getStatutIdByCode('VALIDE'),
             'montant_ttc' => $proforma['montant_ttc'],
-            'depot_livraison_id' => $proforma['depot_cible_id']
+            'depot_livraison_id' => $proforma['depot_livraison_id'] ?? null
         ];
 
         $bcId = $this->createBonCommande($bcData);
@@ -84,13 +84,15 @@ class AchatModel
                 bca.entreprise_filiale_id,
                 bca.personnel_id,
                 bca.statut_id,
+                s.code as statut,
+                s.libelle as statut_libelle,
                 bca.montant_ttc,
                 ef.nom as fournisseur_nom,
                 efi.nom as filiale_nom,
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom,
                 s.libelle as statut_libelle,
-                pf.numero_proforma
+                pf.numero_proforma as proforma_origine
             FROM bon_commande_achat bca
             INNER JOIN entreprise ef ON bca.entreprise_fournisseur_id = ef.id
             INNER JOIN entreprise efi ON bca.entreprise_filiale_id = efi.id
@@ -335,7 +337,7 @@ class AchatModel
                 ef.nom as fournisseur_nom,
                 efi.nom as filiale_nom,
                 s.libelle as statut_libelle,
-                bca.numero_bc
+                bca.numero_bc as bc_origine
             FROM facture_achat fa
             INNER JOIN entreprise ef ON fa.entreprise_fournisseur_id = ef.id
             INNER JOIN entreprise efi ON fa.entreprise_filiale_id = efi.id
@@ -420,7 +422,7 @@ class AchatModel
             INSERT INTO facture_achat (
                 numero_facture_fournisseur, date_facture, bon_commande_achat_id,
                 entreprise_fournisseur_id, entreprise_filiale_id, statut_id,
-                montant_ttc, reste_a_payer, remarques,depot_reception_id
+                montant_ttc, reste_a_payer, remarques, depot_reception_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,1)
         ";
 

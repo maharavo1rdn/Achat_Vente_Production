@@ -129,7 +129,7 @@
               <tr v-else v-for="facture in filteredFactures" :key="facture.id" class="table-row">
                 <td class="font-medium">{{ facture.numero_facture_fournisseur || '-' }}</td>
                 <td class="text-gray-600">{{ formatDate(facture.date_facture) }}</td>
-                <td class="font-medium">{{ facture.fournisseur || '-' }}</td>
+                <td class="font-medium">{{ facture.fournisseur_nom || '-' }}</td>
                 <td class="text-right font-semibold">{{ formatCurrency(facture.montant_ttc) }}</td>
                 <td class="text-right font-semibold" :class="getResteClass(facture.reste_a_payer)">
                   {{ formatCurrency(facture.reste_a_payer) }}

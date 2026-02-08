@@ -126,14 +126,14 @@
                 </td>
               </tr>
               <tr v-else v-for="bc in filteredBonCommandes" :key="bc.id" class="table-row">
-                <td class="font-medium">{{ bc.numero_bc || '-' }}</td>
+                <td class="font-medium">{{ bc.numero_bc }}</td>
                 <td class="text-gray-600">{{ formatDate(bc.date_commande) }}</td>
-                <td class="font-medium">{{ bc.fournisseur || '-' }}</td>
-                <td class="text-gray-600">{{ bc.filiale || '-' }}</td>
+                <td class="font-medium">{{ bc.fournisseur_nom }}</td>
+                <td class="text-gray-600">{{ bc.filiale_nom }}</td>
                 <td class="text-right font-semibold">{{ formatCurrency(bc.montant_ttc) }}</td>
                 <td class="text-center">
                   <span :class="getStatutBadgeClass(bc.statut)">
-                    {{ bc.statut || '-' }}
+                    {{ bc.statut }}
                   </span>
                 </td>
                 <td class="text-xs text-gray-500">{{ bc.proforma_origine || '-' }}</td>
@@ -226,16 +226,14 @@ const getStatutBadgeClass = (statut) => {
 }
 
 const formatCurrency = (amount) => {
-  const num = Number(amount)
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
     minimumFractionDigits: 0
-  }).format(isNaN(num) ? 0 : num)
+  }).format(amount)
 }
 
 const formatDate = (date) => {
-  if (!date) return '-'
   return new Date(date).toLocaleDateString('fr-FR')
 }
 
@@ -409,7 +407,7 @@ onMounted(() => {
 }
 
 .select {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
+  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm;
 }
 
 .table-wrapper {

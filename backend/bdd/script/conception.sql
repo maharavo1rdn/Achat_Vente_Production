@@ -280,11 +280,13 @@ CREATE TABLE proforma_fournisseur (
     personnel_id            INTEGER NOT NULL,
     statut_id               INTEGER NOT NULL,
     montant_ttc             NUMERIC(15,2) DEFAULT 0,
+    depot_livraison_id      INTEGER,
     proforma_demande_achat_id INTEGER,
     FOREIGN KEY (entreprise_fournisseur_id) REFERENCES entreprise(id),
     FOREIGN KEY (entreprise_filiale_id)     REFERENCES entreprise(id),
     FOREIGN KEY (personnel_id)              REFERENCES personnel(id),
     FOREIGN KEY (statut_id)                 REFERENCES statut(id),
+    FOREIGN KEY (depot_livraison_id)        REFERENCES depot(id),
     FOREIGN KEY (proforma_demande_achat_id) REFERENCES proforma_demande_achat(id)
 );
 
