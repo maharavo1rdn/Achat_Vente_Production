@@ -25,7 +25,7 @@ class PaiementAchatModel
                 pa.date_paiement,
                 pa.facture_achat_id,
                 pa.caisse_mouvement_id,
-                pa.montant_total_paye AS montant,
+                pa.montant,
                 pa.statut_id,
                 s.libelle as statut_libelle,
                 fa.numero_facture_fournisseur as numero_facture,
@@ -153,13 +153,8 @@ class PaiementAchatModel
                 $r = $stmt2->fetch(PDO::FETCH_ASSOC);
                 if ($r && !empty($r['caisse_mouvement_id'])) {
                     $cmId = (int)$r['caisse_mouvement_id'];
-                    $stmtM = $this->db->prepare('SELECT statut_id FROM caisse_mouvement WHERE id = ?');
-                    $stmtM->execute([$cmId]);
-                    $mvt = $stmtM->fetch(PDO::FETCH_ASSOC);
-                    if ($mvt && (int)$mvt['statut_id'] === 2) {
-                        $stmtU = $this->db->prepare('UPDATE caisse_mouvement SET montant_sortie = ? WHERE id = ?');
-                        $stmtU->execute([$data['montant'], $cmId]);
-                    }
+                    $stmtU = $this->db->prepare('UPDATE caisse_mouvement SET montant_sortie = ? WHERE id = ?');
+                    $stmtU->execute([$data['montant'], $cmId]);
                 }
             } catch (Exception $e) {
                 error_log('Warning: failed to sync mouvement montant after paiement update: ' . $e->getMessage());
@@ -282,15 +277,7 @@ class PaiementAchatModel
             $mouvementId = null;
             if (!empty($paiement['caisse_mouvement_id'])) {
                 $mouvementId = (int)$paiement['caisse_mouvement_id'];
-
-                $stmtM = $this->db->prepare('SELECT statut_id FROM caisse_mouvement WHERE id = ?');
-                $stmtM->execute([$mouvementId]);
-                $mvt = $stmtM->fetch(PDO::FETCH_ASSOC);
-                if ($mvt && (int)$mvt['statut_id'] === 2)
-                    Flight::caisseModel()->finalizeMouvement($mouvementId, 3, $montant, true);
-
-                else
-                    Flight::caisseModel()->finalizeMouvement($mouvementId, 3);
+                Flight::caisseModel()->finalizeMouvement($mouvementId, 3, $montant, true);
             } elseif ($caisseId !== null || $personnelId !== null) {
                 if (empty($caisseId) || empty($personnelId)) {
                     throw new InvalidArgumentException('caisse_id et personnel_id sont requis pour créer le mouvement de caisse');

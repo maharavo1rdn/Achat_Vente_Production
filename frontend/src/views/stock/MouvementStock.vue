@@ -206,9 +206,9 @@
                       <Eye class="w-4 h-4" />
                     </button>
                     <button v-if="mouvement.type_mouvement === 'VENTE'" 
-                            @click="simulerFIFO(mouvement)" 
+                            @click="simulerSortie(mouvement)" 
                             class="action-btn text-blue-600" 
-                            title="Vérifier FIFO">
+                            :title="'Vérifier ' + getDepotMethode(mouvement.depot_id)">
                       <GitBranch class="w-4 h-4" />
                     </button>
                   </div>
@@ -430,6 +430,15 @@ const formatDate = (dateString) => {
   })
 }
 
+const formatCurrency = (amount) => {
+  const num = Number(amount)
+  return new Intl.NumberFormat('fr-MG', {
+    style: 'currency',
+    currency: 'MGA',
+    minimumFractionDigits: 0
+  }).format(isNaN(num) ? 0 : num)
+}
+
 const getTypeLabel = (type) => {
   const types = {
     'ACHAT': 'Achat',
@@ -516,16 +525,43 @@ const viewMouvement = (mouvement) => {
   // À implémenter : navigation vers la page détail ou ouverture de modal
 }
 
-const simulerFIFO = async (mouvement) => {
+const getDepotMethode = (depotId) => {
+  const depot = depots.value.find(d => d.id == depotId)
+  return depot?.methode_valorisation_code || 'CMUP'
+}
+
+const simulerSortie = async (mouvement) => {
+  const methode = getDepotMethode(mouvement.depot_id)
   try {
-    const response = await mouvementService.getDepotFIFOPourSortie(
+    const response = await mouvementService.getVerificationSortie(
       mouvement.article_id, 
-      mouvement.quantite_sortie
+      mouvement.quantite_sortie,
+      mouvement.depot_id,
+      mouvement.id  // Passer l'ID du mouvement pour récupérer l'état au moment du mouvement
     )
-    alert(`FIFO pour ${mouvement.quantite_sortie} unités: ${JSON.stringify(response.data.data)}`)
+    const data = response.data.data
+    const details = [
+      `Méthode: ${methode}`,
+      `Dépôt: ${mouvement.depot_nom}`,
+      ``,
+      `Stock avant sortie: ${data.stock_avant_sortie}`,
+      `Quantité sortie: ${data.quantite_sortie}`,
+      `Stock après sortie: ${data.stock_apres_sortie}`,
+    ]
+    if (data.cmup_actuel) {
+      details.push(``, `CMUP: ${formatCurrency(data.cmup_actuel)}`)
+      details.push(`Valeur sortie: ${formatCurrency(data.valeur_sortie)}`)
+    }
+    if (data.lots_utilises && data.lots_utilises.length > 0) {
+      details.push(``, `Lots utilisés:`)
+      data.lots_utilises.forEach(lot => {
+        details.push(`  - ${lot.lot}: ${lot.quantite} × ${formatCurrency(lot.prix_unitaire)}`)
+      })
+    }
+    alert(details.join('\n'))
   } catch (err) {
-    console.error('Erreur simulation FIFO:', err)
-    alert('Erreur lors de la simulation FIFO')
+    console.error(`Erreur simulation ${methode}:`, err)
+    alert(`Erreur lors de la simulation ${methode}`)
   }
 }
 

@@ -344,6 +344,9 @@ $router->group('/api/mouvements-stock', function() use ($mouvementStockControlle
     // Calcul FIFO pour sortie
     Flight::route('GET /fifo/@articleId', [$mouvementStockController, 'getDepotFIFOPourSortie']);
     
+    // Vérification sortie par dépôt (respecte méthode valorisation)
+    Flight::route('GET /verification-sortie/@articleId', [$mouvementStockController, 'getVerificationSortie']);
+    
     // Créer une sortie avec FIFO
     Flight::route('POST /sortie-fifo', [$mouvementStockController, 'creerSortieAvecFIFO']);
     Flight::route('POST /sortie-lifo', [$mouvementStockController, 'creerSortieAvecLIFO']);

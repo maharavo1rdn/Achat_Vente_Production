@@ -393,13 +393,28 @@ class StockModel
     }
 
     /**
-     * Récupérer le stock consolidé au niveau groupe (v_stock_consolide_groupe)
+     * Récupérer le stock consolidé au niveau groupe
      */
     public function getStockConsolideGroupe()
     {
         error_log("StockModel::getStockConsolideGroupe called");
 
-        $query = "SELECT * FROM v_stock_consolide_groupe ORDER BY valeur_totale_groupe DESC";
+        $query = "
+            SELECT
+                g.id as groupe_id,
+                g.nom as groupe_nom,
+                COUNT(DISTINCT a.id) as nombre_articles,
+                COALESCE(SUM(s.quantite_actuelle), 0) as quantite_totale,
+                COALESCE(SUM(s.valeur_stock_total), 0) as valeur_totale_groupe
+            FROM groupe g
+            INNER JOIN entreprise e ON e.groupe_id = g.id
+            INNER JOIN site si ON si.entreprise_id = e.id
+            INNER JOIN depot d ON d.site_id = si.id
+            INNER JOIN stock s ON s.depot_id = d.id
+            INNER JOIN article a ON s.article_id = a.id
+            GROUP BY g.id, g.nom
+            ORDER BY valeur_totale_groupe DESC
+        ";
         $stmt = $this->db->prepare($query);
         $stmt->execute();
 
@@ -416,7 +431,20 @@ class StockModel
     {
         error_log("StockModel::getStructureOrganisation called");
 
-        $query = "SELECT DISTINCT groupe, entreprise, site_geo as site, depot_id, depot_logistique as depot FROM v_structure_organisation ORDER BY groupe, entreprise, site, depot";
+        $query = "
+            SELECT DISTINCT
+                g.nom as groupe,
+                e.nom as entreprise,
+                si.nom as site,
+                d.id as depot_id,
+                d.nom as depot
+            FROM groupe g
+            INNER JOIN entreprise e ON e.groupe_id = g.id
+            INNER JOIN site si ON si.entreprise_id = e.id
+            INNER JOIN depot d ON d.site_id = si.id
+            WHERE d.est_actif = true
+            ORDER BY g.nom, e.nom, si.nom, d.nom
+        ";
         $stmt = $this->db->prepare($query);
         $stmt->execute();
 
@@ -442,18 +470,12 @@ class StockModel
             INNER JOIN site s ON d.site_id = s.id
             INNER JOIN entreprise e ON s.entreprise_id = e.id
             LEFT JOIN groupe g ON e.groupe_id = g.id
-            LEFT JOIN (
-                SELECT DISTINCT depot_id, methode_valorisation_stock_id 
-                FROM stock 
-                WHERE depot_id = ?
-                LIMIT 1
-            ) st ON st.depot_id = d.id
-            LEFT JOIN methode_valorisation_stock mvs ON st.methode_valorisation_stock_id = mvs.id
+            LEFT JOIN methode_valorisation_stock mvs ON d.methode_valorisation_stock_id = mvs.id
             WHERE d.id = ?
         ";
         
         $stmt = $this->db->prepare($query);
-        $stmt->execute([$depotId, $depotId]);
+        $stmt->execute([$depotId]);
         
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         

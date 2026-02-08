@@ -15,16 +15,16 @@ class StatistiqueModel {
     }
 
     /**
-     * Total du chiffre d'affaires encaissé (paiements ventes validés)
+     * Total du chiffre d'affaires (somme des factures vente validées)
      */
     public function getCA_Total($periode = null): float
     {
-        [$where, $params] = $this->buildPeriodClause('pv.date_paiement', $periode);
+        [$where, $params] = $this->buildPeriodClause('fv.date_facture', $periode);
 
         $sql = "
-            SELECT COALESCE(SUM(pv.montant_total_paye), 0) AS total
-            FROM paiement_vente pv
-            
+            SELECT COALESCE(SUM(fv.montant_ttc), 0) AS total
+            FROM facture_vente fv
+            WHERE fv.statut_id NOT IN (SELECT id FROM statut WHERE code IN ('BROUILLON','ANNULE'))
             {$where}
         ";
 
@@ -35,17 +35,17 @@ class StatistiqueModel {
     }
 
     /**
-     * Marge brute = CA encaissé - paiements achats validés
+     * Marge brute = CA facturé ventes - total facturé achats
      */
     public function getMargeBrute_Total($periode = null): float
     {
         $ca = $this->getCA_Total($periode);
-        [$where, $params] = $this->buildPeriodClause('pa.date_paiement', $periode);
+        [$where, $params] = $this->buildPeriodClause('fa.date_facture', $periode);
 
         $sql = "
-            SELECT COALESCE(SUM(pa.montant_total_paye), 0) AS total
-            FROM paiement_achat pa
-            WHERE 1=1
+            SELECT COALESCE(SUM(fa.montant_ttc), 0) AS total
+            FROM facture_achat fa
+            WHERE fa.statut_id NOT IN (SELECT id FROM statut WHERE code IN ('BROUILLON','ANNULE'))
             {$where}
         ";
 
@@ -58,26 +58,25 @@ class StatistiqueModel {
     }
 
     /**
-     * Top 5 clients par montant encaissé
+     * Top 5 clients par montant facturé
      */
     public function getTop5_Clients($periode = null): array
     {
-        [$where, $params] = $this->buildPeriodClause('pv.date_paiement', $periode);
+        [$where, $params] = $this->buildPeriodClause('fv.date_facture', $periode);
 
         $sql = "
             SELECT
                 ec.id,
                 ec.nom,
                 ec.type_entreprise,
-                COALESCE(SUM(pv.montant_total_paye), 0) AS total,
+                COALESCE(SUM(fv.montant_ttc), 0) AS total,
                 COUNT(DISTINCT fv.id) AS factures
-            FROM paiement_vente pv
-            INNER JOIN facture_vente fv ON pv.facture_vente_id = fv.id
+            FROM facture_vente fv
             INNER JOIN entreprise ec ON fv.entreprise_client_id = ec.id
-            WHERE 1=1
+            WHERE fv.statut_id NOT IN (SELECT id FROM statut WHERE code IN ('BROUILLON','ANNULE'))
             {$where}
             GROUP BY ec.id, ec.nom, ec.type_entreprise
-            ORDER BY factures DESC, total DESC
+            ORDER BY total DESC, factures DESC
             LIMIT 5
         ";
 
@@ -145,11 +144,11 @@ class StatistiqueModel {
             return 0.0;
         }
 
-        [$where, $params] = $this->buildPeriodClause('pa.date_paiement', $periode);
+        [$where, $params] = $this->buildPeriodClause('fa.date_facture', $periode);
         $sql = "
-            SELECT COALESCE(SUM(pa.montant_total_paye), 0) AS total
-            FROM paiement_achat pa
-            WHERE 1=1
+            SELECT COALESCE(SUM(fa.montant_ttc), 0) AS total
+            FROM facture_achat fa
+            WHERE fa.statut_id NOT IN (SELECT id FROM statut WHERE code IN ('BROUILLON','ANNULE'))
             {$where}
         ";
 

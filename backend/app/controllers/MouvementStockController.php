@@ -75,6 +75,129 @@ class MouvementStockController {
         }
     }
 
+    /**
+     * Vérification de sortie pour un dépôt spécifique (respecte la méthode de valorisation du dépôt)
+     */
+    public function getVerificationSortie($articleId) {
+        try {
+            $data = Flight::request()->query->getData();
+            $quantite = $data['quantite'] ?? 0;
+            $depotId = $data['depot_id'] ?? null;
+            $mouvementId = $data['mouvement_id'] ?? null;
+            
+            if ($quantite <= 0) {
+                throw new InvalidArgumentException("La quantité doit être supérieure à 0");
+            }
+            if (!$depotId) {
+                throw new InvalidArgumentException("Le dépôt est requis");
+            }
+
+            // Récupérer la méthode de valorisation du dépôt
+            $depotQuery = "
+                SELECT d.id, d.nom, mvs.code as methode
+                FROM depot d
+                LEFT JOIN methode_valorisation_stock mvs ON d.methode_valorisation_stock_id = mvs.id
+                WHERE d.id = ?
+            ";
+            $stmt = Flight::db()->prepare($depotQuery);
+            $stmt->execute([$depotId]);
+            $depot = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            if (!$depot) {
+                throw new InvalidArgumentException("Dépôt non trouvé");
+            }
+
+            // Si un mouvement_id est fourni, récupérer les quantités de ce mouvement
+            $stockAvant = null;
+            $stockApres = null;
+            $prixUnitaire = null;
+            
+            if ($mouvementId) {
+                $mouvQuery = "
+                    SELECT quantite_stock_avant, quantite_stock_apres, prix_unitaire_mouvement
+                    FROM mouvement_stock
+                    WHERE id = ? AND article_id = ? AND depot_id = ?
+                ";
+                $stmt = Flight::db()->prepare($mouvQuery);
+                $stmt->execute([$mouvementId, $articleId, $depotId]);
+                $mouvement = $stmt->fetch(\PDO::FETCH_ASSOC);
+                
+                if ($mouvement) {
+                    $stockAvant = (float)$mouvement['quantite_stock_avant'];
+                    $stockApres = (float)$mouvement['quantite_stock_apres'];
+                    $prixUnitaire = (float)$mouvement['prix_unitaire_mouvement'];
+                }
+            }
+            
+            // Si pas de mouvement fourni ou trouvé, utiliser le stock actuel
+            if ($stockAvant === null) {
+                $stockQuery = "
+                    SELECT s.quantite_actuelle, s.cmup_actuel, s.valeur_stock_total
+                    FROM stock s
+                    WHERE s.article_id = ? AND s.depot_id = ?
+                ";
+                $stmt = Flight::db()->prepare($stockQuery);
+                $stmt->execute([$articleId, $depotId]);
+                $stock = $stmt->fetch(\PDO::FETCH_ASSOC);
+                
+                $stockDisponible = (float)($stock['quantite_actuelle'] ?? 0);
+                $stockAvant = $stockDisponible; // Stock actuel = "avant" cette sortie hypothétique
+                $stockApres = $stockDisponible - (float)$quantite;
+                $prixUnitaire = (float)($stock['cmup_actuel'] ?? 0);
+            }
+
+            $result = [
+                'depot_id' => (int)$depot['id'],
+                'depot_nom' => $depot['nom'],
+                'methode' => $depot['methode'] ?? 'CMUP',
+                'stock_avant_sortie' => $stockAvant,
+                'quantite_sortie' => (float)$quantite,
+                'stock_apres_sortie' => $stockApres,
+                'stock_suffisant' => $stockAvant >= (float)$quantite,
+            ];
+
+            // Infos supplémentaires selon la méthode
+            $methode = $depot['methode'] ?? 'CMUP';
+            if ($methode === 'CMUP' && $prixUnitaire !== null) {
+                $result['cmup_actuel'] = $prixUnitaire;
+                $result['valeur_sortie'] = (float)$quantite * $prixUnitaire;
+            } elseif (($methode === 'FIFO' || $methode === 'LIFO') && $mouvementId) {
+                // Récupérer les détails de sortie depuis sortie_lot_detail si disponible
+                $detailQuery = "
+                    SELECT sld.quantite_sortie, ls.numero_lot, ls.prix_unitaire_achat, ls.date_entree
+                    FROM sortie_lot_detail sld
+                    INNER JOIN lot_stock ls ON sld.lot_stock_id = ls.id
+                    WHERE sld.mouvement_sortie_id = ?
+                    ORDER BY sld.id
+                ";
+                $stmt = Flight::db()->prepare($detailQuery);
+                $stmt->execute([$mouvementId]);
+                $details = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                if (!empty($details)) {
+                    $lotsUtilises = [];
+                    $valeurTotale = 0;
+                    foreach ($details as $detail) {
+                        $lotsUtilises[] = [
+                            'lot' => $detail['numero_lot'],
+                            'quantite' => (float)$detail['quantite_sortie'],
+                            'prix_unitaire' => (float)$detail['prix_unitaire_achat'],
+                            'date_entree' => $detail['date_entree'],
+                        ];
+                        $valeurTotale += (float)$detail['quantite_sortie'] * (float)$detail['prix_unitaire_achat'];
+                    }
+                    $result['lots_utilises'] = $lotsUtilises;
+                    $result['valeur_sortie'] = $valeurTotale;
+                }
+            }
+
+            Flight::json(['success' => true, 'data' => $result]);
+        } catch (Exception $e) {
+            error_log("Erreur dans getVerificationSortie: " . $e->getMessage());
+            Flight::json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
     public function creerSortieAvecFIFO() {
         try {
             $data = Flight::request()->data->getData();

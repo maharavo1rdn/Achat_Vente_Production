@@ -25,7 +25,7 @@ class StatAchatModel {
                 ef.id,
                 ef.nom,
                 ef.type_entreprise,
-                COALESCE(SUM(pa.montant_total_paye), 0) AS total_paye,
+                COALESCE(SUM(pa.montant), 0) AS total_paye,
                 COALESCE(SUM(fa.montant_ttc), 0) AS total_facture,
                 COUNT(DISTINCT fa.id) AS nombre_factures
             FROM facture_achat fa

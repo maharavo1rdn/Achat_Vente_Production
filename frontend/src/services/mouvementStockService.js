@@ -42,6 +42,13 @@ export default {
     })
   },
 
+  // Vérifier une sortie pour un dépôt spécifique (respecte la méthode du dépôt)
+  getVerificationSortie(articleId, quantite, depotId, mouvementId = null) {
+    return api.get(`/mouvements-stock/verification-sortie/${articleId}`, { 
+      params: { quantite, depot_id: depotId, mouvement_id: mouvementId } 
+    })
+  },
+
   // Créer une sortie avec FIFO
   creerSortieAvecFIFO(sortieData) {
     return api.post('/mouvements-stock/sortie-fifo', sortieData)

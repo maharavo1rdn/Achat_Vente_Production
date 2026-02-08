@@ -441,18 +441,15 @@ class MouvementStockModel
                     ms.prix_unitaire_mouvement as prix_unitaire_achat,
                     ms.reference_document as reference_entree,
                     d.nom as depot_nom,
-                    -- Calculer ce qui reste disponible dans cette entrée
-                    (ms.quantite_entree - COALESCE(
-                        (SELECT SUM(quantite_sortie) 
-                        FROM mouvement_stock ms2 
-                        WHERE ms2.type_mouvement IN ('VENTE', 'SORTIE')
-                        AND ms2.article_id = ms.article_id
-                        AND ms2.reference_entree_source = ms.reference_document), 0)) as quantite_disponible
+                    -- Calculer ce qui reste disponible via lot_stock
+                    COALESCE(ls.quantite_restante, ms.quantite_entree) as quantite_disponible
                 FROM mouvement_stock ms
                 LEFT JOIN depot d ON ms.depot_id = d.id
+                LEFT JOIN lot_stock ls ON ls.mouvement_entree_id = ms.id AND ls.statut = 'ACTIF'
                 WHERE ms.article_id = ?
                 AND ms.type_mouvement IN ('ACHAT', 'INVENTAIRE')
                 AND ms.quantite_entree > 0
+                AND COALESCE(ls.quantite_restante, ms.quantite_entree) > 0
                 ORDER BY ms.date_mouvement ASC  -- FIFO: plus ancien d'abord
             ";
             
@@ -576,18 +573,15 @@ class MouvementStockModel
                 ms.depot_id,
                 d.nom as depot_nom,
                 ms.prix_unitaire_mouvement,
-                -- Calculer le disponible (entrée - sorties déjà faites)
-                (ms.quantite_entree - COALESCE(
-                    (SELECT SUM(quantite_sortie) 
-                    FROM mouvement_stock ms2 
-                    WHERE ms2.type_mouvement IN ('VENTE', 'SORTIE')
-                    AND ms2.reference_entree_source = ms.reference_document), 0)) as quantite_disponible
+                -- Calculer le disponible via lot_stock
+                COALESCE(ls.quantite_restante, ms.quantite_entree) as quantite_disponible
             FROM mouvement_stock ms
-            LEFT JOIN depots d ON ms.depot_id = d.id
+            LEFT JOIN depot d ON ms.depot_id = d.id
+            LEFT JOIN lot_stock ls ON ls.mouvement_entree_id = ms.id AND ls.statut = 'ACTIF'
             WHERE ms.article_id = ?
             AND ms.type_mouvement IN ('ACHAT', 'INVENTAIRE')
             AND ms.quantite_entree > 0
-            HAVING quantite_disponible > 0
+            AND COALESCE(ls.quantite_restante, ms.quantite_entree) > 0
             ORDER BY ms.date_mouvement ASC
         ";
         
@@ -896,18 +890,15 @@ class MouvementStockModel
                     ms.prix_unitaire_mouvement as prix_unitaire_achat,
                     ms.reference_document as reference_entree,
                     d.nom as depot_nom,
-                    -- Calculer ce qui reste disponible dans cette entrée
-                    (ms.quantite_entree - COALESCE(
-                        (SELECT SUM(quantite_sortie) 
-                        FROM mouvement_stock ms2 
-                        WHERE ms2.type_mouvement IN ('VENTE', 'SORTIE')
-                        AND ms2.article_id = ms.article_id
-                        AND ms2.reference_entree_source = ms.reference_document), 0)) as quantite_disponible
+                    -- Calculer ce qui reste disponible via lot_stock
+                    COALESCE(ls.quantite_restante, ms.quantite_entree) as quantite_disponible
                 FROM mouvement_stock ms
                 LEFT JOIN depot d ON ms.depot_id = d.id
+                LEFT JOIN lot_stock ls ON ls.mouvement_entree_id = ms.id AND ls.statut = 'ACTIF'
                 WHERE ms.article_id = ?
                 AND ms.type_mouvement IN ('ACHAT', 'INVENTAIRE')
                 AND ms.quantite_entree > 0
+                AND COALESCE(ls.quantite_restante, ms.quantite_entree) > 0
                 ORDER BY ms.date_mouvement DESC  -- LIFO: plus récent d'abord
             ";
             
@@ -1041,18 +1032,15 @@ class MouvementStockModel
                     ms.prix_unitaire_mouvement as prix_unitaire_achat,
                     ms.reference_document as reference_entree,
                     d.nom as depot_nom,
-                    -- Calculer ce qui reste disponible dans cette entrée
-                    (ms.quantite_entree - COALESCE(
-                        (SELECT SUM(quantite_sortie) 
-                        FROM mouvement_stock ms2 
-                        WHERE ms2.type_mouvement IN ('VENTE', 'SORTIE')
-                        AND ms2.article_id = ms.article_id
-                        AND ms2.reference_entree_source = ms.reference_document), 0)) as quantite_disponible
+                    -- Calculer ce qui reste disponible via lot_stock
+                    COALESCE(ls.quantite_restante, ms.quantite_entree) as quantite_disponible
                 FROM mouvement_stock ms
                 LEFT JOIN depot d ON ms.depot_id = d.id
+                LEFT JOIN lot_stock ls ON ls.mouvement_entree_id = ms.id AND ls.statut = 'ACTIF'
                 WHERE ms.article_id = ?
                 AND ms.type_mouvement IN ('ACHAT', 'INVENTAIRE')
                 AND ms.quantite_entree > 0
+                AND COALESCE(ls.quantite_restante, ms.quantite_entree) > 0
             ";
             
             $stmt = $this->db->prepare($sql);
@@ -1273,7 +1261,7 @@ class MouvementStockModel
             throw new InvalidArgumentException("Stock insuffisant dans le dépôt $depotId");
         }
         
-        // 2. Créer le mouvement de sortie avec méthode optionnelle
+        // 2. Créer le mouvement de sortie
         $sql = "
             INSERT INTO mouvement_stock (
                 type_mouvement,
@@ -1286,15 +1274,11 @@ class MouvementStockModel
                 personnel_id,
                 depot_id,
                 reference_document,
-                reference_entree_source,
-                methode_sortie,
                 date_mouvement
             ) VALUES (
                 'VENTE',
                 ?,
                 0,
-                ?,
-                ?,
                 ?,
                 ?,
                 ?,
@@ -1315,9 +1299,7 @@ class MouvementStockModel
             $articleId,
             $personnelId,
             $depotId,
-            $referenceDocument,
-            $referenceEntreeSource,
-            $methodeSortie  // FIFO, LIFO, CMUP
+            $referenceDocument
         ]);
         
         $mouvementId = $this->db->lastInsertId();

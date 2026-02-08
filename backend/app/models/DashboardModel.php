@@ -178,7 +178,7 @@ class DashboardModel
     {
         // Only count validated payments (statut_id = 3 for 'valide')
         $query = "
-            SELECT COALESCE(SUM(pv.montant_total_paye), 0) as total
+            SELECT COALESCE(SUM(pv.montant), 0) as total
             FROM paiement_vente pv
             INNER JOIN facture_vente fv ON pv.facture_vente_id = fv.id
             WHERE TO_CHAR(pv.date_paiement, 'YYYY-MM') = ?
@@ -193,7 +193,7 @@ class DashboardModel
     {
         // Only count validated payments (statut_id = 3 for 'valide')
         $query = "
-            SELECT COALESCE(SUM(pa.montant_total_paye), 0) as total
+            SELECT COALESCE(SUM(pa.montant), 0) as total
             FROM paiement_achat pa
             INNER JOIN facture_achat fa ON pa.facture_achat_id = fa.id
             WHERE TO_CHAR(pa.date_paiement, 'YYYY-MM') = ?
@@ -210,7 +210,7 @@ class DashboardModel
         $query = "
             SELECT
                 TO_CHAR(pv.date_paiement, 'YYYY-MM') as mois,
-                COALESCE(SUM(pv.montant_total_paye), 0) as total
+                COALESCE(SUM(pv.montant), 0) as total
             FROM paiement_vente pv
             WHERE pv.date_paiement >= CURRENT_DATE - INTERVAL '" . $months . " months'
             GROUP BY TO_CHAR(pv.date_paiement, 'YYYY-MM')
@@ -253,7 +253,7 @@ class DashboardModel
         $query = "
             SELECT
                 TO_CHAR(pa.date_paiement, 'YYYY-MM') as mois,
-                COALESCE(SUM(pa.montant_total_paye), 0) as total
+                COALESCE(SUM(pa.montant), 0) as total
             FROM paiement_achat pa
             WHERE pa.date_paiement >= CURRENT_DATE - INTERVAL '" . $months . " months'
             GROUP BY TO_CHAR(pa.date_paiement, 'YYYY-MM')
@@ -362,7 +362,7 @@ class DashboardModel
         $query = "
             SELECT
                 TO_CHAR(pv.date_paiement, 'YYYY-MM') as mois,
-                COALESCE(SUM(pv.montant_total_paye), 0) as ca_ventes,
+                COALESCE(SUM(pv.montant), 0) as ca_ventes,
                 0 as ca_achats
             FROM paiement_vente pv
             WHERE pv.date_paiement >= CURRENT_DATE - INTERVAL '" . $months . " months'
@@ -373,7 +373,7 @@ class DashboardModel
             SELECT
                 TO_CHAR(pa.date_paiement, 'YYYY-MM') as mois,
                 0 as ca_ventes,
-                COALESCE(SUM(pa.montant_total_paye), 0) as ca_achats
+                COALESCE(SUM(pa.montant), 0) as ca_achats
             FROM paiement_achat pa
             WHERE pa.date_paiement >= CURRENT_DATE - INTERVAL '" . $months . " months'
             GROUP BY TO_CHAR(pa.date_paiement, 'YYYY-MM')

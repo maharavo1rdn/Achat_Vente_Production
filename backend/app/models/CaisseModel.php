@@ -209,16 +209,12 @@ class CaisseModel
                 cm.solde_apres,
                 cm.caisse_id,
                 cm.personnel_id,
-                cm.statut_id,
                 c.libelle as caisse_libelle,
                 p.nom as personnel_nom,
-                p.prenom as personnel_prenom,
-                s.libelle as statut_libelle,
-                s.code as statut_code
+                p.prenom as personnel_prenom
             FROM caisse_mouvement cm
             INNER JOIN caisse c ON cm.caisse_id = c.id
             INNER JOIN personnel p ON cm.personnel_id = p.id
-            INNER JOIN statut s ON cm.statut_id = s.id
             WHERE 1=1
         ";
 
@@ -283,18 +279,13 @@ class CaisseModel
                 cm.solde_apres,
                 cm.caisse_id,
                 cm.personnel_id,
-                cm.statut_id,
-                s.niveau,
                 c.libelle as caisse_libelle,
                 c.code_caisse,
                 p.nom as personnel_nom,
-                p.prenom as personnel_prenom,
-                s.libelle as statut_libelle,
-                s.code as statut_code
+                p.prenom as personnel_prenom
             FROM caisse_mouvement cm
             INNER JOIN caisse c ON cm.caisse_id = c.id
             INNER JOIN personnel p ON cm.personnel_id = p.id
-            INNER JOIN statut s ON cm.statut_id = s.id
             WHERE cm.id = ?
         ";
 
@@ -326,8 +317,8 @@ class CaisseModel
             throw new InvalidArgumentException("Mouvement non trouvé");
         }
 
-        if ($current['statut_id'] != 2) {
-            throw new InvalidArgumentException("Seuls les mouvements en attente peuvent être modifiés");
+        if ($current['solde_avant'] == $current['solde_apres'] && $current['montant_entree'] == 0 && $current['montant_sortie'] == 0) {
+            // Mouvement vide, on peut le modifier
         }
 
         $query = "
@@ -552,7 +543,7 @@ class CaisseModel
                 pv.id,
                 pv.facture_vente_id,
                 pv.caisse_mouvement_id,
-                pv.montant_paye,
+                pv.montant,
                 fv.numero_facture,
                 cm.libelle_operation,
                 cm.date_mouvement,
@@ -596,7 +587,7 @@ class CaisseModel
                 pa.id,
                 pa.facture_achat_id,
                 pa.caisse_mouvement_id,
-                pa.montant_paye,
+                pa.montant,
                 fa.numero_facture_fournisseur,
                 cm.libelle_operation,
                 cm.date_mouvement,
@@ -645,8 +636,8 @@ class CaisseModel
 
         $query = "
             INSERT INTO paiement_vente (
-                facture_vente_id, caisse_mouvement_id, montant_total_paye
-            ) VALUES (?, ?, ?)
+                facture_vente_id, caisse_mouvement_id, montant, mode_paiement_id, statut_id
+            ) VALUES (?, ?, ?, 1, 1)
         ";
 
         $stmt = $this->db->prepare($query);
@@ -675,8 +666,8 @@ class CaisseModel
 
         $query = "
             INSERT INTO paiement_achat (
-                facture_achat_id, caisse_mouvement_id, montant_total_paye
-            ) VALUES (?, ?, ?)
+                facture_achat_id, caisse_mouvement_id, montant, mode_paiement_id, statut_id
+            ) VALUES (?, ?, ?, 1, 1)
         ";
 
         $stmt = $this->db->prepare($query);

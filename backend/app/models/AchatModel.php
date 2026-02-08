@@ -422,8 +422,8 @@ class AchatModel
             INSERT INTO facture_achat (
                 numero_facture_fournisseur, date_facture, bon_commande_achat_id,
                 entreprise_fournisseur_id, entreprise_filiale_id, statut_id,
-                montant_ttc, reste_a_payer, remarques, depot_reception_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,1)
+                montant_ttc, reste_a_payer, depot_reception_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
 
         $stmt = $this->db->prepare($query);
@@ -436,7 +436,7 @@ class AchatModel
             $data['statut_id'],
             $data['montant_ttc'] ?? 0,
             $data['reste_a_payer'] ?? $data['montant_ttc'] ?? 0,
-            $data['remarques'] ?? null
+            $data['depot_reception_id'] ?? null
         ]);
 
         $newId = $this->db->lastInsertId();
@@ -470,8 +470,7 @@ class AchatModel
                 entreprise_filiale_id = ?,
                 statut_id = ?,
                 montant_ttc = ?,
-                reste_a_payer = ?,
-                remarques = ?
+                reste_a_payer = ?
             WHERE id = ?
         ";
 
@@ -485,7 +484,6 @@ class AchatModel
             $data['statut_id'],
             $data['montant_ttc'] ?? 0,
             $data['reste_a_payer'] ?? $data['montant_ttc'] ?? 0,
-            $data['remarques'] ?? null,
             $id
         ]);
 

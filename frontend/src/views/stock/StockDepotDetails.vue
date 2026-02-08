@@ -260,13 +260,13 @@
               <div v-for="mouvement in selectedArticle.mouvements.slice(0, 10)" :key="mouvement.id" class="movement-item">
                 <div class="movement-date">{{ formatDate(mouvement.date_mouvement) }}</div>
                 <div class="movement-type">{{ mouvement.type_mouvement }}</div>
-                <div class="movement-quantity" :class="mouvement.quantite_entree > 0 ? 'text-green-600' : 'text-red-600'">
-                  {{ mouvement.quantite_entree > 0 ? '+' : '-' }}{{ mouvement.quantite_entree || mouvement.quantite_sortie }}
+                <div class="movement-quantity" :class="Number(mouvement.quantite_entree) > 0 ? 'text-green-600' : 'text-red-600'">
+                  {{ Number(mouvement.quantite_entree) > 0 ? '+' + Number(mouvement.quantite_entree) : '-' + Number(mouvement.quantite_sortie) }}
                 </div>
                 <div class="movement-price text-sm text-gray-700">
                   <template v-if="mouvement.prix_unitaire_mouvement !== null && mouvement.prix_unitaire_mouvement !== undefined">
                     {{ formatCurrency(mouvement.prix_unitaire_mouvement) }}
-                    <span class="text-xs text-gray-500"> • {{ formatCurrency((Number(mouvement.quantite_entree) || Number(mouvement.quantite_sortie) || 0) * (Number(mouvement.prix_unitaire_mouvement) || 0)) }}</span>
+                    <span class="text-xs text-gray-500"> • {{ formatCurrency((Number(mouvement.quantite_entree) > 0 ? Number(mouvement.quantite_entree) : Number(mouvement.quantite_sortie) || 0) * (Number(mouvement.prix_unitaire_mouvement) || 0)) }}</span>
                   </template>
                 </div>
                 <div class="movement-ref text-sm text-gray-500">{{ mouvement.reference_document || 'N/A' }}</div>
@@ -386,7 +386,7 @@ const selectArticle = async (article) => {
     // Extraire l'historique des prix (mouvements avec prix)
     article.priceHistory = (mouvementsResponse.data || [])
       .filter(m => m.prix_unitaire_mouvement !== null && m.prix_unitaire_mouvement !== undefined)
-      .map(m => ({ date: m.date_mouvement, prix: m.prix_unitaire_mouvement, quantite: (m.quantite_entree || m.quantite_sortie) }))
+      .map(m => ({ date: m.date_mouvement, prix: m.prix_unitaire_mouvement, quantite: Number(m.quantite_entree) > 0 ? Number(m.quantite_entree) : Number(m.quantite_sortie) }))
       .slice(0, 10)
 
     selectedArticle.value = article

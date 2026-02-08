@@ -151,13 +151,8 @@ class PaiementVenteModel
                 $r = $stmt2->fetch(PDO::FETCH_ASSOC);
                 if ($r && !empty($r['caisse_mouvement_id'])) {
                     $cmId = (int)$r['caisse_mouvement_id'];
-                    $stmtM = $this->db->prepare('SELECT statut_id FROM caisse_mouvement WHERE id = ?');
-                    $stmtM->execute([$cmId]);
-                    $mvt = $stmtM->fetch(PDO::FETCH_ASSOC);
-                    if ($mvt && (int)$mvt['statut_id'] === 2) {
-                        $stmtU = $this->db->prepare('UPDATE caisse_mouvement SET montant_entree = ? WHERE id = ?');
-                        $stmtU->execute([$data['montant'], $cmId]);
-                    }
+                    $stmtU = $this->db->prepare('UPDATE caisse_mouvement SET montant_entree = ? WHERE id = ?');
+                    $stmtU->execute([$data['montant'], $cmId]);
                 }
             } catch (Exception $e) {
                 error_log('Warning: failed to sync mouvement montant after paiement update: ' . $e->getMessage());
@@ -286,14 +281,7 @@ class PaiementVenteModel
             $mouvementId = null;
             if (!empty($paiement['caisse_mouvement_id'])) {
                 $mouvementId = (int)$paiement['caisse_mouvement_id'];
-
-                $stmtM = $this->db->prepare('SELECT statut_id FROM caisse_mouvement WHERE id = ?');
-                $stmtM->execute([$mouvementId]);
-                $mvt = $stmtM->fetch(PDO::FETCH_ASSOC);
-                if ($mvt && (int)$mvt['statut_id'] === 2)
-                    Flight::caisseModel()->finalizeMouvement($mouvementId, 3, $montant, false);
-                else
-                    Flight::caisseModel()->finalizeMouvement($mouvementId, 3);
+                Flight::caisseModel()->finalizeMouvement($mouvementId, 3, $montant, false);
 
             } elseif ($caisseId !== null || $personnelId !== null) {
                 if (empty($caisseId) || empty($personnelId)) {

@@ -476,47 +476,49 @@ CREATE TABLE caisse_mouvement (
     FOREIGN KEY (personnel_id) REFERENCES personnel(id)
 );
 
-CREATE TABLE paiement_vente (
-    id                  SERIAL PRIMARY KEY,
-    numero_recu         VARCHAR(50) UNIQUE,
-    date_paiement       DATE DEFAULT CURRENT_DATE,
-    facture_vente_id    INTEGER NOT NULL,
-    caisse_mouvement_id INTEGER NOT NULL,
-    montant_total_paye  NUMERIC(15,2) NOT NULL,
-    FOREIGN KEY (facture_vente_id)    REFERENCES facture_vente(id),
-    FOREIGN KEY (caisse_mouvement_id) REFERENCES caisse_mouvement(id)
-);
+-- CREATE TABLE paiement_vente (
+--     id                  SERIAL PRIMARY KEY,
+--     numero_recu         VARCHAR(50) UNIQUE,
+--     date_paiement       DATE DEFAULT CURRENT_DATE,
+--     facture_vente_id    INTEGER NOT NULL,
+--     caisse_mouvement_id INTEGER NOT NULL,
+--     montant_total_paye  NUMERIC(15,2) NOT NULL,
+--     FOREIGN KEY (facture_vente_id)    REFERENCES facture_vente(id),
+--     FOREIGN KEY (caisse_mouvement_id) REFERENCES caisse_mouvement(id)
+-- );
 
-CREATE TABLE paiement_vente_details (
-    id               SERIAL PRIMARY KEY,
-    paiement_vente_id INTEGER NOT NULL,
-    mode_paiement_id  INTEGER NOT NULL,
-    montant           NUMERIC(15,2) NOT NULL,
+CREATE TABLE paiement_vente (
+    id SERIAL PRIMARY KEY,
+    numero_recu VARCHAR(50) UNIQUE,
+    mode_paiement_id INTEGER NOT NULL,
+    statut_id INTEGER NOT NULL DEFAULT 1,
+    facture_vente_id INTEGER NOT NULL,
+    caisse_mouvement_id INTEGER,
+    montant NUMERIC(15,2) NOT NULL DEFAULT 0,
+    date_paiement DATE DEFAULT CURRENT_DATE,
     reference_externe VARCHAR(100),
-    FOREIGN KEY (paiement_vente_id) REFERENCES paiement_vente(id) ON DELETE CASCADE,
-    FOREIGN KEY (mode_paiement_id)  REFERENCES mode_paiement(id)
+    FOREIGN KEY (statut_id) REFERENCES statut(id),
+    FOREIGN KEY (facture_vente_id) REFERENCES facture_vente(id),
+    FOREIGN KEY (mode_paiement_id) REFERENCES mode_paiement(id),
+    FOREIGN KEY (caisse_mouvement_id) REFERENCES caisse_mouvement(id)
 );
 
 CREATE TABLE paiement_achat (
-    id                  SERIAL PRIMARY KEY,
-    numero_paiement     VARCHAR(50) UNIQUE,
-    date_paiement       DATE DEFAULT CURRENT_DATE,
-    facture_achat_id    INTEGER NOT NULL,
-    caisse_mouvement_id INTEGER NOT NULL,
-    montant_total_paye  NUMERIC(15,2) NOT NULL,
-    FOREIGN KEY (facture_achat_id)    REFERENCES facture_achat(id),
+    id SERIAL PRIMARY KEY,
+    numero_paiement VARCHAR(50) UNIQUE,
+    mode_paiement_id INTEGER NOT NULL,
+    statut_id INTEGER NOT NULL DEFAULT 1,
+    facture_achat_id INTEGER NOT NULL,
+    caisse_mouvement_id INTEGER,
+    montant NUMERIC(15,2) NOT NULL DEFAULT 0,
+    date_paiement DATE DEFAULT CURRENT_DATE,
+    reference_externe VARCHAR(100),
+    FOREIGN KEY (statut_id) REFERENCES statut(id),
+    FOREIGN KEY (facture_achat_id) REFERENCES facture_achat(id),
+    FOREIGN KEY (mode_paiement_id) REFERENCES mode_paiement(id),
     FOREIGN KEY (caisse_mouvement_id) REFERENCES caisse_mouvement(id)
 );
 
-CREATE TABLE paiement_achat_details (
-    id               SERIAL PRIMARY KEY,
-    paiement_achat_id INTEGER NOT NULL,
-    mode_paiement_id  INTEGER NOT NULL,
-    montant           NUMERIC(15,2) NOT NULL,
-    reference_externe VARCHAR(100),
-    FOREIGN KEY (paiement_achat_id) REFERENCES paiement_achat(id) ON DELETE CASCADE,
-    FOREIGN KEY (mode_paiement_id)  REFERENCES mode_paiement(id)
-);
 
 -- -----------------------------------------------------------------------------
 -- 8. INDEX utiles

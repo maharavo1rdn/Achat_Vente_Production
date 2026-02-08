@@ -859,7 +859,7 @@ class VenteModel
             INSERT INTO facture_vente (
                 numero_facture, date_facture, bon_commande_vente_id,
                 entreprise_client_id, entreprise_filiale_id, personnel_id,
-                statut_id, montant_ttc, reste_a_payer, remarques
+                statut_id, montant_ttc, reste_a_payer, depot_expedition_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
 
@@ -874,7 +874,7 @@ class VenteModel
             $data['statut_id'],
             $data['montant_ttc'] ?? 0,
             $data['reste_a_payer'] ?? $data['montant_ttc'] ?? 0,
-            $data['remarques'] ?? null
+            $data['depot_expedition_id'] ?? null
         ]);
 
         $newId = $this->db->lastInsertId();
@@ -1583,19 +1583,18 @@ class VenteModel
         $this->db->beginTransaction();
 
         try {
-            // Mettre à jour la facture
+            // Mettre à jour la facture - utiliser statut_id et reste_a_payer
             $stmt = $this->db->prepare("
                 UPDATE facture_vente SET 
-                    statut_paiement = 'PAYEE',
-                    date_paiement = NOW(),
-                    mode_paiement = ?
+                    statut_id = (SELECT id FROM statut WHERE code = 'PAYE' LIMIT 1),
+                    reste_a_payer = 0
                 WHERE id = ?
             ");
-            $stmt->execute([$data['mode_paiement'] ?? 'ESPECES', $id]);
+            $stmt->execute([$id]);
             
             // Enregistrer dans la caisse (entrée)
             $stmt = $this->db->prepare("
-                SELECT fv.montant_ttc, fv.entreprise_filiale_id, fv.numero
+                SELECT fv.montant_ttc, fv.entreprise_filiale_id, fv.numero_facture
                 FROM facture_vente fv
                 WHERE fv.id = ?
             ");
@@ -1624,7 +1623,7 @@ class VenteModel
                         ) VALUES (?, ?, 0, ?, ?, ?, ?)
                     ");
                     $stmt->execute([
-                        'Paiement facture vente ' . $facture['numero'],
+                        'Paiement facture vente ' . $facture['numero_facture'],
                         $facture['montant_ttc'],
                         $soldeAvant,
                         $soldeApres,
