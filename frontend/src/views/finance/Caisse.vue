@@ -96,7 +96,7 @@
         <div class="stat-card">
           <div class="stat-content">
             <p class="stat-label">Total Entrées</p>
-            <h3 class="stat-value text-emerald-600">{{ totalEntrees }}</h3>
+            <h3 class="stat-value text-emerald-600">{{ formatCurrency(totalEntrees) }}</h3>
           </div>
           <div class="p-3 bg-emerald-50 rounded-lg text-emerald-500">
             <TrendingUp class="w-5 h-5" />
@@ -107,7 +107,7 @@
         <div class="stat-card">
           <div class="stat-content">
             <p class="stat-label">Total Sorties</p>
-            <h3 class="stat-value text-rose-600">{{ totalSorties }}</h3>
+            <h3 class="stat-value text-rose-600">{{ formatCurrency(totalSorties) }}</h3>
           </div>
           <div class="p-3 bg-rose-50 rounded-lg text-rose-500">
             <TrendingDown class="w-5 h-5" />
@@ -257,7 +257,7 @@
                       class="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
                       {{ (mvt.personnel_nom || 'U')[0] }}
                     </div>
-                    <span class="truncate max-w-[100px]">{{ mvt.personnel_nom + ' ' + mvt.personnel_prenom || ''
+                    <span class="truncate max-w-[100px]">{{ (mvt.personnel_nom || '') + ' ' + (mvt.personnel_prenom || '')
                       }}</span>
                   </div>
                 </td>
@@ -504,7 +504,7 @@ onMounted(() => {
 
 .input,
 .select {
-  @apply w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 transition-all focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none;
+  @apply w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 transition-all focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 /* --- TABLE --- */

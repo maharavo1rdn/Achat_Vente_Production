@@ -178,8 +178,8 @@
                                                 class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
                                                 {{ (m.personnel_prenom?.[0] || 'U') }}
                                             </div>
-                                            <span class="truncate max-w-[120px]">{{ m.personnel_prenom }} {{
-                                                m.personnel_nom }}</span>
+                                            <span class="truncate max-w-[120px]">{{ (m.personnel_prenom || '') }} {{
+                                                (m.personnel_nom || '') }}</span>
                                         </div>
                                     </td>
 

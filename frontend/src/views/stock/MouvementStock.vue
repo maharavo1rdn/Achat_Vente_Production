@@ -185,8 +185,8 @@
                     <span class="text-xs text-gray-500">{{ mouvement.article_reference }}</span>
                   </div>
                 </td>
-                <td>{{ mouvement.reference_document }}</td>
-                <td>{{ mouvement.depot_nom }}</td>
+                <td>{{ mouvement.reference_document || '-' }}</td>
+                <td>{{ mouvement.depot_nom || '-' }}</td>
                 <td class="text-right font-semibold">{{ mouvement.quantite_stock_avant }}</td>
                 <td class="text-right font-semibold text-green-600" v-if="mouvement.quantite_entree > 0">
                   +{{ mouvement.quantite_entree }}
@@ -198,7 +198,7 @@
                 <td class="text-right" v-else>-</td>
                 <td class="text-right font-bold">{{ mouvement.quantite_stock_apres }}</td>
                 <td class="text-center">
-                  {{ mouvement.personnel_prenom }} {{ mouvement.personnel_nom }}
+                  {{ (mouvement.personnel_prenom || '') }} {{ (mouvement.personnel_nom || '') }}
                 </td>
                 <td>
                   <div class="table-actions" @click.stop>
@@ -419,6 +419,7 @@ const topArticles = computed(() => {
 
 // Methods
 const formatDate = (dateString) => {
+  if (!dateString) return '-'
   const date = new Date(dateString)
   return date.toLocaleDateString('fr-FR', {
     day: '2-digit',
@@ -688,7 +689,7 @@ onMounted(() => {
 }
 
 .select {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm;
+  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 /* View Toggle */

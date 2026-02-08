@@ -139,7 +139,8 @@ const printBC = (bcItem) => {
 }
 
 const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA', minimumFractionDigits: 0 }).format(amount)
+  const value = parseFloat(amount) || 0
+  return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA', minimumFractionDigits: 0 }).format(value)
 }
 
 const formatDate = (date) => date ? new Date(date).toLocaleDateString('fr-FR') : '-'

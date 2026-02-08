@@ -243,7 +243,7 @@
                         {{ mvt.type_mouvement }}
                       </span>
                     </td>
-                    <td>{{ mvt.filiale }}</td>
+                    <td>{{ mvt.filiale || '-' }}</td>
                     <td class="font-medium">{{ mvt.quantite_stock_avant }}</td>
                     <td class="text-green-600 font-bold">
                       {{ mvt.quantite_entree > 0 ? '+' + mvt.quantite_entree : '-' }}
@@ -252,7 +252,7 @@
                       {{ mvt.quantite_sortie > 0 ? '-' + mvt.quantite_sortie : '-' }}
                     </td>
                     <td class="font-bold">{{ mvt.quantite_stock_apres }}</td>
-                    <td>{{ mvt.personnel_nom }} {{ mvt.personnel_prenom }}</td>
+                    <td>{{ (mvt.personnel_nom || '') }} {{ (mvt.personnel_prenom || '') }}</td>
                     <td class="text-sm text-gray-500">{{ mvt.reference_document || '-' }}</td>
                   </tr>
                 </tbody>
@@ -323,16 +323,17 @@ async function loadMouvements() {
 function calculerMarge() {
   if (!article.value.prix_achat_ref || article.value.prix_achat_ref === 0) return 0
   const marge =
-    ((article.value.prix_vente_ref - article.value.prix_achat_ref) /
-      article.value.prix_achat_ref) *
+    (((Number(article.value.prix_vente_ref) || 0) - (Number(article.value.prix_achat_ref) || 0)) /
+      (Number(article.value.prix_achat_ref) || 1)) *
     100
-  return marge.toFixed(2)
+  return (Number(marge) || 0).toFixed(2)
 }
 
 function formatPrice(price) {
-  return new Intl.NumberFormat('fr-FR', {
+  return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
-    currency: 'EUR'
+    currency: 'MGA',
+    minimumFractionDigits: 0
   }).format(price || 0)
 }
 

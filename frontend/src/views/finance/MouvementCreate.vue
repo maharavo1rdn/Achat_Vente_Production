@@ -70,7 +70,7 @@
                     <User class="w-4 h-4 text-slate-400" />
                   </div>
                   <select v-model="form.personnel_id" class="modern-select pl-12">
-                    <option v-for="p in personnel" :key="p.id" :value="p.id">{{ p.prenom }} {{ p.nom }}</option>
+                    <option v-for="p in personnel" :key="p.id" :value="p.id">{{ (p.prenom || '') }} {{ (p.nom || '') }}</option>
                   </select>
                 </div>
               </div>
@@ -313,10 +313,10 @@ const submit = async () => {
 const cancel = () => router.back()
 
 function formatCurrency(value) {
-  const num = parseFloat(value || 0)
+  const num = Number(value)
   return new Intl.NumberFormat('fr-MG', {
-    style: 'currency', currency: 'MGA', maximumFractionDigits: 0
-  }).format(num).replace('MGA', '').trim()
+    style: 'currency', currency: 'MGA', minimumFractionDigits: 0
+  }).format(isNaN(num) ? 0 : num)
 }
 </script>
 

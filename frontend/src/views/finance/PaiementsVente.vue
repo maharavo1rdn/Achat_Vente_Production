@@ -179,7 +179,7 @@
                                 </td>
                                 <td class="text-center">
                                     <span :class="['badge', getStatutClass(p.statut_code || p.statut_libelle)]">
-                                        {{ p.statut_libelle }}
+                                        {{ p.statut_libelle || '-' }}
                                     </span>
                                 </td>
                                 <td>
@@ -252,7 +252,7 @@
 
                             <div class="form-group">
                                 <label class="label">Validateur</label>
-                                <input :value="currentUser?.nom + ' ' + currentUser?.prenom" readonly
+                                <input :value="(currentUser?.nom || '') + ' ' + (currentUser?.prenom || '')" readonly
                                     class="input w-full bg-gray-50 text-gray-500 cursor-not-allowed" />
                             </div>
 
@@ -608,7 +608,7 @@ const getStatutClass = (status) => {
 }
 
 .select {
-    @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white;
+    @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 .table-wrapper {

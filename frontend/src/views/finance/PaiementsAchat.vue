@@ -183,7 +183,7 @@
                                 </td>
                                 <td class="text-center">
                                     <span :class="['badge', getStatutClass(p.statut_code || p.statut_libelle)]">
-                                        {{ p.statut_libelle }}
+                                        {{ p.statut_libelle || '-' }}
                                     </span>
                                 </td>
                                 <td>
@@ -255,7 +255,7 @@
 
                             <div class="form-group">
                                 <label class="label">Validateur</label>
-                                <input :value="currentUser?.nom + ' ' + currentUser?.prenom" readonly
+                                <input :value="(currentUser?.nom || '') + ' ' + (currentUser?.prenom || '')" readonly
                                     class="input w-full bg-gray-50 text-gray-500 cursor-not-allowed" />
                             </div>
 
@@ -562,7 +562,7 @@ onMounted(() => { load(); loadFilters() })
 
 .input,
 .select {
-    @apply w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all;
+    @apply w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 /* --- BUTTONS --- */

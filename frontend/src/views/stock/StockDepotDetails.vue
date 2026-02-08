@@ -166,7 +166,7 @@
               <td class="font-semibold">{{ lot.quantite_restante }}</td>
               <td>{{ formatCurrency(lot.prix_unitaire_achat) }}</td>
               <td class="font-semibold text-green-600">
-                {{ formatCurrency(lot.quantite_restante * lot.prix_unitaire_achat) }}
+                {{ formatCurrency((Number(lot.quantite_restante) || 0) * (Number(lot.prix_unitaire_achat) || 0)) }}
               </td>
               <td>
                 <span :class="getStatutClass(lot.statut)" class="status-badge">
@@ -234,7 +234,7 @@
                     <td>{{ formatDateShort(lot.date_entree) }}</td>
                     <td class="font-semibold">{{ lot.quantite_restante }}</td>
                     <td>{{ formatCurrency(lot.prix_unitaire_achat) }}</td>
-                    <td class="text-green-600">{{ formatCurrency(lot.quantite_restante * lot.prix_unitaire_achat) }}</td>
+                    <td class="text-green-600">{{ formatCurrency((Number(lot.quantite_restante) || 0) * (Number(lot.prix_unitaire_achat) || 0)) }}</td>
                     <td>{{ calculateAge(lot.date_entree) }}</td>
                   </tr>
                 </tbody>
@@ -266,7 +266,7 @@
                 <div class="movement-price text-sm text-gray-700">
                   <template v-if="mouvement.prix_unitaire_mouvement !== null && mouvement.prix_unitaire_mouvement !== undefined">
                     {{ formatCurrency(mouvement.prix_unitaire_mouvement) }}
-                    <span class="text-xs text-gray-500"> • {{ formatCurrency((mouvement.quantite_entree || mouvement.quantite_sortie) * mouvement.prix_unitaire_mouvement) }}</span>
+                    <span class="text-xs text-gray-500"> • {{ formatCurrency((Number(mouvement.quantite_entree) || Number(mouvement.quantite_sortie) || 0) * (Number(mouvement.prix_unitaire_mouvement) || 0)) }}</span>
                   </template>
                 </div>
                 <div class="movement-ref text-sm text-gray-500">{{ mouvement.reference_document || 'N/A' }}</div>
@@ -416,9 +416,10 @@ const getStatutClass = (statut) => {
 
 const formatCurrency = (value) => {
   const numValue = parseFloat(value) || 0
-  return new Intl.NumberFormat('fr-FR', {
+  return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
-    currency: 'EUR'
+    currency: 'MGA',
+    minimumFractionDigits: 0
   }).format(numValue)
 }
 

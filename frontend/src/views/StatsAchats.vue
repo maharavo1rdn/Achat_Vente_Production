@@ -99,7 +99,7 @@
           </div>
           <div class="stat-content">
             <p class="stat-label">Délai Livraison Moyen</p>
-            <h3 class="stat-value">{{ delaiMoyenGlobal.toFixed(1) }} jours</h3>
+            <h3 class="stat-value">{{ (Number(delaiMoyenGlobal) || 0).toFixed(1) }} jours</h3>
             <p class="stat-subvalue">Moyenne tous fournisseurs</p>
           </div>
         </div>
@@ -256,7 +256,7 @@
                             : 'badge-error'
                       ]"
                     >
-                      {{ item.taux_service_percent.toFixed(1) }}%
+                      {{ (Number(item.taux_service_percent) || 0).toFixed(1) }}%
                     </span>
                   </td>
                 </tr>
@@ -322,11 +322,12 @@ const initializeDates = () => {
 
 // Format currency
 const formatCurrency = (value) => {
-  return new Intl.NumberFormat('fr-FR', {
+  const num = Number(value)
+  return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
-    currency: 'XOF',
+    currency: 'MGA',
     minimumFractionDigits: 0
-  }).format(value || 0)
+  }).format(isNaN(num) ? 0 : num)
 }
 
 // Computed KPIs
@@ -350,7 +351,7 @@ const meilleurTauxService = computed(() => {
   const best = tauxServiceData.value.reduce((max, item) =>
     (item.taux_service_percent || 0) > (max.taux_service_percent || 0) ? item : max
   )
-  return { nom: best.nom, taux: best.taux_service_percent.toFixed(1) }
+  return { nom: best.nom, taux: (Number(best.taux_service_percent) || 0).toFixed(1) }
 })
 
 const delaiMoyenGlobal = computed(() => {

@@ -126,21 +126,21 @@
             </thead>
             <tbody>
               <tr v-if="filteredDemandes.length === 0">
-                <td colspan="8" class="text-center py-8 text-gray-500">
+                <td colspan="9" class="text-center py-8 text-gray-500">
                   Aucune demande trouvée
                 </td>
               </tr>
               <tr v-else v-for="demande in filteredDemandes" :key="demande.id" class="table-row">
-                <td class="font-medium">{{ demande.numero_da }}</td>
+                <td class="font-medium">{{ demande.numero_da || '-' }}</td>
                 <td class="text-gray-600">{{ formatDate(demande.date_demande) }}</td>
-                <td class="font-medium">{{ demande.demandeur_nom }}</td>
-                <td class="text-gray-600">{{ demande.entreprise_nom }}</td>
+                <td class="font-medium">{{ demande.demandeur_nom || '-' }}</td>
+                <td class="text-gray-600">{{ demande.entreprise_nom || '-' }}</td>
                 <td class="text-xs text-gray-500">{{ demande.depot_nom || '-' }}</td>
                 <td class="text-gray-600">{{ demande.date_souhaitee ? formatDate(demande.date_souhaitee) : '-' }}</td>
                 <td class="text-right font-medium">{{ formatCurrency(demande.montant_ttc) }}</td>
                 <td class="text-center">
                   <span :class="getStatutClass(demande.statut_code)">
-                    {{ demande.statut_libelle }}
+                    {{ demande.statut_libelle || '-' }}
                   </span>
                 </td>
                 <td>
@@ -334,12 +334,14 @@ const clearFilters = () => {
 }
 
 const formatDate = (date) => {
+  if (!date) return '-'
   return new Date(date).toLocaleDateString('fr-FR')
 }
 
 const formatCurrency = (val) => {
-  if (val === undefined || val === null) return '-'
-  return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA' }).format(val)
+  const value = parseFloat(val)
+  if (isNaN(value)) return '-'
+  return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA' }).format(value)
 }
 
 onMounted(() => {
@@ -478,7 +480,7 @@ onMounted(() => {
 }
 
 .select {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white;
+  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 .table-wrapper {

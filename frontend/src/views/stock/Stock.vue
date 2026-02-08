@@ -177,7 +177,7 @@
           <button 
             @click="voirDetailsDepot" 
             :disabled="!selectedDepot"
-            class="btn-primary h-10 disabled:opacity-50"
+            class="btn-primary h-10 flex-shrink-0 whitespace-nowrap disabled:opacity-50"
           >
             <Eye class="w-4 h-4 mr-1" />
             Détails dépôt
@@ -287,8 +287,8 @@
                 </td>
                 <td class="text-center font-semibold">{{ mvt.quantite_stock_apres }}</td>
                 <td class="text-right font-medium">{{ formatCurrency(mvt.prix_unitaire_mouvement) }}</td>
-                <td class="text-gray-600">{{ mvt.personnel }}</td>
-                <td class="text-xs text-gray-500">{{ mvt.reference_document }}</td>
+                <td class="text-gray-600">{{ mvt.personnel || '-' }}</td>
+                <td class="text-xs text-gray-500">{{ mvt.reference_document || '-' }}</td>
               </tr>
             </tbody>
           </table>
@@ -410,10 +410,12 @@ const formatCurrency = (amount) => {
 }
 
 const formatDate = (date) => {
+  if (!date) return '-'
   return new Date(date).toLocaleDateString('fr-FR')
 }
 
 const formatDateTime = (datetime) => {
+  if (!datetime) return '-'
   return new Date(datetime).toLocaleString('fr-FR', {
     year: 'numeric',
     month: '2-digit',
@@ -666,7 +668,7 @@ watch([groupBy, selectedFilialeName, selectedSite, selectedDepot], () => {
 }
 
 .select {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm;
+  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 .select-sm {
@@ -747,5 +749,13 @@ watch([groupBy, selectedFilialeName, selectedSite, selectedDepot], () => {
 
 .badge-secondary {
   @apply bg-gray-100 text-gray-700;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors;
+}
+
+.btn-primary:disabled {
+  @apply opacity-50 cursor-not-allowed;
 }
 </style>

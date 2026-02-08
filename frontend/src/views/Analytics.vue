@@ -62,7 +62,7 @@
 
       <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
         <p class="text-gray-600 text-sm font-medium mb-2">📊 Taux Rentabilité</p>
-        <p class="text-3xl font-bold text-gray-900">{{ stats.tauxRentabilite.toFixed(2) }}%</p>
+        <p class="text-3xl font-bold text-gray-900">{{ (Number(stats.tauxRentabilite) || 0).toFixed(2) }}%</p>
         <p class="text-xs text-gray-500 mt-2">(Marge / CA) × 100</p>
       </div>
     </div>
@@ -232,10 +232,12 @@ const initializeDates = () => {
 
 // Format currency
 const formatCurrency = (value) => {
-  return new Intl.NumberFormat('fr-FR', {
+  const num = Number(value)
+  return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
-    currency: 'XOF'
-  }).format(value || 0)
+    currency: 'MGA',
+    minimumFractionDigits: 0
+  }).format(isNaN(num) ? 0 : num)
 }
 
 // Chart Data - Rentabilité (Doughnut)

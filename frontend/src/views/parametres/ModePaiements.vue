@@ -24,8 +24,8 @@
           <tbody>
             <tr v-for="m in modes" :key="m.id">
               <td>{{ m.id }}</td>
-              <td>{{ m.code }}</td>
-              <td>{{ m.libelle }}</td>
+              <td>{{ m.code || '-' }}</td>
+              <td>{{ m.libelle || '-' }}</td>
               <td>
                 <button @click="editMode(m)" class="action-btn">Éditer</button>
                 <button @click="removeMode(m.id)" class="action-btn text-red-600">Supprimer</button>

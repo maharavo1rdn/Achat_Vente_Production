@@ -186,8 +186,7 @@
                                             class="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
                                             {{ (m.personnel_prenom || 'U')[0] }}
                                         </div>
-                                        <span class="truncate max-w-[100px]">{{ m.personnel_prenom }} {{ m.personnel_nom
-                                            }}</span>
+                                        <span class="truncate max-w-[100px]">{{ (m.personnel_prenom || '') }} {{ (m.personnel_nom || '') }}</span>
                                     </div>
                                 </td>
 
@@ -404,7 +403,7 @@ onMounted(() => {
 
 .input,
 .select {
-    @apply w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-all focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none;
+    @apply w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-all focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 /* --- TABLE --- */

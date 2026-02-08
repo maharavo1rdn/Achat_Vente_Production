@@ -136,11 +136,11 @@
               </tr>
               <tr v-else v-for="facture in filteredFactures" :key="facture.id" class="table-row">
                 <td class="font-medium">
-                  {{ facture.numero_facture }}
+                  {{ facture.numero_facture || '-' }}
                   <div v-if="facture.remarques" class="text-xs text-gray-500 mt-1">{{ facture.remarques }}</div>
                 </td>
                 <td class="text-gray-600">{{ formatDate(facture.date_facture) }}</td>
-                <td class="font-medium">{{ facture.client_nom }}</td>
+                <td class="font-medium">{{ facture.client_nom || '-' }}</td>
                 <td class="text-right font-semibold">{{ formatCurrency(facture.montant_ttc) }}</td>
                 <td class="text-right font-semibold" :class="getResteClass(facture.reste_a_payer)">
                   {{ formatCurrency(facture.reste_a_payer) }}
@@ -155,7 +155,7 @@
                     {{ getLivraisonLabel(facture) }}
                   </span>
                 </td>
-                <td class="text-xs text-gray-500">{{ facture.personnel_nom }} {{ facture.personnel_prenom }}</td>
+                <td class="text-xs text-gray-500">{{ (facture.personnel_nom || '') }} {{ (facture.personnel_prenom || '') }}</td>
                 <td>
                   <div class="table-actions">
                     <button @click="viewFacture(facture)" class="action-btn" title="Voir">
@@ -304,7 +304,7 @@ const facturesImpayees = computed(() => {
 })
 
 const facturesLivrees = computed(() => {
-  return factures.value.filter(f => f.statut_livraison_id === 4 || f.statut_livraison_libelle).length
+  return factures.value.filter(f => f.statut_livraison_id === 4).length
 })
 
 const totalResteAEncaisser = computed(() => {
@@ -317,37 +317,37 @@ const uniqueClients = computed(() => {
 })
 
 const getStatutLabel = (facture) => {
-  if (parseFloat(facture.reste_a_payer) === 0) return 'PAYE'
-  if (parseFloat(facture.reste_a_payer) === parseFloat(facture.montant_ttc)) return 'IMPAYE'
+  if ((parseFloat(facture.reste_a_payer) || 0) === 0) return 'PAYE'
+  if ((parseFloat(facture.reste_a_payer) || 0) === (parseFloat(facture.montant_ttc) || 0)) return 'IMPAYE'
   return 'PARTIEL'
 }
 
 const getStatutBadgeClass = (facture) => {
-  if (parseFloat(facture.reste_a_payer) === 0) return 'badge badge-success'
-  if (parseFloat(facture.reste_a_payer) === parseFloat(facture.montant_ttc)) return 'badge badge-danger'
+  if ((parseFloat(facture.reste_a_payer) || 0) === 0) return 'badge badge-success'
+  if ((parseFloat(facture.reste_a_payer) || 0) === (parseFloat(facture.montant_ttc) || 0)) return 'badge badge-danger'
   return 'badge badge-warning'
 }
 
 const getLivraisonLabel = (facture) => {
   // statut_livraison_id = 4 signifie LIVRE
-  if (facture.statut_livraison_id === 4 || facture.statut_livraison_libelle) return 'LIVRÉ'
+  if (facture.statut_livraison_id === 4) return 'LIVRÉ'
   return 'NON LIVRÉ'
 }
 
 const getLivraisonBadgeClass = (facture) => {
-  if (facture.statut_livraison_id === 4 || facture.statut_livraison_libelle) return 'badge badge-delivered'
+  if (facture.statut_livraison_id === 4) return 'badge badge-delivered'
   return 'badge badge-secondary'
 }
 
 const canLivrer = (facture) => {
   // Peut livrer si: payé (reste_a_payer = 0) et pas encore livré
-  const isPaye = parseFloat(facture.reste_a_payer) === 0
-  const estLivre = facture.statut_livraison_id === 4 || facture.statut_livraison_libelle
+  const isPaye = (parseFloat(facture.reste_a_payer) || 0) === 0
+  const estLivre = facture.statut_livraison_id === 4
   return isPaye && !estLivre
 }
 
 const isLivre = (facture) => {
-  return facture.statut_livraison_id === 4 || !!facture.statut_livraison_libelle
+  return facture.statut_livraison_id === 4
 }
 
 const livrerFacture = async (facture) => {
@@ -371,14 +371,16 @@ const getResteClass = (reste) => {
 }
 
 const formatCurrency = (amount) => {
+  const num = Number(amount)
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
     minimumFractionDigits: 0
-  }).format(amount)
+  }).format(isNaN(num) ? 0 : num)
 }
 
 const formatDate = (date) => {
+  if (!date) return '-'
   return new Date(date).toLocaleDateString('fr-FR')
 }
 
@@ -602,7 +604,7 @@ watch(showBonCommandeModal, (newValue) => {
 }
 
 .select {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm;
+  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 .table-wrapper {

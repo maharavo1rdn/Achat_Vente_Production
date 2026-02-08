@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
 
-    <!-- Header / Navigation (Glassmorphism & Sticky) -->
+    <!-- Header / Navigation -->
     <header class="header-section fade-in">
       <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
 
@@ -14,10 +14,10 @@
           <div class="flex flex-col">
             <div class="flex items-center gap-3">
               <h1 class="text-2xl font-bold text-slate-800 tracking-tight">
-                {{ isNew ? 'Nouveau Proforma' : proforma.numero_proforma }}
+                {{ isNew ? 'Nouveau Bon de Commande' : bc.numero_bc }}
               </h1>
-              <span v-if="!isNew" :class="['status-pill', getStatutClass(proforma.statut_code)]">
-                {{ proforma.statut_libelle }}
+              <span v-if="!isNew" :class="['status-pill', getStatutClass(bc.statut_code)]">
+                {{ bc.statut_libelle || bc.statut }}
               </span>
             </div>
             <div class="flex items-center gap-2 text-sm text-slate-500 mt-1">
@@ -26,7 +26,7 @@
                 {{ isEditing ? 'Mode Édition' : 'Lecture seule' }}
               </span>
               <span class="text-slate-300">|</span>
-              <span>Émis le {{ formatDate(proforma.date_emission) }}</span>
+              <span>Commandé le {{ formatDate(bc.date_commande) }}</span>
             </div>
           </div>
         </div>
@@ -35,17 +35,13 @@
         <div class="action-bar" v-if="!loading">
           <!-- Mode Lecture -->
           <template v-if="!isEditing">
-            <button v-if="proforma.statut_id == 1" @click="enableEditMode" class="btn btn-secondary">
+            <button v-if="bc.statut_id == 1" @click="enableEditMode" class="btn btn-secondary">
               <Pencil class="w-4 h-4" />
               <span>Modifier</span>
             </button>
-            <button v-if="canValidate" @click="validerProforma" class="btn btn-success">
+            <button v-if="bc.statut_id == 3" @click="convertToFacture" class="btn btn-success">
               <Check class="w-4 h-4" />
-              <span>Valider</span>
-            </button>
-            <button @click="exportDetailPdf" class="btn btn-secondary">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              <span>Exporter</span>
+              <span>Créer Facture</span>
             </button>
           </template>
 
@@ -54,7 +50,7 @@
             <button @click="cancelEdit" class="btn btn-ghost text-slate-500 hover:text-slate-800">
               Annuler
             </button>
-            <button @click="saveProforma" :disabled="saving" class="btn btn-primary shadow-lg shadow-indigo-200">
+            <button @click="saveBC" :disabled="saving" class="btn btn-primary shadow-lg shadow-indigo-200">
               <Save class="w-4 h-4" v-if="!saving" />
               <div v-else class="spinner-sm"></div>
               <span>{{ saving ? 'Sauvegarde...' : 'Enregistrer' }}</span>
@@ -75,11 +71,9 @@
 
       <div v-else class="fade-in space-y-8" style="animation-delay: 0.1s">
 
-        <!-- SECTION 1: Informations Générales (Card Modern) -->
+        <!-- SECTION 1: Informations Générales -->
         <section class="modern-card relative overflow-hidden">
-          <!-- Decorative top accent -->
-          <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500">
-          </div>
+          <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
 
           <div class="card-header">
             <div class="flex items-center gap-2.5">
@@ -87,8 +81,8 @@
                 <Info class="w-5 h-5" />
               </div>
               <div>
-                <h2 class="font-bold text-lg text-slate-800">Détails du Proforma</h2>
-                <p class="text-xs text-slate-500">Informations administratives et validité</p>
+                <h2 class="font-bold text-lg text-slate-800">Détails du Bon de Commande</h2>
+                <p class="text-xs text-slate-500">Informations administratives</p>
               </div>
             </div>
           </div>
@@ -96,46 +90,31 @@
           <div class="p-6 md:p-8">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
 
-              <!-- Numéro (Readonly) -->
+              <!-- Numéro BC (Readonly - auto-généré) -->
               <div class="form-group">
-                <label class="label">Numéro Proforma</label>
+                <label class="label">Numéro BC</label>
                 <div class="readonly-field font-mono text-indigo-900 bg-indigo-50/50 border-indigo-100">
-                  {{ proforma.numero_proforma || '(Numéro généré automatiquement)' }}
+                  {{ bc.numero_bc || '(Numéro généré automatiquement)' }}
                 </div>
               </div>
 
-              <!-- Demande d'achat liée (afficher seulement si existe) -->
-              <div v-if="proformaDemande" class="form-group">
-                <label class="label">Demande d'achat liée</label>
-                <div class="readonly-field">
-                  <a @click.prevent="viewDemandeDetail(proformaDemande.id)" class="text-indigo-600 hover:underline cursor-pointer">{{ proformaDemande.numero_da }}</a>
-                </div>
-              </div>
-
-              <!-- Date émission -->
+              <!-- Date commande -->
               <div class="form-group">
-                <label class="label">Date émission</label>
-                <input v-model="proforma.date_emission" type="date" class="modern-input" :disabled="!isEditing" />
-              </div>
-
-              <!-- Date validité -->
-              <div class="form-group">
-                <label class="label">Date validité</label>
-                <input v-model="proforma.date_validite" type="date" class="modern-input" :disabled="!isEditing" />
+                <label class="label">Date de commande</label>
+                <input v-model="bc.date_commande" type="date" class="modern-input" :disabled="!isEditing" />
               </div>
 
               <!-- Fournisseur -->
               <div class="form-group">
                 <label class="label required">Fournisseur</label>
                 <div class="relative">
-                  <select v-model="proforma.entreprise_fournisseur_id" class="modern-select" :disabled="!isEditing">
+                  <select v-model="bc.entreprise_fournisseur_id" class="modern-select" :disabled="!isEditing">
                     <option :value="null">Sélectionner un fournisseur</option>
-                    <option v-for="e in entreprises" :key="e.id" :value="e.id">{{ e.nom }}</option>
+                    <option v-for="e in fournisseurs" :key="e.id" :value="e.id">{{ e.nom }}</option>
                   </select>
                   <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-slate-400">
                     <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                      <path
-                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
                     </svg>
                   </div>
                 </div>
@@ -145,47 +124,65 @@
               <div class="form-group">
                 <label class="label required">Filiale concernée</label>
                 <div class="relative">
-                  <select v-model="proforma.entreprise_filiale_id" class="modern-select" :disabled="!isEditing">
+                  <select v-model="bc.entreprise_filiale_id" class="modern-select" :disabled="!isEditing" @change="onFilialeChange">
                     <option :value="null">Sélectionner une filiale</option>
-                    <option v-for="e in entreprises" :key="e.id" :value="e.id">{{ e.nom }}</option>
+                    <option v-for="e in filiales" :key="e.id" :value="e.id">{{ e.nom }}</option>
                   </select>
                   <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-slate-400">
                     <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                      <path
-                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
                     </svg>
                   </div>
                 </div>
               </div>
 
-              <!-- Personnel -->
+              <!-- Dépôt de livraison -->
+              <div class="form-group">
+                <label class="label">Dépôt de livraison</label>
+                <div class="relative">
+                  <select v-model="bc.depot_livraison_id" class="modern-select" :disabled="!isEditing">
+                    <option :value="null">Sélectionner un dépôt</option>
+                    <option v-for="d in depots" :key="d.id" :value="d.id">{{ d.nom }}</option>
+                  </select>
+                  <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-slate-400">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Personnel / Responsable -->
               <div class="form-group">
                 <label class="label required">Responsable</label>
                 <div class="relative">
-                  <select v-model="proforma.personnel_id" class="modern-select" :disabled="!isEditing">
+                  <select v-model="bc.personnel_id" class="modern-select" :disabled="!isEditing">
                     <option :value="null">Sélectionner un collaborateur</option>
                     <option v-for="p in personnels" :key="p.id" :value="p.id">{{ (p.nom || '') }} {{ (p.prenom || '') }}</option>
                   </select>
                   <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-slate-400">
                     <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                      <path
-                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
                     </svg>
                   </div>
                 </div>
               </div>
 
-              <!-- Notes (Full width) -->
-              <div class="form-group md:col-span-2 lg:col-span-3">
-                <label class="label">Notes / Observations</label>
-                <textarea v-model="proforma.notes" rows="2" class="modern-textarea"
-                  placeholder="Remarques éventuelles..." :disabled="!isEditing"></textarea>
+              <!-- Proforma liée (readonly, si présente) -->
+              <div v-if="bc.proforma_fournisseur_id" class="form-group">
+                <label class="label">Proforma fournisseur liée</label>
+                <div class="readonly-field">
+                  <a @click.prevent="viewProforma(bc.proforma_fournisseur_id)" class="text-indigo-600 hover:underline cursor-pointer">
+                    {{ bc.proforma_origine || `Proforma #${bc.proforma_fournisseur_id}` }}
+                  </a>
+                </div>
               </div>
+
             </div>
           </div>
         </section>
 
-        <!-- SECTION 2: Lignes (Table Modern) -->
+        <!-- SECTION 2: Lignes de commande -->
         <section class="modern-card flex flex-col min-h-[400px]">
           <div class="card-header flex items-center justify-between border-b border-slate-100">
             <div class="flex items-center gap-2.5">
@@ -199,8 +196,7 @@
             </div>
 
             <button v-if="isEditing" @click="addDetail" class="btn-xs-outline group">
-              <div
-                class="bg-indigo-50 p-1 rounded-md group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+              <div class="bg-indigo-50 p-1 rounded-md group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                 <Plus class="w-3.5 h-3.5" />
               </div>
               <span class="text-indigo-600 group-hover:text-indigo-700 font-medium">Ajouter ligne</span>
@@ -227,7 +223,7 @@
                         <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center">
                           <ShoppingCart class="w-8 h-8 text-slate-300" />
                         </div>
-                        <p class="text-slate-400 font-medium">Aucune ligne dans le proforma</p>
+                        <p class="text-slate-400 font-medium">Aucune ligne dans le bon de commande</p>
                       </div>
                     </td>
                   </tr>
@@ -239,11 +235,9 @@
                     <!-- Article Selector -->
                     <td class="td-cell pl-8 align-middle">
                       <div v-if="isEditing">
-                        <select v-model="d.article_id" class="input-table w-full">
+                        <select v-model="d.article_id" @change="onArticleChange(d)" class="input-table w-full">
                           <option :value="null" class="text-slate-400">Choisir un article...</option>
-                          <option v-for="a in articles" :key="a.id" :value="a.id">{{ a.reference }} - {{ a.designation
-                            }}
-                          </option>
+                          <option v-for="a in articles" :key="a.id" :value="a.id">{{ a.reference }} - {{ a.designation }}</option>
                         </select>
                       </div>
                       <div v-else class="flex flex-col py-1">
@@ -258,9 +252,7 @@
                       <input v-if="isEditing" v-model.number="d.quantite" type="number" min="1"
                         class="input-table text-center font-semibold text-slate-700" placeholder="0" />
                       <div v-else class="text-center">
-                        <span class="px-2.5 py-1 rounded-md bg-slate-100 font-medium text-slate-700 text-sm">{{
-                          d.quantite
-                          }}</span>
+                        <span class="px-2.5 py-1 rounded-md bg-slate-100 font-medium text-slate-700 text-sm">{{ d.quantite }}</span>
                       </div>
                     </td>
 
@@ -268,14 +260,12 @@
                     <td class="td-cell align-middle">
                       <input v-if="isEditing" v-model.number="d.prix_unitaire" type="number" min="0" step="0.01"
                         class="input-table text-right font-mono text-slate-600" placeholder="0.00" />
-                      <div v-else class="text-right text-slate-600 font-mono text-sm">{{
-                        formatCurrency(d.prix_unitaire).replace('Ar', '') }}</div>
+                      <div v-else class="text-right text-slate-600 font-mono text-sm">{{ formatCurrency(d.prix_unitaire).replace('Ar', '') }}</div>
                     </td>
 
                     <!-- Total Row -->
                     <td class="td-cell pr-8 align-middle text-right">
-                      <span
-                        :class="['font-mono font-bold text-sm', ((d.quantite || 0) * (d.prix_unitaire || 0)) > 0 ? 'text-indigo-600' : 'text-slate-300']">
+                      <span :class="['font-mono font-bold text-sm', ((d.quantite || 0) * (d.prix_unitaire || 0)) > 0 ? 'text-indigo-600' : 'text-slate-300']">
                         {{ formatCurrency((d.quantite || 0) * (d.prix_unitaire || 0)).replace('Ar', '') }}
                       </span>
                     </td>
@@ -296,12 +286,11 @@
             <div class="bg-slate-50 border-t border-slate-200 p-6">
               <div class="flex flex-col md:flex-row justify-end items-end md:items-center gap-6">
                 <div class="text-right">
-                  <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total TTC Estimé</p>
+                  <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total TTC</p>
                   <div class="text-3xl font-bold text-indigo-900 tracking-tight">
-                    {{ formatCurrency(totalEstime) }}
+                    {{ formatCurrency(totalTTC) }}
                   </div>
-                  <p class="text-xs text-gray-500 mt-1">Montant enregistré : <span class="font-medium">{{
-                    formatCurrency(proforma.montant_ttc) }}</span></p>
+                  <p v-if="!isNew" class="text-xs text-gray-500 mt-1">Montant enregistré : <span class="font-medium">{{ formatCurrency(bc.montant_ttc) }}</span></p>
                 </div>
               </div>
             </div>
@@ -316,200 +305,226 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Save, X, Plus, Trash2, Check, Pencil, Info, Package, ShoppingCart } from 'lucide-vue-next'
+import { ArrowLeft, Save, Plus, Trash2, Check, Pencil, Info, Package, ShoppingCart } from 'lucide-vue-next'
 
 import achatService from '@/services/achatService'
-import proformaFournisseurService from '@/services/proformaFournisseurService'
 import entrepriseService from '@/services/entrepriseService'
 import personnelService from '@/services/personnelService'
 import articleService from '@/services/articleService'
-import proformaDemandeAchatService from '@/services/proformaDemandeAchatService' 
+import depotService from '@/services/depotService'
 
 const route = useRoute()
 const router = useRouter()
 
-const proformaId = computed(() => route.params.id)
-const isNew = computed(() => route.name === 'proforma-fournisseur-new' || proformaId.value === 'new')
+const bcId = computed(() => route.params.id)
+const isNew = computed(() => route.name === 'bon-commande-achat-new')
 const editMode = ref(false)
 const isEditing = computed(() => isNew.value || editMode.value)
 
-const proforma = ref({
-  numero_proforma: '',
-  date_emission: new Date().toISOString().split('T')[0],
-  date_validite: '',
+const bc = ref({
+  numero_bc: '',
+  date_commande: new Date().toISOString().split('T')[0],
   entreprise_fournisseur_id: null,
   entreprise_filiale_id: null,
   personnel_id: null,
   statut_id: 1,
-  statut_code: 'BROUILLON', // Default
-  statut_libelle: 'Brouillon', // Default
+  statut_code: 'BROUILLON',
+  statut_libelle: 'Brouillon',
   montant_ttc: 0,
+  depot_livraison_id: null,
+  proforma_fournisseur_id: null,
   details: []
 })
 
 const loading = ref(false)
 const saving = ref(false)
 
-const entreprises = ref([])
+const fournisseurs = ref([])
+const filiales = ref([])
 const personnels = ref([])
 const articles = ref([])
+const depots = ref([])
 
-// Demande d'achat liée (si présente)
-const proformaDemande = ref(null)
-
-const filledDetails = computed(() => proforma.value.details.filter(d => d.article_id && d.quantite && d.quantite > 0))
-const rowsToShow = computed(() => isEditing.value ? proforma.value.details : filledDetails.value)
-const totalEstime = computed(() => filledDetails.value.reduce((acc, it) => acc + ((it.quantite || 0) * (it.prix_unitaire || 0)), 0))
-
-const canValidate = computed(() => (JSON.parse(localStorage.getItem('user') || '{}').niveau_acces || 0) >= 5)
+const filledDetails = computed(() => bc.value.details.filter(d => d.article_id && d.quantite && d.quantite > 0))
+const rowsToShow = computed(() => isEditing.value ? bc.value.details : filledDetails.value)
+const totalTTC = computed(() => filledDetails.value.reduce((acc, it) => acc + ((Number(it.quantite) || 0) * (Number(it.prix_unitaire) || 0)), 0))
 
 onMounted(() => {
   loadDropdowns()
-  loadProforma()
   if (isNew.value) {
-    // Par défaut, date de validité = aujourd'hui
-    proforma.value.date_validite = new Date().toISOString().split('T')[0]
-    // Pré-remplir le responsable par l'utilisateur connecté si disponible
     const user = JSON.parse(localStorage.getItem('user') || '{}')
-    if (user.id) proforma.value.personnel_id = Number(user.id)
-
+    if (user.id) bc.value.personnel_id = Number(user.id)
     fillDefaultDetails(5)
     editMode.value = true
+  } else {
+    loadBC()
   }
 })
 
 const loadDropdowns = async () => {
   try {
-    const [e, p, a] = await Promise.all([
+    const [entResp, persResp, artResp, depResp] = await Promise.all([
       entrepriseService.getAll(),
       personnelService.getAll(),
-      articleService.getAll()
+      articleService.getAll(),
+      depotService.getAll()
     ])
-    entreprises.value = e.data ?? e
-    // Le service personnel peut renvoyer { data: { data: [...] } }
-    personnels.value = p.data?.data ?? p.data ?? p
-    articles.value = a.data ?? a
+    const allEntreprises = entResp.data ?? entResp
+    fournisseurs.value = allEntreprises.filter(e => e.type_entreprise === 'FOURNISSEUR' || e.type_entreprise === 'MIXTE')
+    filiales.value = allEntreprises.filter(e => e.type_entreprise === 'INTERNE' || e.type_entreprise === 'MIXTE')
+    if (fournisseurs.value.length === 0) fournisseurs.value = allEntreprises
+    if (filiales.value.length === 0) filiales.value = allEntreprises
 
-    // Si on est en création, assurer que le champ responsable est pré-rempli
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
-    if (isNew.value && user.id) {
-      proforma.value.personnel_id = Number(user.id)
-    }
+    personnels.value = persResp.data?.data ?? persResp.data ?? persResp
+    articles.value = artResp.data ?? artResp
+    depots.value = depResp.data ?? depResp
   } catch (error) {
     console.error('Erreur chargement référentiels', error)
   }
 }
 
-const loadProforma = async () => {
-  if (isNew.value) return
+const loadBC = async () => {
   loading.value = true
   try {
-    const resp = await proformaFournisseurService.getById(proformaId.value)
-    proforma.value = resp.data
-    if (!proforma.value.details) proforma.value.details = []
+    const resp = await achatService.bonCommande.getById(bcId.value)
+    bc.value = resp.data
+    if (!bc.value.details) bc.value.details = []
     if (route.query.edit === '1') {
       editMode.value = true
     }
-
-    // Charger la demande d'achat liée si elle existe
-    if (proforma.value.proforma_demande_achat_id) {
-      try {
-        const respDA = await proformaDemandeAchatService.getById(proforma.value.proforma_demande_achat_id)
-        proformaDemande.value = respDA.data
-      } catch (err) {
-        console.error('Erreur chargement DA liée', err)
-        proformaDemande.value = null
-      }
-    } else {
-      proformaDemande.value = null
-    }
   } catch (err) {
-    console.error('Erreur chargement proforma', err)
+    console.error('Erreur chargement BC', err)
+    alert('Erreur lors du chargement du bon de commande')
   } finally {
     loading.value = false
   }
 }
 
-const handleBack = () => router.push({ name: 'proforma-fournisseur' })
-const viewDemandeDetail = (id) => { router.push({ name: 'proforma-demande-achat-detail', params: { id } }) }
+const handleBack = () => router.push({ name: 'bon-commande-achat' })
 const enableEditMode = () => editMode.value = true
-const addDetail = () => proforma.value.details.push({ article_id: null, quantite: 1, prix_unitaire: 0 })
-const fillDefaultDetails = (count = 5) => { while (proforma.value.details.length < count) proforma.value.details.push({ article_id: null, quantite: 1, prix_unitaire: 0 }) }
-const removeDetail = (i) => proforma.value.details.splice(i, 1)
+const addDetail = () => bc.value.details.push({ article_id: null, quantite: 1, prix_unitaire: 0 })
+const fillDefaultDetails = (count = 5) => {
+  while (bc.value.details.length < count) {
+    bc.value.details.push({ article_id: null, quantite: 1, prix_unitaire: 0 })
+  }
+}
+const removeDetail = (i) => bc.value.details.splice(i, 1)
+
 const cancelEdit = () => {
   if (isNew.value) handleBack()
   else {
     editMode.value = false
-    loadProforma()
+    loadBC()
   }
 }
 
-// Export PDF (fiche proforma fournisseur)
-const exportDetailPdf = () => {
-  const base = import.meta.env.VITE_API_BASE_URL || '/api'
-  const params = new URLSearchParams()
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
-  if (user?.entreprise_id) params.set('entreprise_id', user.entreprise_id)
-  if (user?.id) params.set('user_id', user.id)
-  const url = `${base}/proforma-fournisseur/${route.params.id}/export${params.toString() ? ('?' + params.toString()) : ''}`
-  window.open(url, '_blank')
+const onFilialeChange = async () => {
+  if (bc.value.entreprise_filiale_id) {
+    try {
+      const resp = await depotService.getByEntreprise(bc.value.entreprise_filiale_id)
+      depots.value = resp.data ?? resp
+    } catch (e) {
+      console.error('Erreur chargement dépôts', e)
+    }
+  }
 }
 
-const saveProforma = async () => {
+const onArticleChange = (detail) => {
+  const art = articles.value.find(a => a.id == detail.article_id)
+  if (art && art.prix_achat_ref) {
+    detail.prix_unitaire = Number(art.prix_achat_ref)
+  }
+}
+
+const viewProforma = (id) => {
+  router.push({ name: 'proforma-fournisseur-detail', params: { id } })
+}
+
+const saveBC = async () => {
+  if (!bc.value.entreprise_fournisseur_id) {
+    alert('Veuillez sélectionner un fournisseur')
+    return
+  }
+  if (!bc.value.entreprise_filiale_id) {
+    alert('Veuillez sélectionner une filiale')
+    return
+  }
+  if (!bc.value.personnel_id) {
+    alert('Veuillez sélectionner un responsable')
+    return
+  }
+  if (filledDetails.value.length === 0) {
+    alert('Veuillez ajouter au moins une ligne de commande')
+    return
+  }
+
   saving.value = true
   try {
-    const payload = Object.assign({}, proforma.value, { details: filledDetails.value, montant_ttc: totalEstime.value })
-    // Ne pas envoyer numero_proforma lors de la création — il est généré côté serveur
+    const payload = {
+      ...bc.value,
+      details: filledDetails.value,
+      montant_ttc: totalTTC.value,
+      statut_id: bc.value.statut_id || 1
+    }
+
     if (isNew.value) {
-      delete payload.numero_proforma
-      const res = await proformaFournisseurService.create(payload)
-      // Rediriger vers la fiche créée (le numéro sera affiché après rechargement)
-      router.push({ name: 'proforma-fournisseur-detail', params: { id: res.data.id } })
+      delete payload.numero_bc
+      const res = await achatService.bonCommande.create(payload)
+      router.push({ name: 'bon-commande-achat-detail', params: { id: res.data.id } })
     } else {
-      await proformaFournisseurService.update(proformaId.value, payload)
-      // Si la page était ouverte automatiquement en édition via ?edit=1 (ex: génération depuis DA),
-      // on retire ce paramètre avant de recharger la fiche pour ne pas réactiver l'édition.
+      await achatService.bonCommande.update(bcId.value, payload)
       if (route.query.edit === '1') {
-        await router.replace({ name: 'proforma-fournisseur-detail', params: { id: proformaId.value } })
+        await router.replace({ name: 'bon-commande-achat-detail', params: { id: bcId.value } })
       }
       editMode.value = false
-      await loadProforma()
+      await loadBC()
     }
   } catch (err) {
     console.error('Erreur sauvegarde', err)
     alert(err.response?.data?.error || 'Erreur lors de la sauvegarde')
-  } finally { saving.value = false }
+  } finally {
+    saving.value = false
+  }
 }
 
-const validerProforma = async () => {
-  if (!confirm('Valider cette proforma ?')) return
+const convertToFacture = async () => {
+  if (!confirm('Convertir ce bon de commande en facture achat ?')) return
   try {
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
-    await proformaFournisseurService.valider(proformaId.value, user.id)
-    await loadProforma()
-    alert('Proforma validée')
+    await achatService.bonCommande.convertToFacture(bcId.value)
+    alert('Bon de commande converti en facture avec succès')
+    await loadBC()
   } catch (err) {
-    console.error(err)
-    alert(err.response?.data?.error || 'Erreur lors de la validation')
+    console.error('Erreur conversion', err)
+    alert(err.response?.data?.error || 'Erreur lors de la conversion')
   }
 }
 
 // Helpers
-const getArticleLabel = id => { const a = articles.value.find(x => x.id == id); return a ? `${a.reference} - ${a.designation}` : '' }
-const formatDate = d => d ? new Date(d).toLocaleDateString('fr-FR') : '-'
-const formatCurrency = val => { if (val === undefined || val === null) return '-'; return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA' }).format(val) }
+const getArticleLabel = (id) => {
+  const a = articles.value.find(x => x.id == id)
+  return a ? `${a.reference} - ${a.designation}` : ''
+}
 
-// Mapped to CSS pill classes
-const getStatutClass = code => {
+const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '-'
+
+const formatCurrency = (val) => {
+  if (val === undefined || val === null) return '-'
+  const num = Number(val)
+  return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA', minimumFractionDigits: 0 }).format(isNaN(num) ? 0 : num)
+}
+
+const getStatutClass = (code) => {
   const map = {
     'BROUILLON': 'pill-warning',
     'VALIDE': 'pill-success',
     'VALIDÉ': 'pill-success',
-    'ANNULÉ': 'pill-danger'
+    'LIVRE': 'pill-info',
+    'LIVRÉ': 'pill-info',
+    'ANNULÉ': 'pill-danger',
+    'ANNULE': 'pill-danger'
   }
   return map[code] || 'pill-default'
 }
-
 </script>
 
 <style scoped>
@@ -548,7 +563,7 @@ const getStatutClass = code => {
   @apply px-6 py-5 md:px-8 bg-white/50;
 }
 
-/* --- FORMS (Inputs & Selects) --- */
+/* --- FORMS --- */
 .form-group {
   @apply flex flex-col gap-2;
 }
@@ -570,7 +585,6 @@ const getStatutClass = code => {
   @apply disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-100;
 }
 
-/* Removing default appearance for selects to use custom chevron */
 .modern-select {
   @apply appearance-none pr-10;
 }
@@ -579,7 +593,7 @@ const getStatutClass = code => {
   @apply w-full px-4 py-2.5 rounded-xl text-sm border flex items-center;
 }
 
-/* --- TABLE STYLING --- */
+/* --- TABLE --- */
 .table-container {
   @apply overflow-x-auto min-h-[300px];
 }
@@ -642,10 +656,6 @@ const getStatutClass = code => {
   @apply bg-emerald-600 text-white border-transparent hover:bg-emerald-700 shadow-lg shadow-emerald-200;
 }
 
-.btn-danger {
-  @apply bg-white text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300;
-}
-
 .btn-ghost {
   @apply bg-transparent border-transparent text-slate-500 hover:bg-slate-100;
 }
@@ -654,7 +664,7 @@ const getStatutClass = code => {
   @apply flex items-center gap-2 text-xs transition-opacity;
 }
 
-/* --- UTILITIES & ANIMATIONS --- */
+/* --- UTILITIES --- */
 .spinner-sm {
   @apply w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin;
 }
@@ -664,7 +674,6 @@ const getStatutClass = code => {
     opacity: 0;
     transform: translateY(10px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -675,7 +684,6 @@ const getStatutClass = code => {
   animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* --- SPECIAL FIX: INPUT NUMBER (The Black Spinner Fix) --- */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
   -webkit-appearance: none;
@@ -685,47 +693,5 @@ input[type=number]::-webkit-outer-spin-button {
 
 input[type=number] {
   -moz-appearance: textfield;
-}
-
-/* --- CUSTOM RADIO STYLE --- */
-input[type="radio"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 1rem;
-  height: 1rem;
-  border: 1px solid #e6e9ef;
-  border-radius: 9999px;
-  background: #ffffff;
-  display: inline-block;
-  vertical-align: middle;
-  position: relative;
-  box-shadow: inset 0 0 0 0 rgba(0, 0, 0, 0.0);
-}
-
-input[type="radio"]:hover {
-  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.06);
-}
-
-input[type="radio"]:focus-visible {
-  outline: 2px solid rgba(79, 70, 229, 0.14);
-  outline-offset: 2px;
-}
-
-input[type="radio"]:checked {
-  background: #4f46e5;
-  border-color: #4f46e5;
-}
-
-input[type="radio"]:checked::after {
-  content: "";
-  display: block;
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 9999px;
-  background: #ffffff;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
 }
 </style>

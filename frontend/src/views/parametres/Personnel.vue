@@ -136,15 +136,15 @@
               </tr>
               <tr v-else v-for="p in filteredPersonnel" :key="p.id" class="table-row">
                 <td class="font-medium">{{ p.code_employe }}</td>
-                <td class="font-medium">{{ p.nom }} {{ p.prenom }}</td>
-                <td class="text-xs text-gray-600">{{ p.email }}</td>
+                <td class="font-medium">{{ (p.nom || '') }} {{ (p.prenom || '') }}</td>
+                <td class="text-xs text-gray-600">{{ p.email || '-' }}</td>
                 <td class="text-gray-600">{{ p.telephone || '-' }}</td>
                 <td>
                   <span :class="getRoleBadgeClass(p.role_libelle)">
-                    {{ p.role_libelle }}
+                    {{ p.role_libelle || '-' }}
                   </span>
                 </td>
-                <td class="text-xs text-gray-500">{{ p.entreprise_nom }}<span v-if="p.site_nom"> — <span class="text-xs text-gray-400">{{ p.site_nom }}</span></span></td>
+                <td class="text-xs text-gray-500">{{ p.entreprise_nom || '-' }}<span v-if="p.site_nom"> — <span class="text-xs text-gray-400">{{ p.site_nom }}</span></span></td>
                 <td class="text-center">
                   <span :class="p.est_actif ? 'badge badge-success' : 'badge badge-danger'">
                     {{ p.est_actif ? 'Actif' : 'Inactif' }}
@@ -321,7 +321,7 @@ const editPersonnel = (p) => {
 }
 
 const resetPassword = async (p) => {
-  if (!confirm(`Réinitialiser le mot de passe de ${p.nom} ${p.prenom} ?`)) return
+  if (!confirm(`Réinitialiser le mot de passe de ${p.nom || ''} ${p.prenom || ''} ?`)) return
   
   try {
     await personnelService.resetPassword(p.id, 'password123')
@@ -535,7 +535,7 @@ watch(selectedEntrepriseId, async () => {
 }
 
 .select {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm;
+  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 .table-wrapper {

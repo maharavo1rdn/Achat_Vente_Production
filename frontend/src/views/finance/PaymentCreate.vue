@@ -297,8 +297,8 @@ const submit = async () => {
 const cancel = () => router.back()
 
 const formatCurrency = (val) => {
-    if (val === undefined || val === null) return '0 Ar'
-    return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA' }).format(val)
+    const num = Number(val)
+    return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA', minimumFractionDigits: 0 }).format(isNaN(num) ? 0 : num)
 }
 </script>
 

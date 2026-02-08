@@ -137,7 +137,7 @@
                     <div class="form-group">
                       <label class="label">Total HT (MGA)</label>
                       <div class="total-display">
-                        {{ formatCurrency(detail.quantite * detail.prix_unitaire) }}
+                        {{ formatCurrency((Number(detail.quantite) || 0) * (Number(detail.prix_unitaire) || 0)) }}
                       </div>
                     </div>
 
@@ -225,7 +225,7 @@ const form = ref({
 // Computed
 const totalHT = computed(() => {
   return form.value.details.reduce((total, detail) => {
-    return total + (detail.quantite * detail.prix_unitaire)
+    return total + ((Number(detail.quantite) || 0) * (Number(detail.prix_unitaire) || 0))
   }, 0)
 })
 
@@ -244,7 +244,7 @@ const showToast = (message, type = 'success', duration = 4000) => {
   toast.value.message = message
   toast.value.type = type
   toast.value.show = true
-  setTimeout(() => { toast.show = false }, duration)
+  setTimeout(() => { toast.value.show = false }, duration)
 }
 
 // Methods
@@ -285,7 +285,7 @@ const onDevisChange = async () => {
       form.value.statut_id = ''
       
       // Copier les articles du devis dans le formulaire
-      form.value.details = selectedDevis.value.details.map(d => ({
+      form.value.details = (selectedDevis.value.details || []).map(d => ({
         article_id: d.article_id,
         quantite: d.quantite,
         prix_unitaire: d.prix_unitaire
@@ -337,15 +337,16 @@ const resetForm = () => {
 }
 
 const formatCurrency = (amount) => {
+  const num = Number(amount)
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
     minimumFractionDigits: 0
-  }).format(amount)
+  }).format(isNaN(num) ? 0 : num)
 }
 
 const formatDate = (date) => {
-  if (!date) return ''
+  if (!date) return '-'
   return new Date(date).toLocaleDateString('fr-FR')
 }
 
@@ -504,7 +505,7 @@ onMounted(() => {
 }
 
 .select {
-  @apply px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 bg-white;
+  @apply px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 .articles-list {

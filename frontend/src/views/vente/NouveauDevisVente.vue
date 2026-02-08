@@ -128,7 +128,7 @@
                       <input v-model.number="detail.prix_unitaire" type="number" min="0" step="0.01" class="input" @input="calculateLineTotal(index)" />
                     </td>
                     <td class="total-cell">
-                      {{ formatCurrency(detail.quantite * detail.prix_unitaire) }}
+                      {{ formatCurrency((Number(detail.quantite) || 0) * (Number(detail.prix_unitaire) || 0)) }}
                     </td>
                     <td class="actions-cell">
                       <button @click="removeArticle(index)" class="btn-danger">
@@ -199,7 +199,7 @@ form.value.personnel_id = user.id || ''
 // Computed
 const totalHT = computed(() => {
   return form.value.details.reduce((total, detail) => {
-    return total + (detail.quantite * detail.prix_unitaire)
+    return total + ((Number(detail.quantite) || 0) * (Number(detail.prix_unitaire) || 0))
   }, 0)
 })
 
@@ -270,34 +270,35 @@ const calculateLineTotal = (index) => {
 }
 
 const formatCurrency = (amount) => {
+  const num = Number(amount)
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
     minimumFractionDigits: 0
-  }).format(amount)
+  }).format(isNaN(num) ? 0 : num)
 }
 
 const save = async () => {
   // Validation
   if (!form.value.entreprise_client_id || !form.value.entreprise_filiale_id) {
-    alert('Veuillez remplir tous les champs obligatoires')
+    showToast('Veuillez remplir tous les champs obligatoires', 'error')
     return
   }
 
   if (!form.value.statut_id) {
-    alert('Veuillez sélectionner un statut')
+    showToast('Veuillez sélectionner un statut', 'error')
     return
   }
 
   if (form.value.details.length === 0) {
-    alert('Veuillez ajouter au moins un article')
+    showToast('Veuillez ajouter au moins un article', 'error')
     return
   }
 
   // Validate details
   for (const detail of form.value.details) {
     if (!detail.article_id || !detail.quantite || detail.prix_unitaire < 0) {
-      alert('Veuillez vérifier tous les articles (article, quantité et prix requis)')
+      showToast('Veuillez vérifier tous les articles (article, quantité et prix requis)', 'error')
       return
     }
   }
@@ -313,7 +314,7 @@ const save = async () => {
     // Success toast
     showToast(res && res.data ? `Devis créé (ID: ${res.data})` : 'Devis créé avec succès')
     // reset form or navigate as needed
-    router.push('/ventes/devis/nouveau')
+    router.push('/ventes/devis')
   } catch (error) {
     console.error('Erreur lors de la création du devis:', error)
     showToast('Erreur lors de la création du devis', 'error')
@@ -449,7 +450,7 @@ onMounted(() => {
 }
 
 .select {
-  @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm;
+  @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 .empty-state {

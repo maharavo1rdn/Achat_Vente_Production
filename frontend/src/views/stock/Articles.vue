@@ -180,7 +180,7 @@
                 <td>{{ article.unite }}</td>
                 <td class="text-right font-semibold">{{ formatCurrency(article.prix_achat_ref) }}</td>
                 <td class="text-right font-semibold text-green-600">{{ formatCurrency(article.prix_vente_ref) }}</td>
-                <td class="text-center">{{ article.taux_tva }}%</td>
+                <td class="text-center">{{ article.taux_tva ?? 0 }}%</td>
                 <td class="text-center">
                   <span :class="article.est_actif ? 'badge badge-success' : 'badge badge-danger'">
                     {{ article.est_actif ? 'Actif' : 'Inactif' }}
@@ -251,11 +251,12 @@ const categoriesCount = computed(() => {
 })
 
 const formatCurrency = (amount) => {
+  const num = Number(amount)
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
     minimumFractionDigits: 0
-  }).format(amount)
+  }).format(isNaN(num) ? 0 : num)
 }
 
 const loadArticles = async () => {
@@ -451,7 +452,7 @@ onMounted(() => {
 }
 
 .select {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm;
+  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 .view-toggle {

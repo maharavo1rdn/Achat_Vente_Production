@@ -123,14 +123,14 @@
                 </td>
               </tr>
               <tr v-else v-for="bc in filteredBonCommandes" :key="bc.id" class="table-row">
-                <td class="font-medium">{{ bc.numero_bc }}</td>
+                <td class="font-medium">{{ bc.numero_bc || '-' }}</td>
                 <td class="text-gray-600">{{ formatDate(bc.date_commande) }}</td>
-                <td class="font-medium">{{ bc.client_nom }}</td>
-                <td class="text-gray-600">{{ bc.filiale_nom }}</td>
+                <td class="font-medium">{{ bc.client_nom || '-' }}</td>
+                <td class="text-gray-600">{{ bc.filiale_nom || '-' }}</td>
                 <td class="text-right font-semibold">{{ formatCurrency(bc.montant_ttc) }}</td>
                 <td class="text-center">
                   <span :class="getStatutBadgeClass(bc.statut)">
-                    {{ bc.statut }}
+                    {{ bc.statut || '-' }}
                   </span>
                 </td>
                 <td class="text-xs text-gray-500">{{ bc.numero_devis || '-' }}</td>
@@ -205,11 +205,11 @@
               <div class="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span class="text-gray-600">Numéro BC:</span>
-                  <span class="font-medium ml-2">{{ selectedBC.numero_bc }}</span>
+                  <span class="font-medium ml-2">{{ selectedBC.numero_bc || '-' }}</span>
                 </div>
                 <div>
                   <span class="text-gray-600">Client:</span>
-                  <span class="font-medium ml-2">{{ selectedBC.client_nom }}</span>
+                  <span class="font-medium ml-2">{{ selectedBC.client_nom || '-' }}</span>
                 </div>
                 <div>
                   <span class="text-gray-600">Date commande:</span>
@@ -378,11 +378,12 @@ const getStatutBadgeClass = (statut) => {
 }
 
 const formatCurrency = (amount) => {
+  const num = Number(amount)
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
     minimumFractionDigits: 0
-  }).format(amount)
+  }).format(isNaN(num) ? 0 : num)
 }
 
 const formatDate = (date) => {

@@ -166,7 +166,7 @@
                       item.taux_rotation >= 100 ? 'bg-green-100 text-green-700' : 
                       item.taux_rotation > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
                     ]">
-                      {{ item.taux_rotation.toFixed(1) }}%
+                      {{ (Number(item.taux_rotation) || 0).toFixed(1) }}%
                     </span>
                   </td>
                 </tr>
@@ -534,15 +534,15 @@ const commercialStats = ref({
 })
 
 const totalEncoursClients = computed(() => 
-  financeStats.value.encoursClients.reduce((sum, item) => sum + parseFloat(item.total_encours), 0)
+  financeStats.value.encoursClients.reduce((sum, item) => sum + (parseFloat(item.total_encours) || 0), 0)
 )
 
 const totalEncoursFournisseurs = computed(() => 
-  financeStats.value.encoursFournisseurs.reduce((sum, item) => sum + parseFloat(item.total_encours), 0)
+  financeStats.value.encoursFournisseurs.reduce((sum, item) => sum + (parseFloat(item.total_encours) || 0), 0)
 )
 
 const totalTresorerie = computed(() => 
-  financeStats.value.tresorerieNet.reduce((sum, item) => sum + parseFloat(item.solde_actuel), 0)
+  financeStats.value.tresorerieNet.reduce((sum, item) => sum + (parseFloat(item.solde_actuel) || 0), 0)
 )
 
 const chartData = computed(() => {
@@ -604,11 +604,12 @@ const startDate = ref('')
 const endDate = ref('')
 
 const formatCurrency = (amount) => {
+  const num = Number(amount)
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
     minimumFractionDigits: 0
-  }).format(amount)
+  }).format(isNaN(num) ? 0 : num)
 }
 
 

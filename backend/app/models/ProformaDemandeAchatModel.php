@@ -32,7 +32,6 @@ class ProformaDemandeAchatModel
                 d.nom AS depot_nom,
                 pda.date_souhaitee,
                 pda.motif_achat,
-                pda.montant_ttc,
                 pda.statut_id,
                 s.libelle AS statut_libelle,
                 s.code AS statut_code,
@@ -109,7 +108,6 @@ class ProformaDemandeAchatModel
                 d.nom AS depot_nom,
                 pda.date_souhaitee,
                 pda.motif_achat,
-                pda.montant_ttc,
                 pda.statut_id,
                 s.libelle AS statut_libelle,
                 s.code AS statut_code,
@@ -136,7 +134,7 @@ class ProformaDemandeAchatModel
 
             $numeroDA = $this->generateNumeroDA();
 
-            // compute montant_ttc from details (denormalisation)
+            // compute montant_ttc from details (pour retour API, pas stocké en BDD)
             $montantTTC = 0;
             if (isset($data['details']) && is_array($data['details']) && count($data['details']) > 0) {
                 $montantTTC = $this->computeMontantFromDetails($data['details']);
@@ -144,8 +142,8 @@ class ProformaDemandeAchatModel
 
             $query = "
                 INSERT INTO proforma_demande_achat 
-                (numero_da, date_demande, personnel_demandeur_id, entreprise_id, depot_cible_id, date_souhaitee, motif_achat, montant_ttc, statut_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (numero_da, date_demande, personnel_demandeur_id, entreprise_id, depot_cible_id, date_souhaitee, motif_achat, statut_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ";
 
             $stmt = $this->db->prepare($query);
@@ -157,7 +155,6 @@ class ProformaDemandeAchatModel
                 isset($data['depot_cible_id']) && $data['depot_cible_id'] ? (int)$data['depot_cible_id'] : null,
                 $data['date_souhaitee'] ?? null,
                 $data['motif_achat'] ?? null,
-                $montantTTC,
                 2
             ]);
 
@@ -191,42 +188,22 @@ class ProformaDemandeAchatModel
                 $montantTTC = $this->computeMontantFromDetails($data['details']);
             }
 
-            if ($montantTTC !== null) {
-                $query = "
-                    UPDATE proforma_demande_achat 
-                    SET date_demande = ?, personnel_demandeur_id = ?, entreprise_id = ?, 
-                        depot_cible_id = ?, date_souhaitee = ?, motif_achat = ?, montant_ttc = ?
-                    WHERE id = ?
-                ";
+            $query = "
+                UPDATE proforma_demande_achat 
+                SET date_demande = ?, personnel_demandeur_id = ?, entreprise_id = ?, 
+                    depot_cible_id = ?, date_souhaitee = ?, motif_achat = ?
+                WHERE id = ?
+            ";
 
-                $params = [
-                    $data['date_demande'] ?? date('Y-m-d'),
-                    (int)$data['personnel_demandeur_id'],
-                    (int)$data['entreprise_id'],
-                    isset($data['depot_cible_id']) && $data['depot_cible_id'] ? (int)$data['depot_cible_id'] : null,
-                    $data['date_souhaitee'] ?? null,
-                    $data['motif_achat'] ?? null,
-                    $montantTTC,
-                    $id
-                ];
-            } else {
-                $query = "
-                    UPDATE proforma_demande_achat 
-                    SET date_demande = ?, personnel_demandeur_id = ?, entreprise_id = ?, 
-                        depot_cible_id = ?, date_souhaitee = ?, motif_achat = ?
-                    WHERE id = ?
-                ";
-
-                $params = [
-                    $data['date_demande'] ?? date('Y-m-d'),
-                    (int)$data['personnel_demandeur_id'],
-                    (int)$data['entreprise_id'],
-                    isset($data['depot_cible_id']) && $data['depot_cible_id'] ? (int)$data['depot_cible_id'] : null,
-                    $data['date_souhaitee'] ?? null,
-                    $data['motif_achat'] ?? null,
-                    $id
-                ];
-            }
+            $params = [
+                $data['date_demande'] ?? date('Y-m-d'),
+                (int)$data['personnel_demandeur_id'],
+                (int)$data['entreprise_id'],
+                isset($data['depot_cible_id']) && $data['depot_cible_id'] ? (int)$data['depot_cible_id'] : null,
+                $data['date_souhaitee'] ?? null,
+                $data['motif_achat'] ?? null,
+                $id
+            ];
 
             $stmt = $this->db->prepare($query);
             $stmt->execute($params);

@@ -179,7 +179,7 @@
                   <select v-model="demande.personnel_demandeur_id" class="modern-select" :disabled="!isEditing">
                     <option :value="null">Sélectionner un collaborateur</option>
                     <option v-for="p in personnels" :key="p.id" :value="p.id">
-                      {{ p.nom }} {{ p.prenom }}
+                      {{ (p.nom || '') }} {{ (p.prenom || '') }}
                     </option>
                   </select>
                   <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-slate-400">
@@ -368,7 +368,7 @@
                     <!-- Total Row -->
                     <td class="td-cell pr-8 align-middle text-right">
                       <span
-                        :class="['font-mono font-bold text-sm', (detail.quantite_demandee * detail.prix_estime) > 0 ? 'text-indigo-600' : 'text-slate-300']">
+                        :class="['font-mono font-bold text-sm', ((detail.quantite_demandee || 0) * (detail.prix_estime || 0)) > 0 ? 'text-indigo-600' : 'text-slate-300']">
                         {{ formatCurrency((detail.quantite_demandee || 0) * (detail.prix_estime || 0)).replace('Ar', '')
                         }}
                       </span>

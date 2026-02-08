@@ -137,15 +137,15 @@
                 </td>
               </tr>
               <tr v-else v-for="proforma in filteredProformas" :key="proforma.id" class="table-row">
-                <td class="font-medium">{{ proforma.numero_proforma }}</td>
+                <td class="font-medium">{{ proforma.numero_proforma || '-' }}</td>
                 <td class="text-gray-600">{{ formatDate(proforma.date_emission) }}</td>
-                <td class="font-medium">{{ proforma.fournisseur }}</td>
-                <td class="text-gray-600">{{ proforma.filiale }}</td>
+                <td class="font-medium">{{ proforma.fournisseur || '-' }}</td>
+                <td class="text-gray-600">{{ proforma.filiale || '-' }}</td>
                 <td class="text-gray-600">{{ formatDate(proforma.date_validite) }}</td>
                 <td class="text-right font-medium">{{ formatCurrency(proforma.montant_ttc) }}</td>
                 <td class="text-center">
                   <span :class="getStatutBadgeClass(proforma.statut)">
-                    {{ proforma.statut }}
+                    {{ proforma.statut || '-' }}
                   </span>
                 </td>
                 <td>
@@ -266,14 +266,16 @@ const getStatutBadgeClass = (statut) => {
 }
 
 const formatCurrency = (amount) => {
+  const value = parseFloat(amount) || 0
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
     minimumFractionDigits: 0
-  }).format(amount)
+  }).format(value)
 }
 
 const formatDate = (date) => {
+  if (!date) return '-'
   return new Date(date).toLocaleDateString('fr-FR')
 }
 
@@ -487,7 +489,7 @@ onMounted(() => {
 }
 
 .select {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white;
+  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 .table-wrapper {

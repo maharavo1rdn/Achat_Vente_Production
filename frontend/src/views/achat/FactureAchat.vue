@@ -127,9 +127,9 @@
                 </td>
               </tr>
               <tr v-else v-for="facture in filteredFactures" :key="facture.id" class="table-row">
-                <td class="font-medium">{{ facture.numero_facture_fournisseur }}</td>
+                <td class="font-medium">{{ facture.numero_facture_fournisseur || '-' }}</td>
                 <td class="text-gray-600">{{ formatDate(facture.date_facture) }}</td>
-                <td class="font-medium">{{ facture.fournisseur }}</td>
+                <td class="font-medium">{{ facture.fournisseur || '-' }}</td>
                 <td class="text-right font-semibold">{{ formatCurrency(facture.montant_ttc) }}</td>
                 <td class="text-right font-semibold" :class="getResteClass(facture.reste_a_payer)">
                   {{ formatCurrency(facture.reste_a_payer) }}
@@ -231,7 +231,7 @@ const editRemarques = async (facture) => {
 const filteredFactures = computed(() => {
   return factures.value.filter(facture => {
     const matchSearch = !searchQuery.value || 
-      facture.numero_facture?.toLowerCase().includes(searchQuery.value.toLowerCase())
+      facture.numero_facture_fournisseur?.toLowerCase().includes(searchQuery.value.toLowerCase())
     
     const matchFournisseur = !selectedFournisseur.value || facture.fournisseur === selectedFournisseur.value
     const matchStatut = !selectedStatut.value || getStatutLabel(facture) === selectedStatut.value
@@ -253,14 +253,14 @@ const totalResteAPayer = computed(() => {
 })
 
 const getStatutLabel = (facture) => {
-  if (parseFloat(facture.reste_a_payer) === 0) return 'PAYE'
-  if (parseFloat(facture.reste_a_payer) === parseFloat(facture.montant_ttc)) return 'IMPAYE'
+  if ((parseFloat(facture.reste_a_payer) || 0) === 0) return 'PAYE'
+  if ((parseFloat(facture.reste_a_payer) || 0) === (parseFloat(facture.montant_ttc) || 0)) return 'IMPAYE'
   return 'PARTIEL'
 }
 
 const getStatutBadgeClass = (facture) => {
-  if (parseFloat(facture.reste_a_payer) === 0) return 'badge badge-success'
-  if (parseFloat(facture.reste_a_payer) === parseFloat(facture.montant_ttc)) return 'badge badge-danger'
+  if ((parseFloat(facture.reste_a_payer) || 0) === 0) return 'badge badge-success'
+  if ((parseFloat(facture.reste_a_payer) || 0) === (parseFloat(facture.montant_ttc) || 0)) return 'badge badge-danger'
   return 'badge badge-warning'
 }
 
@@ -270,14 +270,16 @@ const getResteClass = (reste) => {
 }
 
 const formatCurrency = (amount) => {
+  const num = Number(amount)
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
     minimumFractionDigits: 0
-  }).format(amount)
+  }).format(isNaN(num) ? 0 : num)
 }
 
 const formatDate = (date) => {
+  if (!date) return '-'
   return new Date(date).toLocaleDateString('fr-FR')
 }
 
@@ -440,7 +442,7 @@ onMounted(() => {
 }
 
 .select {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm;
+  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
 }
 
 .table-wrapper {
