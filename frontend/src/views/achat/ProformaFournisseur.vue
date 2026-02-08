@@ -137,15 +137,15 @@
                 </td>
               </tr>
               <tr v-else v-for="proforma in filteredProformas" :key="proforma.id" class="table-row">
-                <td class="font-medium">{{ proforma.numero_proforma || '-' }}</td>
+                <td class="font-medium">{{ proforma.numero_proforma }}</td>
                 <td class="text-gray-600">{{ formatDate(proforma.date_emission) }}</td>
-                <td class="font-medium">{{ proforma.fournisseur || '-' }}</td>
-                <td class="text-gray-600">{{ proforma.filiale || '-' }}</td>
+                <td class="font-medium">{{ proforma.fournisseur }}</td>
+                <td class="text-gray-600">{{ proforma.filiale }}</td>
                 <td class="text-gray-600">{{ formatDate(proforma.date_validite) }}</td>
                 <td class="text-right font-medium">{{ formatCurrency(proforma.montant_ttc) }}</td>
                 <td class="text-center">
                   <span :class="getStatutBadgeClass(proforma.statut)">
-                    {{ proforma.statut || '-' }}
+                    {{ proforma.statut_libelle }}
                   </span>
                 </td>
                 <td>
@@ -153,12 +153,12 @@
                     <button @click="viewProforma(proforma)" class="action-btn" title="Voir">
                       <Eye class="w-4 h-4" />
                     </button>
-                    <button v-if="proforma.statut === 'Validé / Confirmé'" @click="convertToBonCommande(proforma)"
+                    <button v-if="proforma.statut === 'VALIDE'" @click="convertToBonCommande(proforma)"
                       class="action-btn text-green-600" title="Convertir en BC">
                       <Check class="w-4 h-4" />
                     </button>
                     <button
-                      v-if="proforma.statut === 'BROUILLON' && (JSON.parse(localStorage.getItem('user') || '{}').niveau_acces || 0) >= 5"
+                      v-if="canValidate(proforma)"
                       @click="validerProforma(proforma)" class="action-btn text-green-500" title="Valider proforma">
                       <Check class="w-4 h-4" />
                     </button>
@@ -185,6 +185,11 @@ import proformaFournisseurService from '@/services/proformaFournisseurService'
 import entrepriseService from '@/services/entrepriseService'
 
 const router = useRouter()
+const currentUser = ref({})
+const canValidate = (proforma) => {
+  const niveau = Number(currentUser.value?.niveau_acces || 0)
+  return (proforma.statut === 'BROUILLON' || proforma.statut === 'EN_ATTENTE') && niveau >= 5
+}
 const searchQuery = ref('')
 const selectedFournisseur = ref('')
 const selectedStatut = ref('')
@@ -266,16 +271,14 @@ const getStatutBadgeClass = (statut) => {
 }
 
 const formatCurrency = (amount) => {
-  const value = parseFloat(amount) || 0
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
     minimumFractionDigits: 0
-  }).format(value)
+  }).format(amount)
 }
 
 const formatDate = (date) => {
-  if (!date) return '-'
   return new Date(date).toLocaleDateString('fr-FR')
 }
 
@@ -321,7 +324,7 @@ const exportPdf = () => {
   if (selectedFournisseur.value) params.set('fournisseur_id', selectedFournisseur.value)
   if (selectedStatut.value) params.set('statut_id', selectedStatut.value)
   if (dateFilter.value) params.set('date_debut', dateFilter.value)
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const user = currentUser.value || {}
   if (user?.entreprise_id) params.set('entreprise_id', user.entreprise_id)
   const url = `${base}/proforma-fournisseur/export${params.toString() ? ('?' + params.toString()) : ''}`
   window.open(url, '_blank')
@@ -342,7 +345,7 @@ const validerProforma = async (proforma) => {
   if (!confirm(`Valider la proforma ${proforma.numero_proforma} ?`)) return
 
   try {
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    const user = currentUser.value || {}
     await proformaFournisseurService.valider(proforma.id, user.id)
     await loadProformas()
     alert('Proforma validée')
@@ -354,6 +357,7 @@ const validerProforma = async (proforma) => {
 }
 
 onMounted(() => {
+  try { currentUser.value = JSON.parse(localStorage.getItem('user') || '{}') } catch (e) { currentUser.value = {} }
   loadFiltersAndStats()
   loadProformas()
 })
@@ -489,7 +493,7 @@ onMounted(() => {
 }
 
 .select {
-  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
+  @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm bg-white;
 }
 
 .table-wrapper {

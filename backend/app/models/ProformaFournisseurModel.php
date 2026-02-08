@@ -31,7 +31,7 @@ class ProformaFournisseurModel
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom,
                 pf.statut_id,
-                s.libelle as statut,
+                s.code as statut,
                 s.libelle as statut_libelle,
                 pf.montant_ttc,
                 pf.proforma_demande_achat_id
