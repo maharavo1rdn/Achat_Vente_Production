@@ -509,7 +509,13 @@ class StockModel
                 s.depot_id,
                 s.quantite_actuelle,
                 s.cmup_actuel,
-                s.valeur_stock_total,
+                COALESCE(s.valeur_stock_total, (
+                    SELECT COALESCE(SUM(ls.quantite_restante * ls.prix_unitaire_achat), 0)
+                    FROM lot_stock ls
+                    WHERE ls.article_id = s.article_id 
+                      AND ls.depot_id = s.depot_id 
+                      AND ls.quantite_restante > 0
+                )) as valeur_stock_total,
                 s.date_maj,
                 a.reference,
                 a.designation,

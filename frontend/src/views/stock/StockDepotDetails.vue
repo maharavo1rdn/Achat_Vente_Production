@@ -308,7 +308,13 @@ const viewMode = ref('articles')
 // Computed properties
 const valeurTotale = computed(() => {
   return stockArticles.value.reduce((sum, article) => {
-    const valeur = parseFloat(article.valeur_stock_total) || 0
+    let valeur = parseFloat(article.valeur_stock_total) || 0
+    // Pour FIFO/LIFO, valeur_stock_total est NULL en BDD, on calcule depuis les lots
+    if (!valeur && article.lots && article.lots.length > 0) {
+      valeur = article.lots.reduce((lotSum, lot) => {
+        return lotSum + (parseFloat(lot.quantite_restante) || 0) * (parseFloat(lot.prix_unitaire_achat) || 0)
+      }, 0)
+    }
     return sum + valeur
   }, 0)
 })
