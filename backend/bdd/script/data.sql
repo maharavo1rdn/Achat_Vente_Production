@@ -6,8 +6,8 @@
 -- 0. NETTOYAGE COMPLET
 -- -----------------------------------------------------------------------------
 TRUNCATE TABLE 
-    paiement_achat_details, paiement_achat, 
-    paiement_vente_details, paiement_vente, 
+    paiement_achat, 
+    paiement_vente, 
     caisse_mouvement, caisse, 
     facture_achat_details, facture_achat, 
     facture_vente_details, facture_vente, 
@@ -208,9 +208,7 @@ INSERT INTO paiement_achat (id, numero_paiement, mode_paiement_id, statut_id, fa
 INSERT INTO paiement_achat (id, numero_paiement, mode_paiement_id, statut_id, facture_achat_id, caisse_mouvement_id, montant, date_paiement, reference_externe) VALUES
 (3, 'PAY-ACH-002-1', 1, 1, 1, NULL, 300000, NOW(),' CHQ-123456'); -- Chèque en attente
 
-INSERT INTO paiement_achat_details (id, paiement_achat_id, mode_paiement_id, montant, reference_externe) VALUES
-(1, 1, 2, 4000000, 'CHQ-BNI-009988'),
-(2, 1, 1,  500000, NULL);
+
 
 -- -----------------------------------------------------------------------------
 -- 7. SCENARIO VENTE SHOWROOM (facture directe)
@@ -308,12 +306,12 @@ SELECT setval('bon_commande_achat_details_id_seq',      (SELECT MAX(id) FROM bon
 SELECT setval('facture_achat_id_seq',                   (SELECT MAX(id) FROM facture_achat));
 SELECT setval('facture_achat_details_id_seq',           (SELECT MAX(id) FROM facture_achat_details));
 SELECT setval('paiement_achat_id_seq',                  (SELECT MAX(id) FROM paiement_achat));
-SELECT setval('paiement_achat_details_id_seq',          (SELECT MAX(id) FROM paiement_achat_details));
+
 
 SELECT setval('facture_vente_id_seq',                   (SELECT MAX(id) FROM facture_vente));
 SELECT setval('facture_vente_details_id_seq',           (SELECT MAX(id) FROM facture_vente_details));
 SELECT setval('paiement_vente_id_seq',                  (SELECT MAX(id) FROM paiement_vente));
-SELECT setval('paiement_vente_details_id_seq',          (SELECT MAX(id) FROM paiement_vente_details));
+
 SELECT setval('bon_commande_vente_id_seq',              (SELECT MAX(id) FROM bon_commande_vente));
 SELECT setval('bon_commande_vente_details_id_seq',      (SELECT MAX(id) FROM bon_commande_vente_details));
 

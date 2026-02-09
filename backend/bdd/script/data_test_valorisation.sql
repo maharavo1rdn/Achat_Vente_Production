@@ -13,9 +13,7 @@
 SET session_replication_role = replica;
 
 -- Nettoyer les donnees dans l'ordre inverse des dependances
-TRUNCATE TABLE paiement_achat_details CASCADE;
 TRUNCATE TABLE paiement_achat CASCADE;
-TRUNCATE TABLE paiement_vente_details CASCADE;
 TRUNCATE TABLE paiement_vente CASCADE;
 TRUNCATE TABLE caisse_mouvement CASCADE;
 TRUNCATE TABLE caisse CASCADE;
@@ -468,7 +466,7 @@ JOINCASE
     END as quantite_stock_apres,
     ms.ref- État du stock AVANT toute sortie (33 pièces dans chaque dépôt) :
 
-DÉPÔT 1 (CMUP - Entrepot Central) :
+/*DÉPÔT 1 (CMUP - Entrepot Central) :
 - Lot 1 : 10 × 2,400,000 = 24,000,000 Ar
 - Lot 2 : 15 × 2,600,000 = 39,000,000 Ar
 - Lot 3 : 8 × 2,450,000 = 19,600,000 Ar

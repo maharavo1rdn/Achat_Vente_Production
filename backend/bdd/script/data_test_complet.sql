@@ -11,11 +11,9 @@
 
 SET session_replication_role = replica;
 
-TRUNCATE TABLE paiement_achat_details CASCADE;
 TRUNCATE TABLE paiement_achat CASCADE;
-TRUNCATE TABLE paiement_vente_details CASCADE;
 TRUNCATE TABLE paiement_vente CASCADE;
-TRUNCATE TABLE caisse_mouvement CASCADE;
+TRUNCATE TABLE caisse_mouvement CASCADE; 
 TRUNCATE TABLE caisse CASCADE;
 TRUNCATE TABLE facture_achat_details CASCADE;
 TRUNCATE TABLE facture_achat CASCADE;
@@ -76,9 +74,7 @@ ALTER SEQUENCE IF EXISTS facture_achat_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS facture_vente_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS devis_vente_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS paiement_vente_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS paiement_vente_details_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS paiement_achat_id_seq RESTART WITH 1;
-ALTER SEQUENCE IF EXISTS paiement_achat_details_id_seq RESTART WITH 1;
 
 SELECT 'Nettoyage termine' as status;
 
@@ -481,23 +477,20 @@ INSERT INTO facture_achat_details (facture_achat_id, article_id, quantite, prix_
 -- D'abord creer les mouvements de caisse (requis par les paiements)
 INSERT INTO caisse_mouvement (id, date_mouvement, libelle_operation, montant_entree, montant_sortie, solde_avant, solde_apres, caisse_id, personnel_id) VALUES 
 (1, '2025-02-28 10:00:00', 'Paiement facture FV-2025-001 - SOCIETE GENERALE', 1000000, 0, 50000000, 51000000, 1, 6),
-(2, '2025-02-15 14:00:00', 'Paiement fournisseur FA achat - CHINA ELECTRONICS', 0, 20000000, 51000000, 31000000, 1, 6);
+(2, '2025-02-15 14:00:00', 'Paiement fournisseur FA achat - CHINA ELECTRONICS', 0, 20000000, 51000000, 31000000, 1, 6),
+(3, '2025-03-01 12:00:00', 'Paiement facture FV-2025-002 - CARLTON', 2000000, 0, 31000000, 33000000, 1, 6),
+(4, '2025-03-05 10:30:00', 'Acompte facture FV-2025-003 - UNIVERSITE', 1500000, 0, 33000000, 34500000, 1, 6);
 
--- Paiements vente
-INSERT INTO paiement_vente (id, numero_recu, date_paiement, facture_vente_id, caisse_mouvement_id, montant_total_paye) VALUES 
-(1, 'RV-2025-001', '2025-02-28', 1, 1, 1000000);
+-- Paiements vente (format schema actuel : mode_paiement_id, statut_id, montant, reference_externe)
+INSERT INTO paiement_vente (id, numero_recu, mode_paiement_id, statut_id, facture_vente_id, caisse_mouvement_id, montant, date_paiement, reference_externe) VALUES 
+(1, 'RV-2025-001', 2, 5, 1, 1, 1000000, '2025-02-28', 'VIR-BOA-2025-001'),
+(2, 'RV-2025-002', 4, 6, 2, 3, 2000000, '2025-03-01', 'CARD-002'),
+(3, 'RV-2025-003', 1, 1, 3, 4, 1500000, '2025-03-05', NULL);
 
--- Details du paiement vente (mode de paiement)
-INSERT INTO paiement_vente_details (paiement_vente_id, mode_paiement_id, montant, reference_externe) VALUES 
-(1, 2, 1000000, 'VIR-BOA-2025-001');
-
--- Paiements achat
-INSERT INTO paiement_achat (id, numero_paiement, date_paiement, facture_achat_id, caisse_mouvement_id, montant_total_paye) VALUES 
-(1, 'PA-2025-001', '2025-02-15', 1, 2, 20000000);
-
--- Details du paiement achat
-INSERT INTO paiement_achat_details (paiement_achat_id, mode_paiement_id, montant, reference_externe) VALUES 
-(1, 2, 20000000, 'VIR-BNI-2025-001');
+-- Paiements achat (schema actuel)
+INSERT INTO paiement_achat (id, numero_paiement, mode_paiement_id, statut_id, facture_achat_id, caisse_mouvement_id, montant, date_paiement, reference_externe) VALUES 
+(1, 'PA-2025-001', 2, 5, 1, 2, 20000000, '2025-02-15', 'VIR-BNI-2025-001'),
+(2, 'PA-2025-002', 3, 6, 1, NULL, 5000000, '2025-02-20', 'CHQ-98765');
 
 -- Mise a jour reste a payer
 UPDATE facture_vente SET reste_a_payer = 700000 WHERE id = 1;
