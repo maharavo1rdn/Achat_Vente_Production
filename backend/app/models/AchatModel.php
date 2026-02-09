@@ -5,6 +5,7 @@ namespace app\models;
 use InvalidArgumentException;
 use PDO;
 use Flight;
+use Exception;
 
 class AchatModel
 {
@@ -300,12 +301,14 @@ class AchatModel
             'entreprise_filiale_id' => $bc['entreprise_filiale_id'],
             'statut_id' => $this->getStatutIdByCode('PAYE'),
             'montant_ttc' => $bc['montant_ttc'],
-            'reste_a_payer' => $bc['montant_ttc']
+            'reste_a_payer' => $bc['montant_ttc'],
+            'depot_reception_id' => $bc['depot_livraison_id'] ?? 1
         ];
 
         $factureId = $this->createFacture($factureData);
         $fac=$this->getFactureById($factureId);
-        $this->copyBonCommandeDetailsToFacture($bcId, $factureId,$fac['numero_facture_fournisseur'],$bc['personnel_id'],$bc['depot_livraison_id']);
+        // Copier uniquement les détails, les mouvements stock seront créés lors du paiement
+        $this->copyBonCommandeDetailsToFacture($bcId, $factureId);
 
         
 
@@ -599,15 +602,74 @@ class AchatModel
         }
     }
 
-    private function copyBonCommandeDetailsToFacture($bcId, $factureId,$numeroFactureFournisseur,$personnelId,$depotId)
+    private function copyBonCommandeDetailsToFacture($bcId, $factureId)
     {
         $details = $this->getBonCommandeDetails($bcId);
         foreach ($details as $detail) {
             $query = "INSERT INTO facture_achat_details (facture_achat_id, article_id, quantite, prix_unitaire) VALUES (?, ?, ?, ?)";
             $stmt = $this->db->prepare($query);
             $stmt->execute([$factureId, $detail['article_id'], $detail['quantite'], $detail['prix_unitaire']]);
-            $this->createMouvementAchatFromLigne($detail['article_id'],$personnelId, $detail['quantite'], $numeroFactureFournisseur,$depotId,$detail['prix_unitaire']);
+            // Les mouvements stock seront créés lors de la validation du paiement
         }
+    }
+
+    /**
+     * Crée les mouvements de stock pour une facture achat validée (appelée après paiement)
+     */
+    public function creerMouvementsStockFacture($factureId)
+    {
+        error_log("AchatModel::creerMouvementsStockFacture called with factureId=$factureId");
+
+        // Récupérer la facture
+        $facture = $this->getFactureById($factureId);
+        if (!$facture) {
+            throw new InvalidArgumentException("Facture achat non trouvée");
+        }
+
+        $numeroFacture = $facture['numero_facture_fournisseur'];
+
+        // ✅ VÉRIFIER SI DES MOUVEMENTS EXISTENT DÉJÀ POUR CETTE FACTURE
+        $checkQuery = "SELECT COUNT(*) as count FROM mouvement_stock 
+                       WHERE type_mouvement = 'ACHAT' 
+                       AND reference_document = ?";
+        $checkStmt = $this->db->prepare($checkQuery);
+        $checkStmt->execute([$numeroFacture]);
+        $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($existing && $existing['count'] > 0) {
+            error_log("AchatModel::creerMouvementsStockFacture - Mouvements déjà existants pour facture $numeroFacture, skip creation");
+            throw new Exception("Les mouvements de stock existent déjà pour cette facture");
+        }
+
+        // Récupérer le dépôt de réception
+        $depotId = $facture['depot_reception_id'] ?? 1;
+        
+        // Récupérer le personnel_id depuis le BC lié (la facture n'a pas de personnel_id)
+        $personnelId = 1; // Valeur par défaut
+        if (!empty($facture['bon_commande_achat_id'])) {
+            $bc = $this->getBonCommandeById($facture['bon_commande_achat_id']);
+            if ($bc && isset($bc['personnel_id'])) {
+                $personnelId = $bc['personnel_id'];
+            }
+        }
+
+        // Récupérer les détails de la facture
+        $details = $this->getFactureDetails($factureId);
+
+        // Créer un mouvement de stock pour chaque ligne
+        foreach ($details as $detail) {
+            $this->createMouvementAchatFromLigne(
+                $detail['article_id'],
+                $personnelId,
+                $detail['quantite'],
+                $numeroFacture,
+                $depotId,
+                $detail['prix_unitaire']
+            );
+        }
+
+        error_log("AchatModel::creerMouvementsStockFacture created " . count($details) . " mouvements for facture $factureId");
+        return count($details);
     }
 
     private function createMouvementAchatFromLigne($article,$personnelId, $quantite, $numeroFacture,$depot,$prixUnitaire)
@@ -642,23 +704,39 @@ class AchatModel
     private function generateNumeroBonCommande()
     {
         $date = date('Ym');
-        $query = "SELECT COUNT(*) as count FROM bon_commande_achat WHERE numero_bc LIKE ?";
+        $prefix = $date;
+        
+        // Utiliser MAX() au lieu de COUNT() pour éviter les doublons
+        $query = "SELECT MAX(CAST(SUBSTRING(numero_bc FROM 7) AS INTEGER)) as max_num 
+                  FROM bon_commande_achat 
+                  WHERE numero_bc LIKE ?";
         $stmt = $this->db->prepare($query);
-        $stmt->execute([$date . '%']);
+        $stmt->execute([$prefix . '%']);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $numero = str_pad($result['count'] + 1, 4, '0', STR_PAD_LEFT);
-        return $date . $numero;
+        
+        $maxNum = $result['max_num'] ?? 0;
+        $numero = str_pad($maxNum + 1, 4, '0', STR_PAD_LEFT);
+        
+        return $prefix . $numero;
     }
 
     private function generateNumeroFactureAchat()
     {
         $date = date('Ym');
-        $query = "SELECT COUNT(*) as count FROM facture_achat WHERE numero_facture_fournisseur LIKE ?";
+        $prefix = 'FA' . $date;
+        
+        // Utiliser MAX() au lieu de COUNT() pour éviter les doublons
+        $query = "SELECT MAX(CAST(SUBSTRING(numero_facture_fournisseur FROM 11) AS INTEGER)) as max_num 
+                  FROM facture_achat 
+                  WHERE numero_facture_fournisseur LIKE ?";
         $stmt = $this->db->prepare($query);
-        $stmt->execute([$date . '%']);
+        $stmt->execute([$prefix . '%']);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $numero = str_pad($result['count'] + 1, 4, '0', STR_PAD_LEFT);
-        return 'FA' . $date . $numero;
+        
+        $maxNum = $result['max_num'] ?? 0;
+        $numero = str_pad($maxNum + 1, 4, '0', STR_PAD_LEFT);
+        
+        return $prefix . $numero;
     }
 
     private function getStatutIdByCode($code)

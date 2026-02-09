@@ -55,7 +55,7 @@
 
               <div class="form-group">
                 <label class="label">Filiale *</label>
-                <select v-model="form.entreprise_filiale_id" class="select">
+                <select v-model="form.entreprise_filiale_id" class="select" @change="onFilialeChange">
                   <option value="">Sélectionner une filiale</option>
                   <option v-for="filiale in filiales" :key="filiale.id" :value="filiale.id">
                     {{ filiale.nom }}
@@ -74,7 +74,18 @@
                   <option value="">Sélectionner un statut</option>
                   <option v-for="s in statuts" :key="s.id" :value="s.id">{{ s.libelle }}</option>
                 </select>
-              </div> 
+              </div>
+
+              <div class="form-group">
+                <label class="label">Dépôt de sortie <span class="text-red-600">*</span></label>
+                <select v-model="form.depot_id" class="select" :class="{'border-red-500': !form.depot_id}">
+                  <option value="">⚠️ Sélectionner un dépôt</option>
+                  <option v-for="depot in depotsFiltered" :key="depot.id" :value="depot.id">
+                    {{ depot.nom }} - {{ depot.site_nom }} ({{ depot.entreprise_nom }})
+                  </option>
+                </select>
+                <p v-if="!form.depot_id" class="text-xs text-red-600 mt-1">⚠️ Sans dépôt, les sorties se feront du Depot Central Tana</p>
+              </div>
             </div>
           </div>
         </div>
@@ -171,6 +182,7 @@ import venteService from '../../services/venteService'
 import articleService from '../../services/articleService'
 import entrepriseService from '../../services/entrepriseService'
 import statutService from '../../services/statutService'
+import depotService from '../../services/depotService'
 
 const router = useRouter()
 
@@ -181,6 +193,7 @@ const clients = ref([])
 const filiales = ref([])
 const articles = ref([])
 const statuts = ref([])
+const depots = ref([])
 
 // Form data
 const form = ref({
@@ -189,6 +202,7 @@ const form = ref({
   personnel_id: '',
   statut_id: 1,
   date_devis: new Date().toISOString().split('T')[0],
+  depot_id: '',
   details: []
 })
 
@@ -211,6 +225,22 @@ const totalTTC = computed(() => {
   return totalHT.value + totalTVA.value
 })
 
+// Filter depots by selected filiale
+const depotsFiltered = computed(() => {
+  if (!form.value.entreprise_filiale_id) {
+    return depots.value
+  }
+  // Get the selected filiale
+  const selectedFiliale = filiales.value.find(f => f.id === form.value.entreprise_filiale_id)
+  if (!selectedFiliale) {
+    return depots.value
+  }
+  // Filter depots that belong to sites of this entreprise
+  return depots.value.filter(depot => {
+    return depot.entreprise_nom === selectedFiliale.nom
+  })
+})
+
 // Toast state & helper
 const toast = ref({ show: false, message: '', type: 'success' })
 
@@ -225,17 +255,19 @@ const showToast = (message, type = 'success', duration = 4000) => {
 const loadData = async () => {
   loading.value = true
   try {
-    const [clientsRes, filialesRes, articlesRes, statutsRes] = await Promise.all([
+    const [clientsRes, filialesRes, articlesRes, statutsRes, depotsRes] = await Promise.all([
       entrepriseService.getAll({ type_entreprise: 'CLIENT' }),
       entrepriseService.getAll({ type_entreprise: 'INTERNE' }),
       articleService.getAll(),
-      statutService.getAll()
+      statutService.getAll(),
+      depotService.getAll()
     ])
 
     clients.value = clientsRes.data || []
     filiales.value = filialesRes.data || []
     articles.value = articlesRes.data || []
     statuts.value = statutsRes.data || []
+    depots.value = depotsRes.data || []
   } catch (error) {
     console.error('Erreur lors du chargement des données:', error)
     showToast('Erreur lors du chargement des données', 'error')
@@ -267,6 +299,11 @@ const onArticleChange = (index) => {
 
 const calculateLineTotal = (index) => {
   // Already calculated in computed properties
+}
+
+const onFilialeChange = () => {
+  // Reset depot when filiale changes
+  form.value.depot_id = ''
 }
 
 const formatCurrency = (amount) => {

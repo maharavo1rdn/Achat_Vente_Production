@@ -29,18 +29,21 @@ class VenteModel
                 dv.entreprise_filiale_id,
                 dv.personnel_id,
                 dv.statut_id,
+                dv.depot_id,
                 dv.montant_ttc,
                 ec.nom as client_nom,
                 efi.nom as filiale_nom,
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom,
                 s.code as statut,
-                s.libelle as statut_libelle
+                s.libelle as statut_libelle,
+                d.nom as depot_nom
             FROM devis_vente dv
             INNER JOIN entreprise ec ON dv.entreprise_client_id = ec.id
             INNER JOIN entreprise efi ON dv.entreprise_filiale_id = efi.id
             INNER JOIN personnel p ON dv.personnel_id = p.id
             INNER JOIN statut s ON dv.statut_id = s.id
+            LEFT JOIN depot d ON dv.depot_id = d.id
             WHERE 1=1
         ";
 
@@ -98,12 +101,14 @@ class VenteModel
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom,
                 s.code as statut,
+                d.nom as depot_nom,
                 s.libelle as statut_libelle
             FROM devis_vente dv
             INNER JOIN entreprise ec ON dv.entreprise_client_id = ec.id
             INNER JOIN entreprise efi ON dv.entreprise_filiale_id = efi.id
             INNER JOIN personnel p ON dv.personnel_id = p.id
             INNER JOIN statut s ON dv.statut_id = s.id
+            LEFT JOIN depot d ON dv.depot_id = d.id
             WHERE dv.id = ?
         ";
 
@@ -141,8 +146,8 @@ class VenteModel
         $query = "
             INSERT INTO devis_vente (
                 numero_devis, date_devis, entreprise_client_id,
-                entreprise_filiale_id, personnel_id, statut_id, montant_ttc
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                entreprise_filiale_id, personnel_id, statut_id, montant_ttc, depot_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ";
 
         $stmt = $this->db->prepare($query);
@@ -164,7 +169,8 @@ class VenteModel
                     $data['entreprise_filiale_id'],
                     $data['personnel_id'],
                     $data['statut_id'],
-                    $data['montant_ttc'] ?? 0
+                    $data['montant_ttc'] ?? 0,
+                    $data['depot_id'] ?? null
                 ]);
                 break; // success
             } catch (\PDOException $ex) {
@@ -221,7 +227,8 @@ class VenteModel
                 entreprise_filiale_id = ?,
                 personnel_id = ?,
                 statut_id = ?,
-                montant_ttc = ?
+                montant_ttc = ?,
+                depot_id = ?
             WHERE id = ?
         ";
 
@@ -234,6 +241,7 @@ class VenteModel
             $data['personnel_id'],
             $data['statut_id'],
             $data['montant_ttc'] ?? 0,
+            $data['depot_id'] ?? null,
             $id
         ]);
 
@@ -327,7 +335,8 @@ class VenteModel
             'entreprise_filiale_id' => $devis['entreprise_filiale_id'],
             'personnel_id' => $devis['personnel_id'],
             'statut_id' => $this->getStatutIdByCode('VALIDE'),
-            'montant_ttc' => $devis['montant_ttc']
+            'montant_ttc' => $devis['montant_ttc'],
+            'depot_expedition_id' => $devis['depot_id'] ?? null
         ];
 
         $bcId = $this->createBonCommande($bcData);
@@ -354,19 +363,22 @@ class VenteModel
                 bcv.personnel_id,
                 bcv.statut_id,
                 bcv.montant_ttc,
+                bcv.depot_expedition_id,
                 ec.nom as client_nom,
                 efi.nom as filiale_nom,
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom,
                 s.code as statut,
                 s.libelle as statut_libelle,
-                dv.numero_devis
+                dv.numero_devis,
+                d.nom as depot_nom
             FROM bon_commande_vente bcv
             INNER JOIN entreprise ec ON bcv.entreprise_client_id = ec.id
             INNER JOIN entreprise efi ON bcv.entreprise_filiale_id = efi.id
             INNER JOIN personnel p ON bcv.personnel_id = p.id
             INNER JOIN statut s ON bcv.statut_id = s.id
             LEFT JOIN devis_vente dv ON bcv.devis_vente_id = dv.id
+            LEFT JOIN depot d ON bcv.depot_expedition_id = d.id
             WHERE 1=1
         ";
 
@@ -414,13 +426,15 @@ class VenteModel
                 p.nom as personnel_nom,
                 p.prenom as personnel_prenom,
                 s.libelle as statut_libelle,
-                dv.numero_devis
+                dv.numero_devis,
+                d.nom as depot_nom
             FROM bon_commande_vente bcv
             INNER JOIN entreprise ec ON bcv.entreprise_client_id = ec.id
             INNER JOIN entreprise efi ON bcv.entreprise_filiale_id = efi.id
             INNER JOIN personnel p ON bcv.personnel_id = p.id
             INNER JOIN statut s ON bcv.statut_id = s.id
             LEFT JOIN devis_vente dv ON bcv.devis_vente_id = dv.id
+            LEFT JOIN depot d ON bcv.depot_expedition_id = d.id
             WHERE bcv.id = ?
         ";
 
@@ -485,13 +499,19 @@ class VenteModel
             }
             
             $data['devis_vente_id'] = $devisId;
+
+            // Hériter du dépôt d'expédition depuis le devis s'il n'est pas fourni dans la requête
+            if (empty($data['depot_expedition_id']) && !empty($linkedDevis['depot_id'])) {
+                $data['depot_expedition_id'] = $linkedDevis['depot_id'];
+                error_log("VenteModel::createBonCommande - depot_expedition_id hérité du devis: " . $data['depot_expedition_id']);
+            }
         }
 
         $query = "
             INSERT INTO bon_commande_vente (
                 numero_bc, date_commande, devis_vente_id, entreprise_client_id,
-                entreprise_filiale_id, personnel_id, statut_id, montant_ttc
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                entreprise_filiale_id, personnel_id, statut_id, montant_ttc, depot_expedition_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
 
         $stmt = $this->db->prepare($query);
@@ -503,7 +523,8 @@ class VenteModel
             $data['entreprise_filiale_id'],
             $data['personnel_id'],
             $data['statut_id'],
-            $data['montant_ttc'] ?? 0
+            $data['montant_ttc'] ?? 0,
+            $data['depot_expedition_id'] ?? null
         ]);
 
         $newId = $this->db->lastInsertId();
@@ -535,7 +556,8 @@ class VenteModel
                 entreprise_filiale_id = ?,
                 personnel_id = ?,
                 statut_id = ?,
-                montant_ttc = ?
+                montant_ttc = ?,
+                depot_expedition_id = ?
             WHERE id = ?
         ";
 
@@ -549,6 +571,7 @@ class VenteModel
             $data['personnel_id'],
             $data['statut_id'],
             $data['montant_ttc'] ?? 0,
+            $data['depot_expedition_id'] ?? null,
             $id
         ]);
 
@@ -1006,22 +1029,22 @@ class VenteModel
                 
                 $referenceDoc = "VENTE-" . $numeroFacture . "-ART" . $articleId;
                 
-                // Créer la sortie selon la méthode
+                // Créer la sortie selon la méthode - en filtrant par le dépôt spécifié
                 switch ($methode) {
                     case 'FIFO':
                         $resultatSortie = $mouvementStockModel->creerSortieAvecFIFO(
-                            $articleId, $quantite, $personnelId, $referenceDoc
+                            $articleId, $quantite, $personnelId, $referenceDoc, null, $ligneDepotId
                         );
                         break;
                     case 'LIFO':
                         $resultatSortie = $mouvementStockModel->creerSortieAvecLIFO(
-                            $articleId, $quantite, $personnelId, $referenceDoc
+                            $articleId, $quantite, $personnelId, $referenceDoc, null, $ligneDepotId
                         );
                         break;
                     case 'CMUP':
                     default:
                         $resultatSortie = $mouvementStockModel->creerSortieAvecCMUP(
-                            $articleId, $quantite, $personnelId, $referenceDoc
+                            $articleId, $quantite, $personnelId, $referenceDoc, null, $ligneDepotId
                         );
                         break;
                 }

@@ -308,6 +308,16 @@ class PaiementAchatModel
 
             $this->applyPayment($paiementId, $montant);
 
+            // Créer les mouvements de stock après validation du paiement
+            $factureId = (int)$paiement['facture_achat_id'];
+            try {
+                $nbMouvements = Flight::achatModel()->creerMouvementsStockFacture($factureId);
+                error_log("PaiementAchatModel::validate created $nbMouvements stock movements for facture $factureId");
+            } catch (Exception $e) {
+                error_log("PaiementAchatModel::validate - Warning: Failed to create stock movements: " . $e->getMessage());
+                // Ne pas bloquer le paiement si les mouvements existent déjà
+            }
+
             $this->db->commit();
             return ['success' => true, 'mouvement_id' => $mouvementId];
         } catch (Exception $e) {

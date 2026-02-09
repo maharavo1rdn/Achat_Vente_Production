@@ -197,9 +197,9 @@
                 <th>Article</th>
                 <th>Réf.</th>
                 <th>Localisation</th>
+                <th class="text-center">Méthode</th>
                 <th class="text-center">Qté</th>
-                <th class="text-right">CMUP</th>
-                <th class="text-right">Valeur</th>
+                <th class="text-right">CMUP/Valeur</th>
                 <th class="text-center">Statut</th>
                 <th class="text-center">Actions</th>
               </tr>
@@ -214,13 +214,23 @@
                   <div>{{ stock.filiale }}</div>
                   <div class="text-gray-500 text-xs">{{ stock.depot }}</div>
                 </td>
+                <td class="text-center">
+                  <span class="text-xs px-2 py-1 rounded" :class="{
+                    'bg-blue-100 text-blue-800': stock.methode_valorisation_code === 'CMUP',
+                    'bg-green-100 text-green-800': stock.methode_valorisation_code === 'FIFO',
+                    'bg-purple-100 text-purple-800': stock.methode_valorisation_code === 'LIFO'
+                  }">{{ stock.methode_valorisation_code || 'CMUP' }}</span>
+                </td>
                 <td class="text-center font-bold" :class="{
                   'text-red-600': stock.quantite_actuelle === 0,
                   'text-orange-600': stock.quantite_actuelle > 0 && stock.quantite_actuelle < 10,
                   'text-green-600': stock.quantite_actuelle >= 10
                 }">{{ stock.quantite_actuelle }} {{ stock.unite_code }}</td>
-                <td class="text-right text-sm">{{ formatCurrency(stock.cmup_actuel) }}</td>
-                <td class="text-right font-medium">{{ formatCurrency(stock.valeur_stock_total) }}</td>
+                <td class="text-right text-sm">
+                  <div v-if="stock.methode_valorisation_code === 'CMUP'">{{ formatCurrency(stock.cmup_actuel) }}</div>
+                  <div v-else class="text-gray-500 text-xs">Par lots</div>
+                  <div class="text-xs text-gray-500">{{ stock.valeur_stock_total ? formatCurrency(stock.valeur_stock_total) : '-' }}</div>
+                </td>
                 <td class="text-center">
                   <span :class="getStockBadgeClass(stock.quantite_actuelle)">
                     {{ getStockStatus(stock.quantite_actuelle) }}

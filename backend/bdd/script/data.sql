@@ -128,12 +128,12 @@ INSERT INTO caisse_mouvement (id, date_mouvement, libelle_operation, montant_ent
 
 -- A. STOCK
 INSERT INTO stock (id, article_id, depot_id, methode_valorisation_stock_id, quantite_actuelle, cmup_actuel, valeur_stock_total) VALUES
-(1, 1, 1, 1, 10, 1800000, 18000000), -- Dell Siege
-(2, 2, 1, 1,  5, 2000000, 10000000), -- HP Siege
-(3, 4, 1, 1, 20,  700000, 14000000), -- Imprimante Siege
-(4, 6, 1, 1,100,   90000,  9000000), -- Papier Siege
-(5, 1, 2, 2,  2, 1800000,  3600000), -- Dell Showroom
-(6, 7, 2, 2, 50,   15000,   750000); -- USB Showroom
+(1, 1, 1, 1, 10, 1800000, 18000000), -- Dell Siege (CMUP)
+(2, 2, 1, 1,  5, 2000000, 10000000), -- HP Siege (CMUP)
+(3, 4, 1, 1, 20,  700000, 14000000), -- Imprimante Siege (CMUP)
+(4, 6, 1, 1,100,   90000,  9000000), -- Papier Siege (CMUP)
+(5, 1, 2, 2,  2, NULL,     NULL),     -- Dell Showroom (FIFO - pas de CMUP)
+(6, 7, 2, 2, 50, NULL,     NULL);     -- USB Showroom (FIFO - pas de CMUP)
 
 -- B. MOUVEMENTS INITIAUX (inventaire)
 INSERT INTO mouvement_stock (id, date_mouvement, type_mouvement, quantite_stock_avant, quantite_entree, quantite_sortie, quantite_stock_apres, article_id, depot_id, personnel_id, reference_document) VALUES

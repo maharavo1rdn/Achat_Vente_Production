@@ -54,3 +54,23 @@ Voici mon approche pour faire cela:
 
 5. Fait de meme pour PaiementAchatModel et PaiementAchatController mais là c'est juste les facture_demande_achat qui est concerné des sortie d'argent dans la vente c'est un entrée
 6. Adapte alors les données si besoin
+
+
+
+--  
+
+Maintenant je veux que tu verifie si l'achat d'un article est fonctionnelle pour ce projet , c'est a dire le demande d'achat , la creation de proforma pour ce demande d'achat , bon de commande pour ce proforma et la facturation et paiement de ce facture .
+Et aussi si le stock est entree dans le depot choisi .
+
+
+
+
+ordre sql 
+
+conception.sql
+views.sql
+triggers_valorisation.sql
+update_trigger_valeur-stock.sql
+alter_facture_statut_livraison.sql
+data_test_complet.sql
+add_depot_to_devi_vente.sql

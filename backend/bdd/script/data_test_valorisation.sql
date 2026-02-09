@@ -238,8 +238,8 @@ INSERT INTO article (reference, designation, description, prix_achat_ref, prix_v
 -- Stock initial avec methodes differentes par depot
 INSERT INTO stock (article_id, depot_id, methode_valorisation_stock_id, quantite_actuelle, cmup_actuel, valeur_stock_total) VALUES 
 (1, 1, 1, 0, 0, 0),  -- LAPTOP001 - Depot 1 - CMUP
-(1, 2, 2, 0, 0, 0),  -- LAPTOP001 - Depot 2 - FIFO  
-(1, 3, 3, 0, 0, 0);  -- LAPTOP001 - Depot 3 - LIFO
+(1, 2, 2, 0, NULL, NULL),  -- LAPTOP001 - Depot 2 - FIFO (pas de CMUP)
+(1, 3, 3, 0, NULL, NULL);  -- LAPTOP001 - Depot 3 - LIFO (pas de CMUP)
 
 -- Caisses
 INSERT INTO caisse (code_caisse, libelle, solde_actuel, entreprise_id) VALUES 
@@ -405,14 +405,17 @@ SELECT
         ELSE s.quantite_actuelle
     END as quantite_actuelle,
     CASE 
-        WHEN s.cmup_actuel < 0 THEN 0::numeric(15,2)
+        WHEN mvs.id IN (2, 3) THEN NULL  -- FIFO/LIFO : pas de CMUP
+        WHEN s.cmup_actuel IS NULL OR s.cmup_actuel < 0 THEN 0::numeric(15,2)
         ELSE s.cmup_actuel
     END as cmup_actuel,
     CASE 
-        WHEN s.valeur_stock_total < 0 THEN 0::numeric(15,2)
+        WHEN mvs.id IN (2, 3) THEN NULL  -- FIFO/LIFO : valeur calculee par lots
+        WHEN s.valeur_stock_total IS NULL OR s.valeur_stock_total < 0 THEN 0::numeric(15,2)
         ELSE s.valeur_stock_total
     END as valeur_stock_total,
     CASE 
+        WHEN mvs.id IN (2, 3) THEN NULL  -- FIFO/LIFO : prix calcule par lots
         WHEN s.quantite_actuelle > 0 AND s.valeur_stock_total >= 0 
         THEN ROUND(s.valeur_stock_total / s.quantite_actuelle, 2)::numeric(15,2)
         ELSE 0::numeric(15,2)

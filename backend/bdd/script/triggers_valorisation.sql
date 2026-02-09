@@ -191,7 +191,8 @@ RAISE NOTICE 'FIFO ENTREE Article % Qte %', NEW.article_id, NEW.quantite_entree;
 
             UPDATE stock
                SET quantite_actuelle  = quantite_actuelle - NEW.quantite_sortie,
-                   valeur_stock_total = valeur_stock_total - valeur_sortie,
+                   cmup_actuel        = NULL,
+                   valeur_stock_total = NULL,
                    date_maj           = NOW()
              WHERE article_id = NEW.article_id
                AND depot_id = NEW.depot_id;
@@ -281,7 +282,8 @@ RAISE NOTICE 'LIFO ENTREE Article % Qte %', NEW.article_id, NEW.quantite_entree;
 
             UPDATE stock
                SET quantite_actuelle  = quantite_actuelle - NEW.quantite_sortie,
-                   valeur_stock_total = valeur_stock_total - valeur_sortie,
+                   cmup_actuel        = NULL,
+                   valeur_stock_total = NULL,
                    date_maj           = NOW()
              WHERE article_id = NEW.article_id
                AND depot_id = NEW.depot_id;
@@ -327,14 +329,12 @@ BEGIN
     IF v_methode_id = 1 THEN
         v_nouvelle_valeur := NEW.quantite_actuelle * NEW.cmup_actuel;
         
-    -- FIFO/LIFO : valeur_stock_total = SUM des lots
+    -- FIFO/LIFO : pas de CMUP ni valeur stockée (calculé par lots à la demande)
     ELSIF v_methode_id IN (2, 3) THEN
-        SELECT COALESCE(SUM(quantite_restante * prix_unitaire_achat), 0)
-        INTO v_nouvelle_valeur
-        FROM lot_stock
-        WHERE article_id = NEW.article_id
-          AND depot_id = NEW.depot_id
-          AND quantite_restante > 0;
+        NEW.cmup_actuel := NULL;
+        NEW.valeur_stock_total := NULL;
+        NEW.date_maj := CURRENT_TIMESTAMP;
+        RETURN NEW;
     ELSE
         -- Par défaut, garder la valeur existante
         v_nouvelle_valeur := NEW.valeur_stock_total;

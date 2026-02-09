@@ -31,8 +31,14 @@ SELECT
     u.code AS unite,
     s.quantite_actuelle,
     mvs.code AS methode_val,
-    s.cmup_actuel AS pu_comptable,
-    s.valeur_stock_total AS valeur_comptable,
+    CASE 
+        WHEN mvs.id IN (2, 3) THEN NULL  -- FIFO/LIFO : pas de CMUP
+        ELSE s.cmup_actuel
+    END AS pu_comptable,
+    CASE 
+        WHEN mvs.id IN (2, 3) THEN NULL  -- FIFO/LIFO : valeur calculee par lots
+        ELSE s.valeur_stock_total
+    END AS valeur_comptable,
     -- Valeur Potentielle Vente
     (s.quantite_actuelle * a.prix_vente_ref) AS valeur_vente_potentielle
 FROM stock s
@@ -172,7 +178,17 @@ ORDER BY cm.date_mouvement DESC;
 -- Agrégation globale (Stock de tous les dépôts)
 CREATE OR REPLACE VIEW v_dashboard_kpi AS
 SELECT
-    (SELECT COALESCE(SUM(valeur_stock_total), 0) FROM stock) AS valeur_stock_global,
+    (
+        -- CMUP stocks : valeur directe
+        SELECT COALESCE(SUM(valeur_stock_total), 0) FROM stock WHERE methode_valorisation_stock_id = 1
+    ) + (
+        -- FIFO/LIFO stocks : valeur calculee depuis les lots
+        SELECT COALESCE(SUM(ls.quantite_restante * ls.prix_unitaire_achat), 0)
+        FROM lot_stock ls
+        JOIN stock s ON s.article_id = ls.article_id AND s.depot_id = ls.depot_id
+        WHERE s.methode_valorisation_stock_id IN (2, 3)
+          AND ls.quantite_restante > 0
+    ) AS valeur_stock_global,
     (SELECT COALESCE(SUM(solde_actuel), 0) FROM caisse) AS tresorerie_totale,
     (SELECT COALESCE(SUM(reste_a_payer), 0) FROM facture_vente WHERE statut_id <> 7) AS creances_clients,
     (SELECT COALESCE(SUM(reste_a_payer), 0) FROM facture_achat WHERE statut_id <> 7) AS dettes_fournisseurs;
@@ -185,7 +201,18 @@ SELECT
     a.designation,
     u.code AS unite,
     SUM(s.quantite_actuelle) AS qte_totale_groupe,
-    SUM(s.valeur_stock_total) AS valeur_totale_groupe
+    SUM(
+        CASE 
+            WHEN s.methode_valorisation_stock_id = 1 THEN COALESCE(s.valeur_stock_total, 0)
+            ELSE COALESCE((
+                SELECT SUM(ls.quantite_restante * ls.prix_unitaire_achat)
+                FROM lot_stock ls
+                WHERE ls.article_id = s.article_id
+                  AND ls.depot_id = s.depot_id
+                  AND ls.quantite_restante > 0
+            ), 0)
+        END
+    ) AS valeur_totale_groupe
 FROM stock s
 JOIN article a ON s.article_id = a.id
 JOIN unite u ON a.unite_id = u.id

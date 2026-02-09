@@ -19,14 +19,12 @@ BEGIN
     IF v_methode_id = 1 THEN
         v_nouvelle_valeur := NEW.quantite_actuelle * NEW.cmup_actuel;
         
-    -- FIFO/LIFO : valeur_stock_total = SUM des lots
+    -- FIFO/LIFO : pas de CMUP ni valeur stockée (calculé par lots à la demande)
     ELSIF v_methode_id IN (2, 3) THEN
-        SELECT COALESCE(SUM(quantite_restante * prix_unitaire_achat), 0)
-        INTO v_nouvelle_valeur
-        FROM lot_stock
-        WHERE article_id = NEW.article_id
-          AND depot_id = NEW.depot_id
-          AND quantite_restante > 0;
+        NEW.cmup_actuel := NULL;
+        NEW.valeur_stock_total := NULL;
+        NEW.date_maj := CURRENT_TIMESTAMP;
+        RETURN NEW;
     ELSE
         -- Par défaut, garder la valeur existante
         v_nouvelle_valeur := NEW.valeur_stock_total;
@@ -55,15 +53,10 @@ UPDATE stock
 SET valeur_stock_total = quantite_actuelle * cmup_actuel
 WHERE methode_valorisation_stock_id = 1;
 
--- Recalculer toutes les valeurs existantes pour FIFO/LIFO
-UPDATE stock s
-SET valeur_stock_total = (
-    SELECT COALESCE(SUM(ls.quantite_restante * ls.prix_unitaire_achat), 0)
-    FROM lot_stock ls
-    WHERE ls.article_id = s.article_id
-      AND ls.depot_id = s.depot_id
-      AND ls.quantite_restante > 0
-)
+-- Recalculer toutes les valeurs existantes pour FIFO/LIFO (pas de CMUP ni valeur stockee)
+UPDATE stock
+SET cmup_actuel = NULL,
+    valeur_stock_total = NULL
 WHERE methode_valorisation_stock_id IN (2, 3);
 
 -- Vérification

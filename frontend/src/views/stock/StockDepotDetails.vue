@@ -97,13 +97,17 @@
           </div>
           
           <div class="article-details">
-            <div class="detail-row">
+            <div class="detail-row" v-if="depotInfo.methode_valorisation === 'CMUP'">
               <span class="detail-label">CMUP actuel</span>
               <span class="detail-value">{{ formatCurrency(article.cmup_actuel) }}</span>
             </div>
+            <div class="detail-row" v-else>
+              <span class="detail-label">Méthode valorisation</span>
+              <span class="detail-value" :class="getMethodeClass(depotInfo.methode_valorisation)">{{ depotInfo.methode_valorisation }}</span>
+            </div>
             <div class="detail-row">
               <span class="detail-label">Valeur stock</span>
-              <span class="detail-value text-green-600">{{ formatCurrency(article.valeur_stock_total) }}</span>
+              <span class="detail-value text-green-600">{{ article.valeur_stock_total ? formatCurrency(article.valeur_stock_total) : 'Calculé par lots' }}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">Dernière MAJ</span>
@@ -202,13 +206,17 @@
                 <label>Quantité en stock</label>
                 <span class="font-semibold">{{ selectedArticle.quantite_actuelle }}</span>
               </div>
-              <div class="summary-item">
+              <div class="summary-item" v-if="depotInfo.methode_valorisation === 'CMUP'">
                 <label>CMUP actuel</label>
                 <span>{{ formatCurrency(selectedArticle.cmup_actuel) }}</span>
               </div>
+              <div class="summary-item" v-else>
+                <label>Méthode valorisation</label>
+                <span :class="getMethodeClass(depotInfo.methode_valorisation)">{{ depotInfo.methode_valorisation }}</span>
+              </div>
               <div class="summary-item">
                 <label>Valeur totale</label>
-                <span class="font-semibold text-green-600">{{ formatCurrency(selectedArticle.valeur_stock_total) }}</span>
+                <span class="font-semibold text-green-600">{{ selectedArticle.valeur_stock_total ? formatCurrency(selectedArticle.valeur_stock_total) : 'Calculé par lots' }}</span>
               </div>
             </div>
           </div>

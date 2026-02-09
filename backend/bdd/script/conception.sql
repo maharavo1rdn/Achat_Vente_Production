@@ -185,8 +185,8 @@ CREATE TABLE stock (
     depot_id                  INTEGER NOT NULL,
     methode_valorisation_stock_id INTEGER NOT NULL,
     quantite_actuelle         NUMERIC(15,2) DEFAULT 0,
-    cmup_actuel               NUMERIC(15,2) DEFAULT 0,
-    valeur_stock_total        NUMERIC(15,2) DEFAULT 0,
+    cmup_actuel               NUMERIC(15,2) DEFAULT NULL,  -- NULL pour FIFO/LIFO, calcule pour CMUP
+    valeur_stock_total        NUMERIC(15,2) DEFAULT NULL,  -- NULL pour FIFO/LIFO, calcule pour CMUP
     date_maj                  TIMESTAMP DEFAULT NOW(),
     UNIQUE (article_id, depot_id),
     FOREIGN KEY (article_id)                REFERENCES article(id),

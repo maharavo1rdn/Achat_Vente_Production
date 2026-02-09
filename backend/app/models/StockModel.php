@@ -198,6 +198,11 @@ class StockModel
     {
         $this->validateMouvementData($data);
 
+        // Validation stricte du depot_id
+        if (!isset($data['depot_id']) || $data['depot_id'] === null || $data['depot_id'] <= 0) {
+            throw new InvalidArgumentException("depot_id est obligatoire pour créer un mouvement de stock");
+        }
+
         error_log("StockModel::createMouvement called with data: " . json_encode($data));
 
         // Récupérer le stock actuel
@@ -226,13 +231,20 @@ class StockModel
             $data['article_id'],
             $data['personnel_id'],
             $data['reference_document'] ?? null,
-            $data['depot_id'] ?? 1
+            $data['depot_id']
         ]);
 
         $mouvementId = $this->db->lastInsertId();
 
-        // Mettre à jour le stock
-        $this->updateStockQuantite($data['article_id'], $data['depot_id'], $quantiteApres,$data['prix_unitaire']);
+        // Mettre à jour le stock avec recalcul CMUP pour les entrées
+        $quantiteEntree = $data['quantite_entree'] ?? 0;
+        $this->updateStockQuantite(
+            $data['article_id'], 
+            $data['depot_id'], 
+            $quantiteApres, 
+            $data['prix_unitaire'],
+            $quantiteEntree
+        );
 
         error_log("StockModel::createMouvement created mouvement with id=$mouvementId");
         return (int)$mouvementId;
@@ -834,26 +846,119 @@ class StockModel
 
     /**
      * Rend la méthode updateStockQuantite publique pour utilisation dans MouvementStockModel
+     * @param int $articleId ID de l'article
+     * @param int $depotId ID du dépôt
+     * @param float $nouvelleQuantite Quantité totale après mouvement
+     * @param float|null $prixUnitaire Prix unitaire du mouvement (pour recalcul CMUP)
+     * @param float $quantiteEntree Quantité entrée (0 pour sorties) pour recalcul CMUP
      */
-    public function updateStockQuantite($articleId, $depotId, $nouvelleQuantite, $prixUnitaire = null)
+    public function updateStockQuantite($articleId, $depotId, $nouvelleQuantite, $prixUnitaire = null, $quantiteEntree = 0)
     {
-        error_log("StockModel::updateStockQuantite called with articleId=$articleId, depotId=$depotId, nouvelleQuantite=$nouvelleQuantite");
+        error_log("StockModel::updateStockQuantite called with articleId=$articleId, depotId=$depotId, nouvelleQuantite=$nouvelleQuantite, quantiteEntree=$quantiteEntree, prixUnitaire=$prixUnitaire");
+
+        // ✅ Validation : depot_id ne doit jamais être null
+        if ($depotId === null || $depotId <= 0) {
+            error_log("ERROR: StockModel::updateStockQuantite - depot_id is null or invalid!");
+            throw new InvalidArgumentException("depot_id est requis pour mettre à jour le stock");
+        }
 
         // Vérifier si l'entrée stock existe
         $stockExistant = $this->getStockByArticle($articleId, $depotId);
+        
+        // Récupérer la méthode de valorisation
+        $methodeValorisation = null;
+        if ($stockExistant) {
+            $methodeValorisation = $stockExistant['methode_valorisation_code'] ?? null;
+        } else {
+            // Pour un nouveau stock, récupérer la méthode du dépôt
+            $depotQuery = "SELECT mvs.code as methode_valorisation_code 
+                          FROM depot d 
+                          LEFT JOIN methode_valorisation_stock mvs ON d.methode_valorisation_stock_id = mvs.id 
+                          WHERE d.id = ?";
+            $depotStmt = $this->db->prepare($depotQuery);
+            $depotStmt->execute([$depotId]);
+            $depot = $depotStmt->fetch(PDO::FETCH_ASSOC);
+            $methodeValorisation = $depot['methode_valorisation_code'] ?? 'CMUP'; // Par défaut CMUP
+        }
+        
+        $isCMUP = ($methodeValorisation === 'CMUP');
+        error_log("StockModel::updateStockQuantite - Méthode valorisation: $methodeValorisation, isCMUP: " . ($isCMUP ? 'OUI' : 'NON'));
+
+        error_log("StockModel::updateStockQuantite - Stock existant: " . ($stockExistant ? "OUI (id={$stockExistant['id']})" : "NON"));
 
         if ($stockExistant) {
-            // Mettre à jour
-            $query = "UPDATE stock SET quantite_actuelle = ?, date_maj = NOW() WHERE article_id = ? AND depot_id = ?";
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([$nouvelleQuantite, $articleId, $depotId]);
+            // Stock existe : recalculer CMUP UNIQUEMENT si méthode = CMUP
+            if ($isCMUP && $quantiteEntree > 0 && $prixUnitaire !== null) {
+                // Valeur actuelle du stock
+                $valeurStockActuelle = (float)$stockExistant['cmup_actuel'] * (float)$stockExistant['quantite_actuelle'];
+                // Valeur de l'entrée
+                $valeurEntree = (float)$prixUnitaire * (float)$quantiteEntree;
+                // Nouveau CMUP = (Valeur totale) / (Quantité totale)
+                $nouveauCMUP = ($valeurStockActuelle + $valeurEntree) / $nouvelleQuantite;
+                $nouvelleValeurStock = $nouveauCMUP * $nouvelleQuantite;
+
+                error_log("StockModel: Recalcul CMUP - Ancien: {$stockExistant['cmup_actuel']}, Nouveau: $nouveauCMUP");
+
+                $query = "UPDATE stock SET quantite_actuelle = ?, cmup_actuel = ?, valeur_stock_total = ?, date_maj = NOW() WHERE article_id = ? AND depot_id = ?";
+                $stmt = $this->db->prepare($query);
+                $stmt->execute([$nouvelleQuantite, $nouveauCMUP, $nouvelleValeurStock, $articleId, $depotId]);
+                
+                $rowsAffected = $stmt->rowCount();
+                error_log("StockModel: UPDATE executed (CMUP), rows affected: $rowsAffected");
+            } elseif ($isCMUP) {
+                // Sortie ou pas de prix : mettre à jour uniquement la quantité (CMUP)
+                // Recalculer la valeur totale avec CMUP existant
+                $nouvelleValeurStock = (float)$stockExistant['cmup_actuel'] * $nouvelleQuantite;
+                $query = "UPDATE stock SET quantite_actuelle = ?, valeur_stock_total = ?, date_maj = NOW() WHERE article_id = ? AND depot_id = ?";
+                $stmt = $this->db->prepare($query);
+                $stmt->execute([$nouvelleQuantite, $nouvelleValeurStock, $articleId, $depotId]);
+                
+                $rowsAffected = $stmt->rowCount();
+                error_log("StockModel: UPDATE executed (CMUP sortie), rows affected: $rowsAffected");
+            } else {
+                // Méthode FIFO/LIFO : PAS de calcul CMUP, cmup_actuel reste NULL
+                $query = "UPDATE stock SET quantite_actuelle = ?, cmup_actuel = NULL, valeur_stock_total = NULL, date_maj = NOW() WHERE article_id = ? AND depot_id = ?";
+                $stmt = $this->db->prepare($query);
+                $stmt->execute([$nouvelleQuantite, $articleId, $depotId]);
+                
+                $rowsAffected = $stmt->rowCount();
+                error_log("StockModel: UPDATE executed (FIFO/LIFO), rows affected: $rowsAffected, CMUP set to NULL");
+            }
         } else {
-            // Créer nouvelle entrée
-            $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle, cmup_actuel, valeur_stock_total, methode_valorisation_stock_id) VALUES (?, ?, ?, ?, ?, 2)";
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([$articleId, $depotId, $nouvelleQuantite, $prixUnitaire, ($prixUnitaire ?? 0) * $nouvelleQuantite]);
+            // Créer nouvelle entrée - récupérer méthode valorisation du dépôt
+            $depotQuery = "SELECT methode_valorisation_stock_id, mvs.code as methode_valorisation_code 
+                          FROM depot d 
+                          LEFT JOIN methode_valorisation_stock mvs ON d.methode_valorisation_stock_id = mvs.id 
+                          WHERE d.id = ?";
+            $depotStmt = $this->db->prepare($depotQuery);
+            $depotStmt->execute([$depotId]);
+            $depot = $depotStmt->fetch(PDO::FETCH_ASSOC);
+            $methodeId = $depot['methode_valorisation_stock_id'] ?? 1; // Par défaut CMUP
+            $methodeCode = $depot['methode_valorisation_code'] ?? 'CMUP';
+            
+            if ($methodeCode === 'CMUP') {
+                // CMUP : calculer le CMUP initial
+                $cmupInitial = $prixUnitaire ?? 0;
+                $valeurInitiale = $cmupInitial * $nouvelleQuantite;
+                
+                error_log("StockModel: INSERT new stock (CMUP) - article=$articleId, depot=$depotId, qte=$nouvelleQuantite, cmup=$cmupInitial");
+                
+                $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle, cmup_actuel, valeur_stock_total, methode_valorisation_stock_id) VALUES (?, ?, ?, ?, ?, ?)";
+                $stmt = $this->db->prepare($query);
+                $stmt->execute([$articleId, $depotId, $nouvelleQuantite, $cmupInitial, $valeurInitiale, $methodeId]);
+            } else {
+                // FIFO/LIFO : PAS de CMUP, valeurs NULL
+                error_log("StockModel: INSERT new stock (FIFO/LIFO) - article=$articleId, depot=$depotId, qte=$nouvelleQuantite, NO CMUP");
+                
+                $query = "INSERT INTO stock (article_id, depot_id, quantite_actuelle, cmup_actuel, valeur_stock_total, methode_valorisation_stock_id) VALUES (?, ?, ?, NULL, NULL, ?)";
+                $stmt = $this->db->prepare($query);
+                $stmt->execute([$articleId, $depotId, $nouvelleQuantite, $methodeId]);
+            }
+            
+            $lastId = $this->db->lastInsertId();
+            error_log("StockModel: INSERT executed, new id: $lastId");
         }
 
-        error_log("StockModel::updateStockQuantite stock updated");
+        error_log("StockModel::updateStockQuantite stock updated successfully");
     }
 }

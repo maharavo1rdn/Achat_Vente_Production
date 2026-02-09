@@ -421,10 +421,10 @@ class MouvementStockModel
  * Version avec création de mouvements de sortie séparés pour chaque lot FIFO
  * @throws InvalidArgumentException si stock insuffisant
  */
-    public function creerSortieAvecFIFO($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null)
+    public function creerSortieAvecFIFO($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null, $depotId = null)
     {
         error_log("=== DEBUT creerSortieAvecFIFO ===");
-        error_log("Article: $articleId, Quantité: $quantite, Référence: $referenceDocument");
+        error_log("Article: $articleId, Quantité: $quantite, Référence: $referenceDocument, Dépôt: " . ($depotId ?? 'TOUS'));
         
         $this->db->beginTransaction();
         
@@ -450,11 +450,17 @@ class MouvementStockModel
                 AND ms.type_mouvement IN ('ACHAT', 'INVENTAIRE')
                 AND ms.quantite_entree > 0
                 AND COALESCE(ls.quantite_restante, ms.quantite_entree) > 0
-                ORDER BY ms.date_mouvement ASC  -- FIFO: plus ancien d'abord
             ";
             
+            $params = [$articleId];
+            if ($depotId !== null) {
+                $sql .= " AND ms.depot_id = ?";
+                $params[] = $depotId;
+            }
+            $sql .= " ORDER BY ms.date_mouvement ASC";  // FIFO: plus ancien d'abord
+            
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$articleId]);
+            $stmt->execute($params);
             $entreesDisponibles = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             error_log("Entrées disponibles (FIFO): " . count($entreesDisponibles));
@@ -870,10 +876,10 @@ class MouvementStockModel
  * Principe : Les dernières entrées sont sorties en premier
  * @throws InvalidArgumentException si stock insuffisant
  */
-    public function creerSortieAvecLIFO($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null)
+    public function creerSortieAvecLIFO($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null, $depotId = null)
     {
         error_log("=== DEBUT creerSortieAvecLIFO ===");
-        error_log("Article: $articleId, Quantité: $quantite, Référence: $referenceDocument");
+        error_log("Article: $articleId, Quantité: $quantite, Référence: $referenceDocument, Dépôt: " . ($depotId ?? 'TOUS'));
         
         $this->db->beginTransaction();
         
@@ -899,11 +905,17 @@ class MouvementStockModel
                 AND ms.type_mouvement IN ('ACHAT', 'INVENTAIRE')
                 AND ms.quantite_entree > 0
                 AND COALESCE(ls.quantite_restante, ms.quantite_entree) > 0
-                ORDER BY ms.date_mouvement DESC  -- LIFO: plus récent d'abord
             ";
             
+            $params = [$articleId];
+            if ($depotId !== null) {
+                $sql .= " AND ms.depot_id = ?";
+                $params[] = $depotId;
+            }
+            $sql .= " ORDER BY ms.date_mouvement DESC";  // LIFO: plus récent d'abord
+            
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$articleId]);
+            $stmt->execute($params);
             $entreesDisponibles = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             error_log("Entrées disponibles (LIFO): " . count($entreesDisponibles));
@@ -1012,10 +1024,10 @@ class MouvementStockModel
      * Principe : Toutes les entrées sont mélangées, on sort à un prix moyen
      * @throws InvalidArgumentException si stock insuffisant
      */
-    public function creerSortieAvecCMUP($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null)
+    public function creerSortieAvecCMUP($articleId, $quantite, $personnelId, $referenceDocument, $prixUnitaire = null, $depotId = null)
     {
         error_log("=== DEBUT creerSortieAvecCMUP ===");
-        error_log("Article: $articleId, Quantité: $quantite, Référence: $referenceDocument");
+        error_log("Article: $articleId, Quantité: $quantite, Référence: $referenceDocument, Dépôt: " . ($depotId ?? 'TOUS'));
         
         $this->db->beginTransaction();
         
@@ -1043,8 +1055,14 @@ class MouvementStockModel
                 AND COALESCE(ls.quantite_restante, ms.quantite_entree) > 0
             ";
             
+            $params = [$articleId];
+            if ($depotId !== null) {
+                $sql .= " AND ms.depot_id = ?";
+                $params[] = $depotId;
+            }
+            
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$articleId]);
+            $stmt->execute($params);
             $entreesDisponibles = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             error_log("Entrées disponibles (CMUP): " . count($entreesDisponibles));
