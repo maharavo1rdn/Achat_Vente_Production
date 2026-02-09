@@ -132,13 +132,13 @@ export default {
   // Formatage des quantités
   formatQuantite(quantite, type) {
     const sign = type === 'VENTE' ? '-' : '+'
-    return `${sign}${parseFloat(quantite).toFixed(2)}`
+    return `${sign}${(parseFloat(quantite) || 0).toFixed(2)}`
   },
 
   // Calcul du stock disponible
   calculerStockDisponible(entrees, sorties) {
-    const totalEntrees = entrees.reduce((sum, e) => sum + parseFloat(e), 0)
-    const totalSorties = sorties.reduce((sum, s) => sum + parseFloat(s), 0)
+    const totalEntrees = entrees.reduce((sum, e) => sum + (parseFloat(e) || 0), 0)
+    const totalSorties = sorties.reduce((sum, s) => sum + (parseFloat(s) || 0), 0)
     return totalEntrees - totalSorties
   },
 

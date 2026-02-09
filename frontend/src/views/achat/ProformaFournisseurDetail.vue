@@ -497,7 +497,7 @@ const validerProforma = async () => {
 // Helpers
 const getArticleLabel = id => { const a = articles.value.find(x => x.id == id); return a ? `${a.reference} - ${a.designation}` : '' }
 const formatDate = d => d ? new Date(d).toLocaleDateString('fr-FR') : '-'
-const formatCurrency = val => { if (val === undefined || val === null) return '-'; return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA' }).format(val) }
+const formatCurrency = val => { const num = Number(val); if (val === undefined || val === null || isNaN(num)) return '-'; return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA' }).format(num) }
 
 // Mapped to CSS pill classes
 const getStatutClass = code => {

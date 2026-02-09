@@ -364,12 +364,13 @@ const soldeTotal = computed(() => {
 })
 
 const formatCurrency = (amount) => {
-  if (amount === undefined || amount === null) return '-'
+  const num = Number(amount)
+  if (amount === undefined || amount === null || isNaN(num)) return '-'
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
     maximumFractionDigits: 0
-  }).format(amount)
+  }).format(num)
 }
 
 const formatDateTime = (datetime) => {

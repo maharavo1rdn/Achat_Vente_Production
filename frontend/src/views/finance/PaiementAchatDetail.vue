@@ -453,8 +453,9 @@ const exportDetailPdf = () => {
 }
 
 const formatCurrency = (v) => {
-    if (v === undefined || v === null) return '-'
-    return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA' }).format(v)
+    const num = Number(v)
+    if (v === undefined || v === null || isNaN(num)) return '-'
+    return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA' }).format(num)
 }
 
 const formatDate = (d) => {

@@ -330,11 +330,12 @@ function calculerMarge() {
 }
 
 function formatPrice(price) {
+  const num = Number(price)
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
     currency: 'MGA',
     minimumFractionDigits: 0
-  }).format(price || 0)
+  }).format(isNaN(num) ? 0 : num)
 }
 
 function formatDate(date) {

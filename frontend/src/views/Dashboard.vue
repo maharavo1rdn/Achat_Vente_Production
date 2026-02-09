@@ -575,7 +575,7 @@ const chartOptions = {
         label: function (context) {
           const item = stockStats.value.rotationData[context.dataIndex]
           return [
-            `Taux: ${context.parsed.y.toFixed(1)}%`,
+            `Taux: ${(Number(context.parsed.y) || 0).toFixed(1)}%`,
             `Sorties: ${item.total_sorties}`,
             `Stock: ${item.stock_actuel}`
           ]

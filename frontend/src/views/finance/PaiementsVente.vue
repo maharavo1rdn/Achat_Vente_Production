@@ -452,12 +452,13 @@ const submitModalValidate = async () => {
 }
 
 const formatCurrency = (v) => {
-    if (v === undefined || v === null) return '-'
+    const num = Number(v)
+    if (v === undefined || v === null || isNaN(num)) return '-'
     return new Intl.NumberFormat('fr-MG', {
         style: 'currency',
         currency: 'MGA',
         maximumFractionDigits: 0
-    }).format(v)
+    }).format(num)
 }
 
 const formatDate = (d) => {

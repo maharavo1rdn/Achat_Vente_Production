@@ -793,8 +793,9 @@ const formatDate = (date) => {
 }
 
 const formatCurrency = (val) => {
-  if (val === undefined || val === null) return '-'
-  return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA' }).format(val)
+  const num = Number(val)
+  if (val === undefined || val === null || isNaN(num)) return '-'
+  return new Intl.NumberFormat('fr-MG', { style: 'currency', currency: 'MGA' }).format(num)
 }
 
 const getStatutClass = (code) => {
