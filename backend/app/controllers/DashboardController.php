@@ -10,8 +10,10 @@ class DashboardController {
 
     public function getStatistics() {
         try {
+            error_log("Fetching dashboard statistics");
             $periode = Flight::request()->query->periode ?? null;
             $statModel = new StatistiqueModel(Flight::db());
+            error_log("StatistiqueModel initialized");
             $stats = [
                 'totalCA' => $statModel->getCA_Total($periode),
                 'margeBrute' => $statModel->getMargeBrute_Total($periode),
@@ -20,6 +22,7 @@ class DashboardController {
                 'tauxRentabilite' => $statModel->getTaux_Rentabilite($periode)
             ];
             Flight::json($stats);
+            exit();
         } catch (Exception $e) {
             Flight::json(['error' => $e->getMessage()], 500);
         }
